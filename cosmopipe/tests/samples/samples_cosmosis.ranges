@@ -1,0 +1,3 @@
+galaxy_bias.b1 0.5 1.5
+galaxy_bias.As -1 1
+galaxy_bias.sigmav 1 6

@@ -1,0 +1,11 @@
+cosmological_parameters:
+  Omega_c:
+    value: 0.25
+  Omega_b:
+    value: 0.05
+  h:
+    value: 0.7
+  n_s:
+    value: 0.96
+  sigma8:
+    value: 0.8

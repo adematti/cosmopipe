@@ -1,0 +1,20 @@
+likelihood:
+  cosmopipe.samplers.cobaya.CosmopipeLikelihood:
+    config_file: demo3_cosmopipe.yaml
+
+params:
+  parameters.a:
+    prior:
+      dist: uniform
+      min: -100
+      max: 100
+    ref:
+      dist: uniform
+      min: -100
+      max: 100
+    proposal: 0.2
+    latex: a
+
+sampler:
+  mcmc:
+    max_tries: 400

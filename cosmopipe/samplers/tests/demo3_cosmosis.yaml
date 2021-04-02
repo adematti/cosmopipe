@@ -1,0 +1,70 @@
+main:
+  execute: [params, cosmosis, plotting]
+
+cosmosis:
+  module_name: cosmopipe.samplers.cosmosis.sampler
+  module_class: CosmosisSampler
+  modules: [like]
+  sampler: emcee
+  walkers: 64
+  samples: 40
+  nsteps: 10
+
+params:
+  module_name: cosmopipe.parameters.parameterisation
+  common_parameters:
+    parameters:
+      a:
+        value: 0.0
+        fixed: false
+        prior:
+          dist: uniform
+          limits: [-100, 100]
+        ref:
+          dist: uniform
+          limits: [-1, 1]
+        proposal: 0.2
+        latex: a
+
+plotting:
+  module_name: cosmopipe.samplers.plotting
+  toplot:
+    - plot_1d:
+        parameter: parameters.a
+        filename: plots/samples_a.png
+
+like:
+  module_name: cosmopipe.likelihood.likelihood
+  module_class: JointGaussianLikelihood
+  join: [like1, like2]
+  modules: [cov]
+
+like1:
+  module_name: cosmopipe.likelihood.likelihood
+  module_class: BaseLikelihood
+  modules: [data1, model1]
+
+like2:
+  module_name: cosmopipe.likelihood.likelihood
+  module_class: BaseLikelihood
+  modules: [data2, model2]
+
+data1:
+  module_name: template_lib.data_vector
+  y: [1.0,1.0,1.0,1.0,1.0]
+
+model1:
+  module_name: template_lib.model
+  module_class: FlatModel
+
+data2:
+  module_name: template_lib.data_vector
+  y: [1.0,1.0,1.0]
+
+model2:
+  module_name: template_lib.model
+  module_class: FlatModel
+
+cov:
+  module_name: template_lib.covariance
+  yerr: [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]

@@ -1,0 +1,59 @@
+main:
+  execute: [params, boltzmann, mpi]
+  #execute: [plotting]
+
+mpi:
+  module_name: pypescript
+  module_class: BasePipeline
+  iter: range(1)
+  nprocs_per_task: 2
+  execute: [minuit]
+  configblock_iter:
+    mockdata.seed: "lambda i: i"
+    mockdata.save_txt: "lambda i: 'data/data_{:d}.txt'.format(i)"
+
+minuit:
+  module_name: cosmopipe.samplers.minuit.minuit
+  module_class: MinuitProfiler
+  modules: [like]
+  torun: [migrad]
+
+params:
+  module_name: cosmopipe.parameters.parameterisation
+  common_parameters:
+    configblock_load: [cosmological_parameters.yaml, pybird_parameters.yaml]
+
+boltzmann:
+  module_name: cosmopipe.theory.boltzmann
+  z: 1.0
+
+mockcov:
+  module_name: cosmopipe.theory.gaussian_covariance
+  module_class: GaussianPkCovariance
+  kedges:
+    min: 0.02
+    max: 0.2
+    step: 0.01
+  shotnoise: 1e3
+  volume: 1e10
+  projs: [ell_0, ell_2, ell_4]
+
+mockdata:
+  module_name: cosmopipe.data.mock_data_vector
+  mean: True
+  seed: 42
+  save_txt: 'data/data.txt'
+
+like:
+  module_name: cosmopipe.likelihood.likelihood
+  module_class: GaussianLikelihood
+  setup: [model:execute, mockcov:execute, mockdata:execute, model, projection]
+  execute: [model, projection]
+
+model:
+  module_name: cosmopipe.theory.pybird
+  module_class: PyBird
+
+projection:
+  module_name: cosmopipe.theory.projection
+  module_class: DataVectorProjection

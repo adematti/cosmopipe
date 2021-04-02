@@ -1,0 +1,93 @@
+main:
+  execute: [params, boltzmann, mpi, plotting]
+  #execute: [plotting]
+
+mpi:
+  module_name: pypescript
+  module_class: BasePipeline
+  iter: range(2)
+  nprocs_per_task: 2
+  execute: [cobaya]
+  configblock_iter:
+    mockdata.seed: "lambda i: 42 + i"
+    mockdata.save_txt: "lambda i: 'data/data_{:d}.txt'.format(i)"
+    cobaya.save_cosmomc: "lambda i: 'samples/samples_cobaya_{:d}'.format(i)"
+  datablock_iter_key:
+    likelihood.samples: "lambda i: 'likelihood.samples_cobaya_{:d}'.format(i)"
+
+one:
+  module_name: cosmopipe.samplers.cobaya.sampler
+  module_class: CobayaSampler
+  modules: [like]
+  sampler: evaluate
+
+cobaya:
+  module_name: cosmopipe.samplers.cobaya.sampler
+  module_class: CobayaSampler
+  modules: [like]
+  sampler: mcmc
+  max_tries: 10000
+  Rminus1_stop: 0.01
+  Rminus1_cl_stop: 0.1
+  save_cosmomc: 'samples/samples_cobaya'
+
+params:
+  module_name: cosmopipe.parameters.parameterisation
+  common_parameters:
+    configblock_load: [cosmological_parameters.yaml, linear_parameters.yaml]
+
+boltzmann:
+  module_name: cosmopipe.theory.boltzmann
+  z: 1.0
+
+mockcov:
+  module_name: cosmopipe.theory.gaussian_covariance
+  module_class: GaussianPkCovariance
+  kedges:
+    min: 0.02
+    max: 0.3
+    step: 0.01
+  shotnoise: 1e3
+  volume: 1e10
+  projs: [ell_0, ell_2, ell_4]
+
+mockdata:
+  module_name: cosmopipe.data.mock_data_vector
+  mean: False
+  seed: 42
+  save_txt: 'data/data.txt'
+
+plotting:
+  module_name: cosmopipe.samplers.plotting
+  module_class: SamplesPlotting
+  samples_keys: [samples_cobaya_0, samples_cobaya_1]
+  #samples_keys: ['samples_cobaya_0']
+  #samples_files: ['samples/samples_cobaya_0.txt','samples/samples_cobaya_1.txt']
+  save_stats: [plots/stats_0.tex, plots/stats_1.tex]
+  labels: ['1','2']
+  burnin: 0.2
+  toplot:
+    - plot_1d:
+        parameter: galaxy_bias.b1
+        truth: 1.0
+        filename: plots/plot_b1.png
+    - plot_corner:
+        parameters: [galaxy_bias.b1, galaxy_bias.sigmav, galaxy_bias.As]
+        truths: [1.0, 4.0, 0.0]
+        filename: plots/corner.png
+#    - plot_gelman_rubin:
+#        filename: plots/gelman_rubin.png
+
+like:
+  module_name: cosmopipe.likelihood.likelihood
+  module_class: GaussianLikelihood
+  setup: [model:execute, mockcov:execute, mockdata:execute, model, projection]
+  execute: [model, projection]
+
+model:
+  module_name: cosmopipe.theory.linear_model
+  FoG: gaussian
+
+projection:
+  module_name: cosmopipe.theory.projection
+  module_class: DataVectorProjection

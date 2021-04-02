@@ -1,0 +1,7 @@
+version: '3'
+services:
+  cosmopipe:
+    image: cosmopipe
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile

@@ -1,0 +1,15 @@
+- model
+- data
+- covariance
+- likelihood
+- common
+- parameters
+- cosmological_parameters
+- background
+- linear_perturbations
+- galaxy_bias
+- ap_effect
+- galaxy_power
+- galaxy_rsd
+- mpi
+- nocopy: [mpi, common]

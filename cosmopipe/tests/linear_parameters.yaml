@@ -1,0 +1,34 @@
+galaxy_bias:
+  b1:
+    value: 1.0
+    fixed: false
+    prior:
+      dist: uniform
+      limits: [0.5, 1.5]
+    ref:
+      dist: uniform
+      limits: [0.99, 1.01]
+    proposal: 0.01
+    latex: b_{1}
+  As:
+    value: 0.0
+    fixed: false
+    prior:
+      dist: uniform
+      limits: [-1, 1]
+    ref:
+      dist: uniform
+      limits: [-0.1, 0.1]
+    proposal: 0.005
+    latex: A_{s}
+  sigmav:
+    value: 4.0
+    fixed: false
+    prior:
+      dist: uniform
+      limits: [1, 6]
+    ref:
+      dist: uniform
+      limits: [3.8, 4.2]
+    proposal: 0.5
+    latex: \sigma_{v}

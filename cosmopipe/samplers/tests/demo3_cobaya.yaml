@@ -1,0 +1,90 @@
+main:
+  execute: [params, cobaya, plotting]
+
+cobaya:
+  module_name: cosmopipe.samplers.cobaya.sampler
+  module_class: CobayaSampler
+  modules: [like]
+  sampler: mcmc
+  max_samples: 5000
+
+params:
+  module_name: cosmopipe.parameters.parameterisation
+  common_parameters:
+    parameters.a:
+      value: 0.0
+      fixed: false
+      prior:
+        dist: uniform
+        limits: [-10, 10]
+      ref:
+        dist: uniform
+        limits: [-1, 1]
+      proposal: 0.2
+      latex: a
+    parameters.b:
+      value: 0.0
+      fixed: false
+      prior:
+        dist: uniform
+        limits: [-1, 1]
+      ref:
+        dist: uniform
+        limits: [-1, 1]
+      proposal: 0.2
+      latex: b
+
+plotting:
+  module_name: cosmopipe.samplers.plotting
+  module_class: SamplesPlotting
+  toplot:
+    - plot_1d:
+        parameter: parameters.a
+        filename: plots/samples_a.png
+    - plot_1d:
+        parameter: parameters.b
+        filename: plots/samples_b.png
+    - plot_2d:
+        parameters: [parameters.a, parameters.b]
+        filename: plots/samples_ab.png
+    - plot_corner:
+        parameters: [parameters.a, parameters.b]
+        truths: [1.0, 0.0]
+        filename: plots/corner.png
+
+like:
+  module_name: cosmopipe.likelihood.likelihood
+  module_class: JointGaussianLikelihood
+  join: [like1, like2]
+  modules: [cov]
+
+like1:
+  module_name: cosmopipe.likelihood.likelihood
+  module_class: BaseLikelihood
+  modules: [data1, model1]
+
+like2:
+  module_name: cosmopipe.likelihood.likelihood
+  module_class: BaseLikelihood
+  modules: [data2, model2]
+
+data1:
+  module_name: template_lib.data_vector
+  y: [1.0,1.0,1.0,1.0,1.0]
+
+model1:
+  module_name: template_lib.model
+  module_class: FlatModel
+
+data2:
+  module_name: template_lib.data_vector
+  x: [1.0,2.0,3.0]
+  y: [1.0,1.0,1.0]
+
+model2:
+  module_name: template_lib.model
+  module_class: AffineModel
+
+cov:
+  module_name: template_lib.covariance
+  yerr: [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]
