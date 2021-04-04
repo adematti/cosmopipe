@@ -1,15 +1,15 @@
 main:
-  execute: [params, boltzmann, mpi, data_plotting, plotting]
+  execute: [params, boltzmann, model:execute, mockcov:execute, mpi, data_plotting, plotting]
 
 mpi:
   module_name: pypescript
   module_class: BasePipeline
-  iter: range(10)
+  iter: range(500)
   nprocs_per_task: 1
-  execute: [minuit]
+  execute: [mockdata:execute, minuit]
   configblock_iter:
     mockdata.seed: "lambda i: i"
-    mockdata.save_txt: "lambda i: 'data/data_{:d}.txt'.format(i)"
+    mockdata.save_txt: "lambda i: '_data/data_{:d}.txt'.format(i)"
   datablock_iter_key:
     likelihood.profiles: "lambda i: 'likelihood.profiles_{:d}'.format(i)"
     data.data_vector: "lambda i: 'data.data_vector_{:d}'.format(i)"
@@ -19,7 +19,6 @@ minuit:
   module_class: MinuitProfiler
   modules: [like]
   torun: [migrad]
-  datablock_copy: [data.data_vector]
 
 params:
   module_name: cosmopipe.parameters.parameterisation
@@ -45,32 +44,34 @@ mockdata:
   module_name: cosmopipe.data.mock_data_vector
   mean: False
   seed: 42
-  save_txt: 'data/data.txt'
+  save_txt: '_data/data.txt'
 
 data_plotting:
   module_name: cosmopipe.data.plotting
   module_class: DataVectorPlotting
-  data_keys: "['data.data_vector_{:d}'.format(i) for i in range(10)]"
+  data_keys: "['data.data_vector_{:d}'.format(i) for i in range(500)]"
   style: pk
+  kwplt: {'alpha': 0.3}
+  covariance_key: covariance_matrix
+  filename: '_plots/data_vectors.png'
 
 plotting:
   module_name: cosmopipe.samplers.plotting
   module_class: ProfilesPlotting
-  profiles_keys: "['likelihood.profiles_{:d}'.format(i) for i in range(10)]"
+  profiles_keys: "['likelihood.profiles_{:d}'.format(i) for i in range(500)]"
   toplot:
     - plot_1d:
         parameter: galaxy_bias.b1
-        filename: plots/pool_b1.png
+        filename: _plots/pool_b1.png
     - plot_corner:
         parameters: [galaxy_bias.b1, galaxy_bias.sigmav, galaxy_bias.As]
-        filename: plots/pool_corner.png
+        filename: _plots/pool_corner.png
 
 like:
   module_name: cosmopipe.likelihood.likelihood
   module_class: GaussianLikelihood
-  setup: [model:execute, mockcov:execute, mockdata:execute, model, projection]
+  setup: [model, projection]
   execute: [model, projection]
-  datablock_copy: [data.data_vector]
 
 model:
   module_name: cosmopipe.theory.linear_model

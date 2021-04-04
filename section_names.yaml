@@ -8,7 +8,7 @@
 - background
 - linear_perturbations
 - galaxy_bias
-- ap_effect
+- effect_ap
 - galaxy_power
 - galaxy_rsd
 - mpi

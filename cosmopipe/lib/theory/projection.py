@@ -43,6 +43,12 @@ class ProjectionName(BaseClass):
     def __lt__(self, other):
         return self.proj < other.proj
 
+    def __getstate__(self):
+        return {'type':self.type,'proj':self.proj}
+
+    def __setstate__(self, state):
+        self.type = state['type']
+        self.proj = state['proj']
 
 
 from cosmopipe.lib.data import DataVector

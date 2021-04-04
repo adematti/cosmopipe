@@ -8,7 +8,7 @@ mpi:
   nprocs_per_task: 2
   execute: [cosmosis]
   configblock_iter:
-    cosmosis.save_cosmomc: "lambda i: 'samples/samples_cosmosis_{:d}'.format(i)"
+    cosmosis.save_cosmomc: "lambda i: '_samples/samples_cosmosis_{:d}'.format(i)"
   datablock_iter_key:
     likelihood.samples: "lambda i: 'likelihood.samples_cosmosis_{:d}'.format(i)"
 
@@ -20,7 +20,7 @@ cosmosis:
   walkers: 24
   samples: 20
   nsteps: 10
-  save_cosmomc: 'samples/samples_cosmosis'
+  save_cosmomc: '_samples/samples_cosmosis'
 
 params:
   module_name: cosmopipe.parameters.parameterisation
@@ -88,7 +88,7 @@ plotting:
     - plot_corner:
         parameters: [galaxy_bias.b1, galaxy_bias.sigmav, galaxy_bias.As]
         truths: [1.0, 4.0, 0.0]
-        filename: plots/corner.png
+        filename: _plots/corner.png
 
 like:
   module_name: cosmopipe.likelihood.likelihood

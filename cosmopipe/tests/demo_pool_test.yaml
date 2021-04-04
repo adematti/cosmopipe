@@ -9,7 +9,7 @@ mpi:
   execute: [minuit]
   configblock_iter:
     mockdata.seed: "lambda i: i"
-    mockdata.save_txt: "lambda i: 'data/data_{:d}.txt'.format(i)"
+    mockdata.save_txt: "lambda i: '_data/data_{:d}.txt'.format(i)"
   datablock_iter_key:
     likelihood.profiles: "lambda i: 'likelihood.profiles_{:d}'.format(i)"
 
@@ -43,7 +43,7 @@ mockdata:
   module_name: cosmopipe.data.mock_data_vector
   mean: False
   seed: 42
-  save_txt: 'data/data.txt'
+  save_txt: '_data/data.txt'
 
 plotting:
   module_name: cosmopipe.samplers.plotting
@@ -52,10 +52,10 @@ plotting:
   toplot:
     - plot_1d:
         parameter: galaxy_bias.b1
-        filename: plots/pool_b1.png
+        filename: _plots/pool_b1.png
     - plot_corner:
         parameters: [galaxy_bias.b1, galaxy_bias.sigmav, galaxy_bias.As]
-        filename: plots/pool_corner.png
+        filename: _plots/pool_corner.png
 
 like:
   module_name: cosmopipe.likelihood.likelihood

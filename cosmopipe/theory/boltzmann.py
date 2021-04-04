@@ -34,6 +34,10 @@ class Boltzmann(object):
 
         self.data_block[section_names.linear_perturbations,'pk_callable'] = pk_lin_callable
         self.data_block[section_names.background,'growth_rate'] = pyccl.background.growth_rate(cosmo,self.a)
+        self.data_block[section_names.background,'scale_factor'] = self.a
+        self.data_block[section_names.background,'hubble_rate'] = pyccl.h_over_h0(cosmo,self.a)
+        self.data_block[section_names.background,'comoving_radial_distance'] = pyccl.comoving_radial_distance(cosmo,self.a)*cosmo['h']
+        self.data_block[section_names.background,'angular_diameter_distance'] = pyccl.angular_diameter_distance(cosmo,self.a)*cosmo['h']
 
     def cleanup(self):
         pass

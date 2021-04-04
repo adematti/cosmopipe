@@ -22,17 +22,19 @@ def get_chains(parameters, n=4):
         diff = array-mean
         samples = Samples.from_array(array.T,columns=parameters)
         samples['metrics','logposterior'] = -1./2.*np.sum(diff.dot(invcov)*diff,axis=-1)
+        for par in parameters:
+            samples.parameters[par].fixed = False
         chains.append(samples)
     return mean,cov,chains
 
 
 def test_plotting():
 
-    plot_dir = 'plots'
-    samples_dir = 'samples'
+    plot_dir = '_plots'
+    samples_dir = '_samples'
     parameters = ['parameters.a','parameters.b','parameters.c','parameters.d']
     mean,cov,chains = get_chains(parameters,n=4)
-
+    """
     for method in ['histo','cic','gaussian_kde']:
         style = SamplesPlotStyle(kwplt_2d={'method':method})
         style.plot_1d(chains=chains[0],parameter='parameters.a',filename=os.path.join(plot_dir,'pdf_{}_a.png'.format(method)))
@@ -50,7 +52,7 @@ def test_plotting():
         plot_normal_1d(dax['parameters.a'],mean=mean[0],covariance=cov[0,0],color='g')
         plot_normal_2d(dax['parameters.a','parameters.b'],mean=mean[:2],covariance=cov[:2,:2],colors='g')
         style.savefig(filename=os.path.join(plot_dir,'cornerg_{}.png'.format(method)),fig=fig)
-
+    """
     chains[0].add_default_weight()
     style = SamplesPlotStyle()
     style.plot_chain(chains[0],parameters=['parameters.a'],filename=os.path.join(plot_dir,'chain_a.png'))
@@ -167,6 +169,6 @@ def test_mpi():
 if __name__ == '__main__':
 
     setup_logging()
-    #test_plotting()
+    test_plotting()
     #test_mpi()
-    test_stats()
+    #test_stats()

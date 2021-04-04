@@ -11,6 +11,8 @@ doc/_build/
 **/eggs
 **/build
 **/_data
+**/_plots
+**/_samples
 **/*.so
 **/*.mod
 **/*.npz

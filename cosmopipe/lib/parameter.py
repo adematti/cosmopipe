@@ -137,7 +137,7 @@ class ParamBlock(BaseClass):
         self.data = [Parameter.from_state(param) for param in state['data']]
 
     def select(self, **kwargs):
-        toret = cls()
+        toret = self.__class__()
         for param in self:
             if all(getattr(param,key) == val for key,val in kwargs.items()):
                 toret.set(param)
@@ -210,10 +210,7 @@ class Parameter(BaseClass):
             self.ref = self.prior.copy()
         self.latex = latex
         if fixed is None:
-            if prior is not None or ref is not None:
-                fixed = False
-            else:
-                fixed = True
+            fixed = prior is None and ref is None
         self.fixed = bool(fixed)
         self.proposal = proposal
         if proposal is None:

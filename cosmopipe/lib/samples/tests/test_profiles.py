@@ -28,7 +28,7 @@ def test_stats():
 
 
 def test_plotting():
-    plot_dir = 'plots'
+    plot_dir = '_plots'
     parameters = ['parameters.a','parameters.b','parameters.c','parameters.d']
     profiles = get_profiles(parameters)
     assert 'parameters.a' in profiles.bestfit

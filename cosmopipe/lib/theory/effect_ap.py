@@ -1,5 +1,6 @@
 import numpy as np
 
+from cosmopipe.lib import utils
 from cosmopipe.lib.utils import BaseClass
 
 
@@ -12,8 +13,7 @@ class EffectAP(BaseClass):
     def kmu_scaling(k, mu, qpar=1, qperp=1):
         F = qpar/qperp
         factor_ap = np.sqrt(1+mu**2*(1./F**2-1))
-        if not np.isscalar(mu):
-            k = k[:,None]
+        k,mu = utils.enforce_shape(k,mu)
         # Beutler 2016 (arXiv: 1607.03150v1) eq 44
         kap = k/qperp*factor_ap
         # Beutler 2016 (arXiv: 1607.03150v1) eq 45
@@ -23,4 +23,4 @@ class EffectAP(BaseClass):
 
     def pk_mu(self, k, mu=0., qpar=1., qperp=1.,**kwargs):
         jacob,kap,muap = self.kmu_scaling(k,mu,qpar=qpar,qperp=qperp)
-        return jacob*self.input_pk_mu(k=k,mu=mu,**kwargs)
+        return jacob*self.input_pk_mu(k=kap,mu=muap,**kwargs)

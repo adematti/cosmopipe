@@ -2,9 +2,10 @@ import numpy as np
 from scipy import stats
 from matplotlib import pyplot as plt
 from matplotlib import gridspec,patches
-from matplotlib.ticker import MaxNLocator,AutoMinorLocator
+from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
 from cosmopipe.lib import plotting, utils
+from cosmopipe.lib.parameter import ParamBlock, Parameter
 
 from .mesh import Mesh
 from .samples import Samples
@@ -272,33 +273,11 @@ def integrated_autocorrelation_time(x, c=5, tol=50, quiet=False):
     return tau_est
 
 
-def get_parameters(parameters, chains=None):
-    from cosmopipe.lib.parameter import Parameter,ParamBlock
-    isscalar = not isinstance(parameters,(tuple,list,ParamBlock))
-    if isscalar:
-        parameters = [parameters]
-    toret = ParamBlock(parameters)
-    if chains is None:
-        return toret
-    elif not isinstance(chains,(tuple,list)):
-        chains = [chains]
-    for iparam,param in enumerate(toret):
-        if isinstance(parameters[iparam],Parameter):
-            continue
-        for ichain,chain in enumerate(chains):
-            if param.name in chain.parameters:
-                toret[iparam] = chain.parameters[param.name]
-                break
-    if isscalar:
-        return toret[0]
-    return toret
-
-
-def make_list(obj):
+def make_list(obj, length=1):
     if isinstance(obj,tuple):
         return list(obj)
-    if not isinstance(obj,(list,np.ndarray,list)):
-        return [obj]
+    if not isinstance(obj,(list,np.ndarray)):
+        return [obj for i in range(length)]
     return obj
 
 
@@ -323,12 +302,52 @@ class ListPlotStyle(plotting.BasePlotStyle):
 
     def get_list(self, name, value=None, default=None):
         if value is not None:
-            value = make_list(value)
+            value = make_list(value,length=len(default) if default is not None else 1)
             return value
         value = getattr(self,name,None)
         if value is None:
             return default
-        return make_list(value)
+        return make_list(value,length=len(default) if default is not None else 1)
+
+    @staticmethod
+    def _get_default_parameters(parameters, samples):
+        if parameters is None:
+            parameters = samples.parameters.select(fixed=False)
+        return parameters
+
+    @staticmethod
+    def get_parameters(parameters, chains=None):
+        isscalar = not isinstance(parameters,(tuple,list,ParamBlock))
+        if isscalar:
+            parameters = [parameters]
+        toret = ParamBlock(parameters)
+        if chains is None:
+            if isscalar:
+                return toret[0]
+            return toret
+        elif not isinstance(chains,(tuple,list)):
+            chains = [chains]
+        for iparam,param in enumerate(toret):
+            if isinstance(parameters[iparam],Parameter):
+                continue
+            for ichain,chain in enumerate(chains):
+                if param.name in chain.parameters:
+                    toret[iparam] = chain.parameters[param.name]
+                    break
+        if isscalar:
+            return toret[0]
+        return toret
+
+    def _get_default_truths(self, truths, parameters):
+        isscalar = not isinstance(parameters,(tuple,list,ParamBlock))
+        if isscalar:
+            truths = [truths]
+            parameters = [parameters]
+        truths = self.get_list('truths',truths,[None]*len(parameters))
+        toret = [param.value if truth == 'value' else truth for truth,param in zip(truths,parameters)]
+        if isscalar:
+            return toret[0]
+        return toret
 
 
 class SamplesPlotStyle(ListPlotStyle):
@@ -360,7 +379,8 @@ class SamplesPlotStyle(ListPlotStyle):
         tosave = ax is None
         if tosave: ax = plt.gca()
         chains = self.get_list('chains',chains)
-        parameter = get_parameters(parameter,chains=chains)
+        parameter = self.get_parameters(parameter,chains=chains)
+        truth = self._get_default_truths(truth,parameter)
         labels = self.get_list('labels',labels,[getattr(chain,'name',None) for chain in chains])
         add_legend = any(label is not None for label in labels)
         for ichain,(chain,label) in enumerate(zip(chains,labels)):
@@ -384,7 +404,8 @@ class SamplesPlotStyle(ListPlotStyle):
         tosave = ax is None
         if tosave: ax = plt.gca()
         chains = self.get_list('chains',chains)
-        parameters = get_parameters(parameters,chains=chains)
+        parameters = self.get_parameters(parameters,chains=chains)
+        truths = self._get_default_truths(truths,parameters)
         labels = self.get_list('labels',labels,[getattr(chain,'name',None) for chain in chains])
         fills = self.get_list('fills',default=[True]*len(chains))
         handles = []
@@ -406,10 +427,10 @@ class SamplesPlotStyle(ListPlotStyle):
 
     def plot_corner(self, chains=None, parameters=None, labels=None, truths=None, filename=None):
         chains = self.get_list('chains',chains)
-        if parameters is None: parameters = chains[0].columns(exclude='metrics.*')
-        parameters = get_parameters(parameters,chains=chains)
+        parameters = self._get_default_parameters(parameters,chains[0])
+        parameters = self.get_parameters(parameters,chains=chains)
+        truths = self._get_default_truths(truths,parameters)
         labels = self.get_list('labels',labels,[getattr(chain,'name',None) for chain in chains])
-        truths = self.get_list('truths',truths,[None]*len(parameters))
         handles = []
         add_legend = any(label is not None for label in labels)
         ncols = nrows = len(parameters)
@@ -427,7 +448,7 @@ class SamplesPlotStyle(ListPlotStyle):
             for ichain1,chain1 in enumerate(chains):
                 if labels[ichain1] is not None: handles.append(patches.Patch(color=self.get_color(ichain1,labels=labels),label=labels[ichain1],alpha=1))
             if iparam1 < nrows-1: ax.get_xaxis().set_visible(False)
-            else: ax.set_xlabel(param1.get_label(),fontsize=self.labelsize)
+            #else: ax.set_xlabel(param1.get_label(),fontsize=self.labelsize)
             ax.get_yaxis().set_visible(False)
             ax.tick_params(labelsize=self.ticksize)
             xlims.append(ax.get_xlim())
@@ -445,9 +466,9 @@ class SamplesPlotStyle(ListPlotStyle):
                 leg = ax.get_legend()
                 if leg is not None: leg.remove()
                 if iparam1>0: ax.get_yaxis().set_visible(False)
-                else: ax.set_ylabel(param2.get_label(),fontsize=self.labelsize)
+                #else: ax.set_ylabel(param2.get_label(),fontsize=self.labelsize)
                 if nrows-1-iparam2>0: ax.get_xaxis().set_visible(False)
-                else: ax.set_xlabel(param1.get_label(),fontsize=self.labelsize)
+                #else: ax.set_xlabel(param1.get_label(),fontsize=self.labelsize)
                 ax.tick_params(labelsize=self.ticksize)
                 for minor in xticks:
                     ax.set_xticks(xticks[minor][iparam1],minor=minor)
@@ -461,8 +482,8 @@ class SamplesPlotStyle(ListPlotStyle):
         return fig,dax
 
     def plot_chain(self, chain, parameters=None, filename=None):
-        if parameters is None: parameters = chain.columns(exclude='metrics.*')
-        parameters = get_parameters(parameters,chains=chain)
+        parameters = self._get_default_parameters(parameters,chain)
+        parameters = self.get_parameters(parameters,chains=chain)
         nparams = len(parameters)
         steps = 1 + np.arange(len(chain))
         figsize = self.figsize or (8,1.5*nparams)
@@ -482,8 +503,8 @@ class SamplesPlotStyle(ListPlotStyle):
 
     def plot_gelman_rubin(self, chains=None, parameters=None, multivariate=False, threshold=1.1, slices=None, ax=None, filename=None):
         chains = self.get_list('chains',chains)
-        if parameters is None: parameters = chains[0].columns(exclude='metrics.*')
-        parameters = get_parameters(parameters,chains=chains)
+        parameters = self._get_default_parameters(parameters,chains[0])
+        parameters = self.get_parameters(parameters,chains=chains)
         if slices is None:
             nsteps = np.amin([len(chain) for chain in chains])
             slices = np.arange(100,nsteps,500)
@@ -512,8 +533,8 @@ class SamplesPlotStyle(ListPlotStyle):
 
     def plot_autocorrelation_time(self, chains=None, parameters=None, threshold=50, slices=None, ax=None, filename=None):
         chains = self.get_list('chains',chains)
-        if parameters is None: parameters = chains[0].columns(exclude='metrics.*')
-        parameters = get_parameters(parameters,chains=chains)
+        parameters = self._get_default_parameters(parameters,chains[0])
+        parameters = self.get_parameters(parameters,chains=chains)
         if slices is None:
             nsteps = np.amin([len(chain) for chain in chains])
             slices = np.arange(100,nsteps,500)
@@ -580,7 +601,8 @@ class ProfilesPlotStyle(ListPlotStyle):
         tosave = ax is None
         if tosave: ax = plt.gca()
         profiles = self.get_list('profiles',profiles)
-        parameter = get_parameters(parameter,chains=profiles)
+        parameter = self.get_parameters(parameter,chains=profiles)
+        truth = self._get_default_truths(truth,parameter)
         if ids is None: ids = [None] * len(profiles)
         maxpoints = max(map(len,profiles))
         labels = self.get_list('labels',labels,[None]*maxpoints)
@@ -623,8 +645,8 @@ class ProfilesPlotStyle(ListPlotStyle):
     def plot_aligned_stacked(self, profiles=None, parameters=None, ids=None, labels=None, truths=None, ybands=None, ylimits=None, filename=None):
 
         profiles = self.get_list('profiles',profiles)
-        if parameters is None: parameters = profiles[0].parameters
-        truths = self.get_list('truths',truths,[None]*len(parameters))
+        parameters = self._get_default_parameters(parameters,profiles[0])
+        truths = self._get_default_truths(truths,parameters)
         ybands = self.get_list('ybands',ybands,[None]*len(parameters))
         ylimits = self.get_list('ylimits',ylimits,[None]*len(parameters))
         maxpoints = max(map(len,profiles))
@@ -657,7 +679,7 @@ class ProfilesPlotStyle(ListPlotStyle):
             return profiles
 
         def to_samples(profiles, parameters):
-            if parameters is None: parameters = profiles[0].parameters
+            parameters = self._get_default_parameters(parameters,profiles[0])
             toret = Profiles.to_samples(profiles,parameters=parameters,name='bestfit',select=select)
             if residual:
                 for iparam,param in enumerate(parameters):
@@ -679,10 +701,20 @@ class ProfilesPlotStyle(ListPlotStyle):
             return [to_samples(profiles,parameters)]
         return [to_samples(prof,parameters) for prof in profiles]
 
+    @staticmethod
+    def _get_label(parameter, residual='parabolic_errors'):
+        if residual:
+            if parameter.latex is not None:
+                return '${0}/\sigma({0})$'.format(parameter.latex)
+            return '{0}/sigma({0})'.format(parameter.name)
+        return parameter.get_label()
+
     def plot_1d(self, profiles=None, parameter=None, select='best', residual='parabolic_errors', truth=None, filename=None, **kwargs):
-        truths = [truth] if truth is not None else None
+        truths = [self._get_default_truths(truth,parameter)]
         chains = self._profiles_to_samples(profiles=profiles,parameters=[parameter],select=select,residual=residual,truths=truths)
+        parameter = self.get_parameters(parameter,chains=chains)
         ax = SamplesPlotStyle.plot_1d(self,chains,parameter=parameter,**kwargs)
+        ax.set_xlabel(self._get_label(parameter,residual=residual))
         if self.kstest and len(chains) == 1:
             d,p = stats.kstest(chains[0][parameter],self.kstest,alternative='two-sided')
             text = '$(D_{{n}},p) = ({:.3f},{:.3f})$'.format(d,p)
@@ -691,10 +723,18 @@ class ProfilesPlotStyle(ListPlotStyle):
         if filename: self.savefig(filename)
         return ax
 
-    def plot_2d(self, profiles=None, parameters=None, select='best', residual='parabolic_errors', truths=None, **kwargs):
+    def plot_2d(self, profiles=None, parameters=None, select='best', residual='parabolic_errors', truths=None, filename=None, **kwargs):
+        truths = self._get_default_truths(truths,parameters)
         chains = self._profiles_to_samples(profiles=profiles,parameters=parameters,select=select,residual=residual,truths=truths)
-        return SamplesPlotStyle.plot_2d(self,chains,parameters=parameters,**kwargs)
+        parameters = self.get_parameters(parameters,chains=chains)
+        ax = SamplesPlotStyle.plot_2d(self,chains,parameters=parameters,**kwargs)
+        ax.set_xlabel(self._get_label(parameters[0],residual=residual))
+        ax.set_ylabel(self._get_label(parameters[1],residual=residual))
+        filename = filename or self.filename
+        if filename: self.savefig(filename)
+        return ax
 
     def plot_corner(self, profiles=None, parameters=None, select='best', residual='parabolic_errors', truths=None, **kwargs):
+        truths = self._get_default_truths(truths,parameters)
         chains = self._profiles_to_samples(profiles=profiles,parameters=parameters,select=select,residual=residual,truths=truths)
         return SamplesPlotStyle.plot_corner(self,chains,parameters=parameters,**kwargs)

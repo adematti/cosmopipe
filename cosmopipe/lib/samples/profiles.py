@@ -1,3 +1,4 @@
+import os
 import logging
 
 import numpy as np
@@ -124,6 +125,9 @@ class Profiles(BaseClass):
     def get(self, name):
         return getattr(self,name)
 
+    def has(self, name):
+        return hasattr(self,name)
+
     def append(self, name):
         sntries = self.ntries()
         for name in ['init','metrics','bestfit','parabolic_errors']:
@@ -175,7 +179,7 @@ class Profiles(BaseClass):
     def to_stats(self, parameters=None, quantities=None, sigfigs=2, tablefmt='latex_raw', filename=None):
         if parameters is None: parameters = self.parameters
         data = []
-        if quantities is None: quantities = ['bestfit','parabolic_errors','deltachi2_errors']
+        if quantities is None: quantities = [quantity for quantity in ['bestfit','parabolic_errors','deltachi2_errors'] if self.has(quantity)]
         is_latex = 'latex_raw' in tablefmt
         argmin = self.argmin()
 

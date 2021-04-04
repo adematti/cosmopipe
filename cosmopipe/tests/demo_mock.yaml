@@ -73,7 +73,7 @@ plotting:
     - plot_corner:
         parameters: [galaxy_bias.b1, galaxy_bias.sigmav, galaxy_bias.As]
         truths: [1.0, 4.0, 0.0]
-        filename: plots/corner.png
+        filename: _plots/corner.png
 
 like:
   module_name: cosmopipe.likelihood.likelihood

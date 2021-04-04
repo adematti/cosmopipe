@@ -43,8 +43,8 @@ class Velocileptors(object):
         for par in self.optional_params:
             opts[par] = self.data_block.get(section_names.galaxy_bias,par,self.optional_params[par])
         f = self.data_block.get(section_names.galaxy_rsd,'f',self.growth_rate)
-        qpar = self.data_block.get(section_names.ap_effect,'qpar',1.)
-        qperp = self.data_block.get(section_names.ap_effect,'qperp',1.)
+        qpar = self.data_block.get(section_names.effect_ap,'qpar',1.)
+        qperp = self.data_block.get(section_names.effect_ap,'qperp',1.)
 
         def pk_mu_callable(k,mu):
             # TODOs: in velocileptors, ask for kobs to avoid double interpolation

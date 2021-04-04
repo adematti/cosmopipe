@@ -10,7 +10,7 @@ mpi:
   execute: [minuit]
   configblock_iter:
     mockdata.seed: "lambda i: i"
-    mockdata.save_txt: "lambda i: 'data/data_{:d}.txt'.format(i)"
+    mockdata.save_txt: "lambda i: '_data/data_{:d}.txt'.format(i)"
 
 minuit:
   module_name: cosmopipe.samplers.minuit.minuit
@@ -42,7 +42,7 @@ mockdata:
   module_name: cosmopipe.data.mock_data_vector
   mean: True
   seed: 42
-  save_txt: 'data/data.txt'
+  save_txt: '_data/data.txt'
 
 like:
   module_name: cosmopipe.likelihood.likelihood

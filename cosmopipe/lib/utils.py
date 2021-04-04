@@ -211,6 +211,16 @@ def weighted_quantile(x, q, weights=None):
         return quantiles
 
 
+def enforce_shape(x,y):
+    if np.isscalar(y):
+        return x,y
+    if x.shape == y.shape:
+        return x,y
+    if (x.shape[-1],) == y.shape:
+        return x,y
+    return x[:,None],y
+
+
 def txt_to_latex(txt):
     """Transform standard text into latex by replacing '_xxx' with '_{xxx}' and '^xxx' with '^{xxx}'."""
     latex = ''

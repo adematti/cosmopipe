@@ -115,7 +115,7 @@ def get_minuit_values(parameters, sample=True):
     for param in parameters:
         name = str(param.name)
         toret[name] = param.value
-        if sample and param.ref.is_proper():
+        if sample and (not param.fixed) and param.ref.is_proper():
             toret[name] = param.ref.sample()
     return toret
 
@@ -140,7 +140,7 @@ def get_minuit_errors(parameters):
 def get_minuit_limits(parameters):
     toret = {}
     for param in parameters:
-        toret[str(param.name)] = tuple(None if np.isinf(lim) else None for lim in param.prior.limits)
+        toret[str(param.name)] = tuple(None if np.isinf(lim) else lim for lim in param.prior.limits)
     return toret
 
 

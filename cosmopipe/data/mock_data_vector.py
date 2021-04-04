@@ -9,10 +9,10 @@ from .data_vector import get_kwview
 class MockDataVector(object):
 
     def setup(self):
-        self.seed = self.options.get('seed',None)
-        self.mean = self.options.get('mean',False)
-        self.save = self.options.get('save',False)
-        self.save_txt = self.options.get('save_txt',False)
+        self.seed = self.options.get_int('seed',None)
+        self.mean = self.options.get_bool('mean',False)
+        self.save = self.options.get_string('save',False)
+        self.save_txt = self.options.get_string('save_txt',False)
 
     def execute(self):
         covariance = self.data_block[section_names.covariance,'covariance_matrix']
