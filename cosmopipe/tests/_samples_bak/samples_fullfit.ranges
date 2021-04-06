@@ -1,0 +1,8 @@
+cosmological_parameters.Omega_c 0.2 0.4
+cosmological_parameters.Omega_b 0.02 0.08
+cosmological_parameters.h 0.4 0.9
+cosmological_parameters.n_s 0.8 1.2
+cosmological_parameters.sigma8 0.7 1.1
+galaxy_bias.b1 1.0 2.0
+galaxy_bias.As -1 1
+galaxy_bias.sigmav 1 6

@@ -1,6 +1,8 @@
 main:
-  execute: [params, boltzmann, model, mockcov, mockdata, minuit, profiles_plotting]
+  #execute: [params, boltzmann, model, mockcov, mockdata, minuit, profiles_plotting]
+  #execute: [params, boltzmann, model, mockcov, mockdata, cobaya, plotting]
   #execute: [params, boltzmann, model, mockcov, mockdata, like]
+  execute: [plotting]
 
 one:
   module_name: cosmopipe.samplers.cobaya.sampler
@@ -16,7 +18,7 @@ cobaya:
   max_tries: 10000
   Rminus1_stop: 0.01
   Rminus1_cl_stop: 0.1
-  save_cosmomc: '_samples/samples_cobaya'
+  save_cosmomc: '_samples/samples_fullfit'
 
 minuit:
   module_name: cosmopipe.samplers.minuit.minuit
@@ -88,18 +90,19 @@ profiles_plotting:
   toplot:
     - plot_aligned_stacked:
         truths: value
-        filename: _plots/aligned_stacked_fullshape.png
+        filename: _plots/aligned_stacked_fullfit.png
 
 plotting:
   module_name: cosmopipe.samplers.plotting
   module_class: SamplesPlotting
-  samples_keys: [samples_cobaya]
-  save_stats: [_plots/stats_0.tex]
+  #samples_keys: [samples_cobaya]
+  samples_files: [_samples/samples_fullfit.txt]
+  save_stats: [_plots/stats_fullfit.tex]
   burnin: 0.2
   toplot:
     - plot_corner:
         truths: value
-        filename: _plots/corner.png
+        filename: _plots/corner_fullfit.png
 #    - plot_gelman_rubin:
 #        filename: _plots/gelman_rubin.png
 

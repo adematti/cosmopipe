@@ -4,7 +4,7 @@ import numpy as np
 from cosmopipe.lib.mpi import CurrentMPIComm
 
 from cosmopipe.lib import setup_logging
-from cosmopipe.lib.parameter import ParamName, Prior
+from cosmopipe.lib.parameter import Parameter, ParamName, Prior
 from cosmopipe.lib.samples import Samples, SamplesPlotStyle
 from cosmopipe.lib.samples.plotting import plot_normal_1d, plot_normal_2d
 
@@ -31,7 +31,6 @@ def get_chains(parameters, n=4):
 def test_plotting():
 
     plot_dir = '_plots'
-    samples_dir = '_samples'
     parameters = ['parameters.a','parameters.b','parameters.c','parameters.d']
     mean,cov,chains = get_chains(parameters,n=4)
     """
@@ -53,23 +52,34 @@ def test_plotting():
         plot_normal_2d(dax['parameters.a','parameters.b'],mean=mean[:2],covariance=cov[:2,:2],colors='g')
         style.savefig(filename=os.path.join(plot_dir,'cornerg_{}.png'.format(method)),fig=fig)
     """
-    chains[0].add_default_weight()
     style = SamplesPlotStyle()
     style.plot_chain(chains[0],parameters=['parameters.a'],filename=os.path.join(plot_dir,'chain_a.png'))
     style.plot_chain(chains[0],filename=os.path.join(plot_dir,'chain_all.png'))
     style.plot_gelman_rubin(chains,parameters=['parameters.a'],filename=os.path.join(plot_dir,'gr_a.png'))
     style.plot_gelman_rubin(chains,parameters=parameters,multivariate=True,filename=os.path.join(plot_dir,'gr_multivariate.png'))
     style.plot_autocorrelation_time(chains,parameters=['parameters.a'],threshold=50,filename=os.path.join(plot_dir,'autocorr_a.png'))
+
+
+def test_misc():
+
+    samples_dir = '_samples'
+    parameters = ['parameters.a','parameters.b','parameters.c','parameters.d']
+    mean,cov,chains = get_chains(parameters,n=4)
     chain = chains[0]
+    chain.add_default_weight()
     chain.parameters['parameters.a'].latex = 'a'
     chain.parameters['parameters.a'].prior = Prior(limits=(-10.,10.))
+    pb = chain.parameters['parameters.b']
+    pb.prior = Prior(dist='norm',loc=1.,limits=(-10.,10.))
+    pb = Parameter.from_state(pb.__getstate__())
     chain['metrics','logposterior'] = chain.zeros()
     fn = os.path.join(samples_dir,'samples.npy')
     chain.save(fn)
-    chain1 = Samples.load(fn)
+    chain1 = Samples.load(fn,mpistate='broadcast')
     base_fn = os.path.join(samples_dir,'samples')
     chain1.save_cosmomc(base_fn,ichain=0)
-    chain2 = Samples.load_cosmomc(base_fn)
+    chain2 = Samples.load_auto(base_fn + '.txt',mpistate='broadcast')
+    chain2 = Samples.load_cosmomc(base_fn,mpistate='scattered')
     chain.mpi_scatter()
     assert set(chain2.columns()) == set(chain.columns())
     if chain.mpicomm.rank == 0:
@@ -169,6 +179,7 @@ def test_mpi():
 if __name__ == '__main__':
 
     setup_logging()
-    test_plotting()
+    #test_plotting()
+    test_misc()
     #test_mpi()
     #test_stats()

@@ -208,6 +208,12 @@ class Parameter(BaseClass):
             self.ref = Prior(**ref)
         else:
             self.ref = self.prior.copy()
+        if value is None:
+            if (ref is not None or prior is not None):
+                if hasattr(self.ref,'loc'):
+                    self.value = self.ref.loc
+                elif self.ref.is_proper():
+                    self.value = (self.ref.limits[1] - self.ref.limits[0])/2.
         self.latex = latex
         if fixed is None:
             fixed = prior is None and ref is None
@@ -217,7 +223,7 @@ class Parameter(BaseClass):
             if (ref is not None or prior is not None):
                 if hasattr(self.ref,'scale'):
                     self.proposal = self.ref.scale
-                else:
+                elif self.ref.is_proper():
                     self.proposal = (self.ref.limits[1] - self.ref.limits[0])/2.
 
     def add_suffix(self, suffix):
@@ -265,7 +271,7 @@ class Parameter(BaseClass):
         return type(other) == type(self) and all(getattr(other,key) == getattr(self,key) for key in self._keys)
 
 
-def Prior(dist='uniform',limits=None,**kwargs):
+def Prior(dist='uniform', limits=None, **kwargs):
 
     if isinstance(dist,BasePrior):
         dist = dist.copy()
@@ -278,7 +284,7 @@ def Prior(dist='uniform',limits=None,**kwargs):
     else:
         raise ParamError('Unable to understand prior {}; it should be one of {}'.format(dist,list(prior_registry.keys())))
 
-    return cls(**kwargs,limits=limits)
+    return cls(**kwargs, limits=limits)
 
 
 class PriorError(Exception):
@@ -294,7 +300,10 @@ class BasePrior(BaseClass):
     def set_limits(self, limits=None):
         if not limits:
             limits = (-np.inf,np.inf)
-        self.limits = tuple(limits)
+        self.limits = list(limits)
+        if self.limits[0] is None: self.limits[0] = -np.inf
+        if self.limits[1] is None: self.limits[1] = np.inf
+        self.limits = tuple(self.limits)
         if self.limits[1] <= self.limits[0]:
             raise PriorError('Prior range {} has min greater than max'.format(self.limits))
         if np.isinf(self.limits).any():
@@ -316,12 +325,12 @@ class BasePrior(BaseClass):
 
     def __getstate__(self):
         state = {}
-        for key in ['limits'] + self._keys:
+        for key in ['dist','limits'] + self._keys:
             state[key] = getattr(self,key)
         return state
 
     def is_limited(self):
-        return np.isinf(self.limits).any()
+        return not np.isinf(self.limits).all()
 
     def is_proper(self):
         return True
@@ -343,10 +352,10 @@ class UniformPrior(BasePrior):
         else:
             self.norm = -np.log(limits[1] - limits[0])
 
-    def __call__(self, x):
+    def __call__(self, x, norm=True):
         if not self.isin(x):
             return -np.inf
-        return self.norm
+        return self.norm if norm else 0
 
     def __str__(self):
         return '{}({}, {})'.format(self.dist,*self.limits)
@@ -381,13 +390,13 @@ class NormPrior(BasePrior):
         def cdf(x):
             return 0.5*(math.erf(x/math.sqrt(2.)) + 1)
 
-        a,b = [(x-self.loc)/self.scale for x in limits]
+        a,b = [(x-self.loc)/self.scale for x in self.limits]
         self.norm = np.log(cdf(b) - cdf(a)) + 0.5*np.log(2*np.pi*self.scale**2)
 
-    def __call__(self, x):
+    def __call__(self, x, norm=True):
         if not self.isin(x):
             return -np.inf
-        return -0.5 * ((x-self.loc) / self.scale)**2 - self.norm
+        return -0.5 * ((x-self.loc) / self.scale)**2 - (self.norm if norm else 0.)
 
     def __str__(self):
         return '{}({}, {})'.format(self.dist,self.loc,self.scale)
@@ -406,6 +415,7 @@ class NormPrior(BasePrior):
         if isscalar:
             return samples[0]
         return np.array(samples)
+
 
 BasePrior.registry = {}
 for cls in BasePrior.__subclasses__():

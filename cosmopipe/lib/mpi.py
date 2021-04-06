@@ -472,11 +472,12 @@ def dot_array(a, b, mpicomm=None):
 
 @CurrentMPIComm.enable
 def average_array(a, axis=None, weights=None, returned=False, mpicomm=None):
-
+    # TODO: allow several axes
     if axis is None: axis = tuple(range(a.ndim))
     else: axis = normalize_axis_tuple(axis,a.ndim)
     if 0 not in axis:
         return np.average(a,axis=axis,weights=weights,returned=returned)
+    axis = axis[0]
 
     a = np.asanyarray(a)
 
@@ -586,7 +587,7 @@ def var_array(a, axis=-1, fweights=None, aweights=None, ddof=0, mpicomm=None):
 
 
 @CurrentMPIComm.enable
-def cov_array(m, y, ddof=1, rowvar=True, fweights=None, aweights=None, dtype=None, mpicomm=None):
+def cov_array(m, y=None, ddof=1, rowvar=True, fweights=None, aweights=None, dtype=None, mpicomm=None):
     # scatter axis is data second axis
     # data (nobs, ndim)
     # Check inputs

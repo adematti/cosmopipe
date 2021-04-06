@@ -26,7 +26,7 @@ class TrapzMultipolesIntegration(BaseMultipolesIntegration):
             self.mu = np.linspace(0.,1.,self.mu)
         muw_trapz = weights_trapz(self.mu)
         from scipy import special
-        self.muw = np.array([muw_trapz*(2*ell+1)*special.legendre(ell)(self.mu) for ell in self.ells])/(self.mu[-1]-self.mu[0])
+        self.muw = np.array([muw_trapz*(2*ell+1.)*special.legendre(ell)(self.mu) for ell in self.ells])/(self.mu[-1]-self.mu[0])
 
 
 def MultipolesIntegration(multipoles_integration=None):

@@ -142,8 +142,24 @@ def test_boltzmann():
     plt.legend()
     plt.show()
 
+def test_background():
+    cosmo_params = dict(Omega_c=0.25,Omega_b=0.05,h=0.7,n_s=0.95,sigma8=0.8)
+    cosmo1 = pyccl.Cosmology(**cosmo_params,transfer_function='boltzmann_class')
+    cosmo_params = dict(Omega_c=0.25,Omega_b=0.05,h=0.8,n_s=0.95,sigma8=0.8)
+    cosmo2 = pyccl.Cosmology(**cosmo_params,transfer_function='boltzmann_class')
+    a = 0.5
+    assert np.allclose(pyccl.angular_diameter_distance(cosmo1,a)*cosmo1['h'],pyccl.angular_diameter_distance(cosmo2,a)*cosmo2['h'],rtol=1e-4)
+    assert np.allclose(pyccl.h_over_h0(cosmo1,a),pyccl.h_over_h0(cosmo2,a),rtol=1e-4)
+
+    from classy import Class
+    cls = Class()
+    cosmo_params = dict(Omega_cdm=0.25,Omega_b=0.05,h=0.7,n_s=0.95)
+    cosmo_params = {'omega_cdm': 0.12239665944373529, 'omega_b': 0.02540909039244506, 'h': 0.6818164667333406, 'n_s': 0.96}
+    cls.set(**cosmo_params)
+    print(cls.rs_drag())
 
 
 if __name__ == '__main__':
     #test_eh()
-    test_boltzmann()
+    #test_boltzmann()
+    test_background()

@@ -39,7 +39,7 @@ class MinuitProfiler(BasePipeline):
             self.parameter_names.append(str(param.name))
         minuit_params['name'] = self.parameter_names
         self._data_block = self.data_block
-        self.data_block = BasePipeline.mpi_distribute(self.data_block.copy(),dests=self.mpicomm.rank,mpicomm=mpi.COMM_SELF)
+        self.data_block = BasePipeline.mpi_distribute(self.data_block.copy(),dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
         chi2 = get_cosmopipe_chi2(self)
         minuit = iminuit.Minuit(chi2,**get_minuit_values(parameters,sample=False),**minuit_params)
         minuit.errordef = 1.0
@@ -148,10 +148,14 @@ def get_cosmopipe_chi2(self):
 
     def chi2(*args):
         self.pipe_block = self.data_block.copy()
+        prior = 0
         for iparam,param in enumerate(self.pipe_block[section_names.parameters,'list']):
             self.pipe_block[param.name.tuple] = args[iparam]
+            prior += param.prior(args[iparam],norm=False)
+        if np.isinf(prior):
+            return np.inf
         for todo in self.execute_todos:
             todo()
-        return -2.*self.pipe_block[section_names.likelihood,'loglkl']
+        return -2.*(self.pipe_block[section_names.likelihood,'loglkl'] + prior)
 
     return chi2

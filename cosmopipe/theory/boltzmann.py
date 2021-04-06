@@ -30,7 +30,7 @@ class Boltzmann(object):
         def _pk_lin_callable(k):
             return cosmo['h']**3*pyccl.linear_matter_power(cosmo,k*cosmo['h'],self.a)
 
-        pk_lin_callable = PkLinear.from_callable(k,_pk_lin_callable)
+        pk_lin_callable = PkLinear(k=k,pk=_pk_lin_callable(k))
 
         self.data_block[section_names.linear_perturbations,'pk_callable'] = pk_lin_callable
         self.data_block[section_names.background,'growth_rate'] = pyccl.background.growth_rate(cosmo,self.a)

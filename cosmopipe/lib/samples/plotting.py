@@ -1,7 +1,7 @@
 import numpy as np
-from scipy import stats
+
 from matplotlib import pyplot as plt
-from matplotlib import gridspec,patches
+from matplotlib import gridspec, patches
 from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
 from cosmopipe.lib import plotting, utils
@@ -683,7 +683,7 @@ class ProfilesPlotStyle(ListPlotStyle):
             toret = Profiles.to_samples(profiles,parameters=parameters,name='bestfit',select=select)
             if residual:
                 for iparam,param in enumerate(parameters):
-                    if truths is not None:
+                    if truths[iparam] is not None:
                         toret[param] -= truths[iparam]
                     else:
                         toret[param] -= toret.mean(param)
@@ -716,6 +716,7 @@ class ProfilesPlotStyle(ListPlotStyle):
         ax = SamplesPlotStyle.plot_1d(self,chains,parameter=parameter,**kwargs)
         ax.set_xlabel(self._get_label(parameter,residual=residual))
         if self.kstest and len(chains) == 1:
+            from scipy import stats
             d,p = stats.kstest(chains[0][parameter],self.kstest,alternative='two-sided')
             text = '$(D_{{n}},p) = ({:.3f},{:.3f})$'.format(d,p)
             ax.text(0,1.2,text,horizontalalignment='left',verticalalignment='top',transform=ax.transAxes,color='k',fontsize=self.labelsize)

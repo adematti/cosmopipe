@@ -1,6 +1,7 @@
 main:
-  execute: [params, boltzmann, model, mockcov, mockdata, minuit, profiles_plotting]
-  #execute: [params, boltzmann, model, mockcov, mockdata]
+  #execute: [params, boltzmann, isoscaling, model, mockcov, mockdata, minuit, profiles_plotting]
+  execute: [params, boltzmann, isoscaling, model, mockcov, mockdata, cobaya, samples_plotting]
+  #execute: [params, perturbations, background, isoscaling, model, mockcov, mockdata, minuit, profiles_plotting]
 
 one:
   module_name: cosmopipe.samplers.cobaya.sampler
@@ -12,11 +13,12 @@ cobaya:
   module_name: cosmopipe.samplers.cobaya.sampler
   module_class: CobayaSampler
   modules: [like]
-  sampler: mcmc
-  max_tries: 10000
-  Rminus1_stop: 0.01
-  Rminus1_cl_stop: 0.1
-  save_cosmomc: '_samples/samples_cobaya'
+  sampler:
+    mcmc:
+      max_tries: 10000
+      Rminus1_stop: 0.01
+      Rminus1_cl_stop: 0.1
+  save_cosmomc: '_samples/samples_templatefit'
 
 minuit:
   module_name: cosmopipe.samplers.minuit.minuit
@@ -33,25 +35,36 @@ params:
         value: 1
         prior:
           dist: uniform
-          limits: [0.8,1.2]
+          limits: [0.9,1.1]
         latex: 'q_{\parallel}'
       qperp:
         value: 1
         prior:
           dist: uniform
-          limits: [0.8,1.2]
+          limits: [0.9,1.1]
         latex: 'q_{\perp}'
-    galaxy_rsd.f:
-      value: 0.8
+    galaxy_rsd.fsig:
+      value: 0.42538
       prior:
         dist: uniform
-        limits: [0.5,1]
-      latex: 'f'
+        limits: [0.3,0.5]
+      latex: 'f\sigma_{8}'
+    background:
+      scale_factor:
+        value: 1.0
+        fixed: True
 
 boltzmann:
   module_name: cosmopipe.theory.boltzmann
   transfer_function: eisenstein_hu
   z: 1.0
+
+perturbations:
+  module_name: cosmopipe.theory.linear_perturbations
+  transfer_function: eisenstein_hu
+
+background:
+  module_name: cosmopipe.theory.background
 
 mockcov:
   module_name: cosmopipe.theory.gaussian_covariance
@@ -73,29 +86,30 @@ mockdata:
 profiles_plotting:
   module_name: cosmopipe.samplers.plotting
   module_class: ProfilesPlotting
-  save_stats: [_plots/stats_template.tex]
+  save_stats: [_plots/stats_templatefit.tex]
   toplot:
     - plot_aligned_stacked:
         truths: value
-        filename: _plots/aligned_stacked_template.png
+        filename: _plots/aligned_stacked_templatefit.png
 
-plotting:
+samples_plotting:
   module_name: cosmopipe.samplers.plotting
   module_class: SamplesPlotting
-  samples_keys: [samples_cobaya]
-  save_stats: [_plots/stats_0.tex]
+  samples_keys: [samples]
+  save_stats: [_plots/stats_templatefit.tex]
   burnin: 0.2
   toplot:
     - plot_corner:
-        truths: [1.0, 4.0, 0.0]
-        filename: _plots/corner.png
+        truths: value
+        filename: _plots/corner_templatefit.png
 #    - plot_gelman_rubin:
 #        filename: _plots/gelman_rubin.png
 
 like:
   module_name: cosmopipe.likelihood.likelihood
   module_class: GaussianLikelihood
-  modules: [model, projection]
+  setup: [isoscaling, projection]
+  execute: [isoscaling, model, projection]
 
 model:
   module_name: cosmopipe.theory.linear_model
@@ -104,3 +118,7 @@ model:
 projection:
   module_name: cosmopipe.theory.projection
   module_class: DataVectorProjection
+
+isoscaling:
+  module_name: cosmopipe.theory.isotropic_scaling
+  pivot: 0.333

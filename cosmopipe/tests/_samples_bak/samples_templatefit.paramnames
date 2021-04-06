@@ -1,0 +1,6 @@
+effect_ap.qpar q_{\parallel}
+effect_ap.qperp q_{\perp}
+galaxy_rsd.fsig f\sigma_{8}
+galaxy_bias.b1 b_{1}
+galaxy_bias.As A_{s}
+galaxy_bias.sigmav \sigma_{v}

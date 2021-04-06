@@ -4,10 +4,10 @@ galaxy_bias:
     fixed: false
     prior:
       dist: uniform
-      limits: [0.5, 2.0]
+      limits: [1.0, 2.0]
     ref:
       dist: uniform
-      limits: [0.99, 1.01]
+      limits: [1.5, 1.7]
     proposal: 0.01
     latex: b_{1}
   As:

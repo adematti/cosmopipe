@@ -2,7 +2,7 @@ from scipy import special, interpolate
 
 from pybird import pybird
 
-from cosmopipe.lib import theory
+from cosmopipe.lib import utils, theory
 from cosmopipe import section_names
 
 
@@ -39,10 +39,14 @@ class PyBird(object):
 
         def pk_mu_callable(k,mu):
             pk = interpolate.interp1d(self.co.k,self.bird.fullPs,axis=-1,kind='cubic',bounds_error=True,assume_sorted=True)(k)
-            pk_mu = pk[0]*self.legendre[0](mu)[:,None] + pk[1]*self.legendre[1](mu)[:,None]
-            return pk_mu.T
+            k,mu = utils.enforce_shape(k,mu)
+            pk_mu = pk[0]*self.legendre[0](mu) + pk[1]*self.legendre[0](mu)
+            return pk_mu
 
-        self.data_block[section_names.model,'y_callable'] = self.data_block[section_names.galaxy_power,'pk_mu_callable'] = pk_mu_callable
+        self.model = theory.EffectAP(pk_mu=pk_mu_callable)
+        self.model.set_scaling(qpar=qpar,qperp=qperp)
+
+        self.data_block[section_names.model,'y_callable'] = self.data_block[section_names.galaxy_power,'pk_mu_callable'] = self.model.pk_mu
 
     def cleanup(self):
         pass

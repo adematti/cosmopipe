@@ -1,0 +1,195 @@
+main:
+  #execute: [params_compressed, minuit, profiles_plotting]
+  #execute: [params_compressed, cobaya, samples_plotting]
+  #execute: [params_compressed, one, samples_plotting]
+  execute: [cobaya, samples_plotting]
+
+one_compressed:
+  module_name: cosmopipe.samplers.cobaya.sampler
+  module_class: CobayaSampler
+  modules: [params_compressed, like_compressed]
+  requirements: [background]
+  likelihood:
+    bao.sdss_dr12_consensus_bao: null
+    sn.pantheon: null
+  theory:
+    classy:
+      stop_at_error: True
+      extra_args:
+        N_ncdm: 1
+        N_ur: 2.0328
+  sampler:
+    evaluate:
+
+cobaya_compressed:
+  module_name: cosmopipe.samplers.cobaya.sampler
+  module_class: CobayaSampler
+  modules: [params_compressed, like_compressed]
+  requirements: [background]
+  likelihood:
+    bao.sdss_dr12_consensus_bao: null
+    sn.pantheon: null
+  theory:
+    classy:
+      extra_args:
+        N_ncdm: 1
+        N_ur: 2.0328
+  sampler:
+    mcmc:
+      max_tries: 10000
+      Rminus1_stop: 0.01
+      Rminus1_cl_stop: 0.1
+  save_cosmomc: '_samples/samples_bao_compressed'
+
+cobaya_templatefit:
+  configblock_copy: cobaya_compressed
+  modules: [params_templatefit, like_templatefit]
+  save_cosmomc: '_samples/samples_baosn_templatefit'
+
+minuit_compressed:
+  module_name: cosmopipe.samplers.minuit.minuit
+  module_class: MinuitProfiler
+  modules: [like_compressed]
+  torun: [migrad]
+
+params_compressed:
+  module_name: cosmopipe.parameters.parameterisation
+  common_parameters:
+    cosmological_parameters:
+      #Omega_c:
+      #  value: 0.25
+      #  prior:
+      #    dist: uniform
+      #    limits: [0.15,0.35]
+      #  latex: '\Omega_{c}'
+      omega_c:
+        value: 0.1225
+        prior:
+          dist: uniform
+          limits: [0.0735,0.1715]
+        latex: '\omega_{c}'
+      omega_b:
+        value: 0.0245
+        prior:
+          dist: norm
+          loc: 0.0245
+          scale: 0.0005
+        latex: '\omega_{b}'
+      h:
+        value: 0.7
+        prior:
+          dist: uniform
+          #limits: [0.4,1]
+          limits: [0.65,0.75]
+        latex: 'h'
+      n_s:
+        value: 0.96
+        fixed: True
+    background:
+      scale_factor:
+        value: 0.5
+        fixed: True
+
+params_templatefit:
+  configblock_copy: params_compressed
+  configblock_load: linear_parameters.yaml
+  galaxy_rsd.fsig:
+    value: 0.42538
+    prior:
+      dist: uniform
+      limits: [0.3,0.5]
+    latex: 'f\sigma_{8}'
+  n_s:
+    value: 0.96
+    fixed: true
+    prior:
+      dist: uniform
+      limits: [0.8,1.2]
+    latex: 'n_s'
+  sigma8:
+    value: 0.8
+    fixed: true
+    prior:
+      dist: uniform
+      limits: [0.7,1.1]
+    latex: '\sigma_{8}'
+
+perturbations:
+  module_name: cosmopipe.theory.linear_perturbations
+  transfer_function: eisenstein_hu
+
+background:
+  module_name: cosmopipe.theory.background
+
+profiles_plotting:
+  module_name: cosmopipe.samplers.plotting
+  module_class: ProfilesPlotting
+  save_stats: [_plots/stats_bao_templatefit.tex]
+  toplot:
+    - plot_aligned_stacked:
+        truths: value
+        filename: _plots/aligned_stacked_bao_templatefit.png
+
+samples_plotting:
+  module_name: cosmopipe.samplers.plotting
+  module_class: SamplesPlotting
+  samples_keys: [samples_templatefit, samples_compressed]
+  save_stats: [_plots/stats_baosn_templatefit.tex, _plots/stats_baosn_compressed.tex]
+  burnin: 0.2
+  labels: ['template fit','\alpha_{\parallel}, \alpha_{\perp} compression']
+  toplot:
+    - plot_corner:
+        truths: value
+        filename: _plots/corner_baosn_templatefit_compressed.png
+#    - plot_gelman_rubin:
+#        filename: _plots/gelman_rubin.png
+
+like_compressed:
+  module_name: cosmopipe.likelihood.fromsamples
+  module_class: GaussianLikelihoodFromSamples
+  samples_file: _samples/samples_templatefit.txt
+  parameters: [effect_ap.qpar, effect_ap.qperp]
+  burnin: 0.2
+  #modules: [background, bao]
+  modules: [bao]
+
+like_templatefit:
+  module_name: cosmopipe.likelihood.likelihood
+  module_class: GaussianLikelihood
+  setup: [bao, isoscaling, projection]
+  execute: [bao, isoscaling, model, projection]
+
+model:
+  module_name: cosmopipe.theory.linear_model
+  FoG: gaussian
+
+projection:
+  module_name: cosmopipe.theory.projection
+  module_class: DataVectorProjection
+
+perturbations:
+  module_name: cosmopipe.theory.linear_perturbations
+  transfer_function: bbks
+
+background:
+  module_name: cosmopipe.theory.background
+
+effectap:
+  module_name: cosmopipe.theory.effect_ap
+  module_class: EffectAP
+  Omega_m: 0.3
+
+isoscaling:
+  module_name: cosmopipe.theory.isotropic_scaling
+  pivot: 0.333
+
+fsig:
+  module_name: cosmopipe.theory.galaxy_rsd
+  module_class: GalaxyRSD
+
+bao:
+  module_name: cosmopipe.theory.galaxy_bao
+  module_class: GalaxyBAO
+  Omega_c: 0.25
+  Omega_b: 0.05
+  h: 0.7

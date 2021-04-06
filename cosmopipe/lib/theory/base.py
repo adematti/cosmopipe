@@ -111,19 +111,21 @@ class PTQuantity(BaseClass):
     def k(self):
         return self['k']
 
-    def interp(self, k, field='pk', kind='cubic'):
+    def interp(self, k, field='pk', kind='linear'):
         # NOTE: scipy.interpolate.interp1d(kind='linear') is about 4x slower than np.interp... and kind='cubic' again 4 times slower.
         return interpolate.interp1d(self.k,self[field],kind=kind,axis=-1,copy=False,bounds_error=True,assume_sorted=True)(k)
 
-    __call__ = interp
+    def __call__(self, *args, **kwargs):
+        # rather than __call__ = interp such that interp cn be overloaded
+        return self.interp(*args,**kwargs)
 
     def sigmav(self, **kwargs):
-        return np.sqrt(1./6./np.pi**2*np.trapz(self.pk(**kwargs),x=self.k,axis=-1))
+        return np.sqrt(1./6./np.pi**2*np.trapz(self(self.k,**kwargs),x=self.k,axis=-1))
 
     def sigmar(self, r, **kwargs):
         x = self.k*r
         w = 3.*(np.sin(x)-x*np.cos(x))/x**3
-        sigmar2 = 1./2./np.pi**2*np.trapz(self.pk(**kwargs)*(w*self.k)**2,x=self.k,axis=-1)
+        sigmar2 = 1./2./np.pi**2*np.trapz(self(self.k,**kwargs)*(w*self.k)**2,x=self.k,axis=-1)
         return np.sqrt(sigmar2)
 
     def sigma8(self, **kwargs):
@@ -135,13 +137,9 @@ class PkLinear(PTQuantity):
     fields = ['k','pk']
     scale_powers = {'k':0,'pk':2}
 
-    @scale_factor(2)
-    def pk(self):
-        return self['pk']
-
     @classmethod
     def from_callable(cls, k, pk_callable):
-        self = cls(k=k,pk=pk_callable(k))
+        self = cls(k=k)
         self.interp = pk_callable
         return self
 
@@ -165,6 +163,12 @@ class PkEHNoWiggle(PkLinear):
         L0 = np.log(2*np.e + 1.8 * q)
         C0 = 14.2 + 731.0 / (1 + 62.5 * q)
         return L0 / (L0 + C0 * q**2)
+
+    @staticmethod
+    def sound_horizon(h=0.676, Omega_b=0.05, Omega_c=0.25):
+        omega_m = (Omega_b + Omega_c) * h**2
+        omega_b = Omega_b * h**2
+        return 44.5 * h * np.log(9.83/omega_m) / np.sqrt(1. + 10.*omega_b**0.75)
 
     def run(self, k=None, sigma8=None, n_s=1., **kwargs):
         self.zeros(k=k)
@@ -220,8 +224,6 @@ class BasePTModel(BaseClass):
         if klin is None:
             if callable(pklin):
                 self.pk_linear = pklin
-            elif isinstance(pklin,PkLinear):
-                self.pk_linear = pklin.copy()
             else:
                 raise ValueError('Input pklin should be a PkLinear if no k provided.')
         else:

@@ -66,7 +66,7 @@ class CosmosisSampler(BasePipeline):
         sampler = self.cosmosis_sampler_class(self.cosmosis_ini,self.cosmosis_pipeline,output,**kwargs)
         sampler.config()
         self._data_block = self.data_block
-        self.data_block = BasePipeline.mpi_distribute(self.data_block.copy(),dests=self.mpicomm.rank,mpicomm=mpi.COMM_SELF)
+        self.data_block = BasePipeline.mpi_distribute(self.data_block.copy(),dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
 
         sampler.execute()
         #while not sampler.is_converged():

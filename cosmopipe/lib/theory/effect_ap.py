@@ -6,21 +6,46 @@ from cosmopipe.lib.utils import BaseClass
 
 class EffectAP(BaseClass):
 
-    def __init__(self, pk_mu):
+    def __init__(self, pk_mu=None):
         self.input_pk_mu = pk_mu
+        self.set_scaling()
 
-    @staticmethod
-    def kmu_scaling(k, mu, qpar=1, qperp=1):
-        F = qpar/qperp
-        factor_ap = np.sqrt(1+mu**2*(1./F**2-1))
+    def set_scaling(self, qpar=1, qperp=1):
+        self.qpar = qpar
+        self.qperp = qperp
+        self.qap = qpar/qperp
+        self.qiso = (self.qperp**2*self.qpar)**(1./3.)
+
+    def kmu_scaling(self, k, mu):
+        factor_ap = np.sqrt(1+mu**2*(1./self.qap**2-1))
         k,mu = utils.enforce_shape(k,mu)
         # Beutler 2016 (arXiv: 1607.03150v1) eq 44
-        kap = k/qperp*factor_ap
+        kap = k/self.qperp*factor_ap
         # Beutler 2016 (arXiv: 1607.03150v1) eq 45
-        muap = mu/F/factor_ap
-        jacob = 1./(qperp**2*qpar)
-        return jacob,kap,muap
+        muap = mu/self.qap/factor_ap
+        return kap,muap
 
-    def pk_mu(self, k, mu=0., qpar=1., qperp=1.,**kwargs):
-        jacob,kap,muap = self.kmu_scaling(k,mu,qpar=qpar,qperp=qperp)
-        return jacob*self.input_pk_mu(k=kap,mu=muap,**kwargs)
+    def pk_mu(self, k, mu=0., **kwargs):
+        kap,muap = self.kmu_scaling(k,mu)
+        return 1./self.qiso**3*self.input_pk_mu(k=kap,mu=muap,**kwargs)
+
+
+class IsotropicScaling(BaseClass):
+
+    def __init__(self, pk=None, pivot=1./3.):
+        self.input_pk = pk
+        self.pivot = pivot
+        self.set_scaling()
+
+    def set_scaling(self, qpar=1., qperp=1.):
+        self.qiso = qpar**self.pivot*qperp**(1.-self.pivot)
+        self.qap = qpar/qperp
+
+    def anisotropic_scaling(self):
+        return self.qap**(1.-self.pivot), self.qap**(-self.pivot)
+
+    def k_scaling(self, k):
+        return k/self.qiso
+
+    def pk(self, k, **kwargs):
+        return 1/self.qiso**3*self.input_pk(k=self.k_scaling(k),**kwargs)

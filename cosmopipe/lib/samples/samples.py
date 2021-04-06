@@ -335,7 +335,7 @@ class Samples(ScatteredBaseClass):
     @mpi.CurrentMPIComm.enable
     def load_cosmomc(cls, base_filename, ichains=None, mpiroot=0, mpistate=mpi.CurrentMPIState.GATHERED, mpicomm=None):
 
-        self = cls(mpiroot=mpiroot,mpicomm=mpicomm)
+        self = cls(mpiroot=mpiroot,mpistate=mpi.CurrentMPIState.GATHERED,mpicomm=mpicomm)
 
         if self.is_mpi_root():
             parameters_filename = '{}.paramnames'.format(base_filename)
@@ -347,7 +347,7 @@ class Samples(ScatteredBaseClass):
                     name = name.strip()
                     if name.endswith('*'): name = name[:-1]
                     latex = latex.strip().replace('\n','')
-                    self.parameters.set(Parameter(name=name.strip(),latex=latex))
+                    self.parameters.set(Parameter(name=name.strip(),latex=latex,fixed=False))
 
             ranges_filename = '{}.ranges'.format(base_filename)
             if os.path.exists(ranges_filename):
@@ -411,7 +411,7 @@ class Samples(ScatteredBaseClass):
             columns = self.columns()
         weights = self.add_default_weight()
         if self.is_mpi_scattered():
-            return mpi.cov([self[col] for col in columns],aweights=weights,mpicomm=self.mpicomm)
+            return mpi.cov_array([self[col] for col in columns],aweights=weights,mpicomm=self.mpicomm)
         isroot = self.is_mpi_root()
         return self.mpicomm.bcast(np.cov([self[col] for col in columns],aweights=weights,ddof=ddof,**kwargs) if isroot else None,root=self.mpiroot)
 
@@ -448,8 +448,8 @@ class Samples(ScatteredBaseClass):
             s = mpi.sum_array(weights**2,mpicomm=self.mpicomm)
         else:
             isroot = self.is_mpi_root()
-            s2 = self.mpicomm.bcast(mpi.sum_array(weights,mpicomm=self.mpicomm)**2 if isroot else None,root=self.mpiroot)
-            s = self.mpicomm.bcast(mpi.sum_array(weights**2,mpicomm=self.mpicomm) if isroot else None,root=self.mpiroot)
+            s2 = self.mpicomm.bcast(np.sum(weights)**2 if isroot else None,root=self.mpiroot)
+            s = self.mpicomm.bcast(np.sum(weights**2) if isroot else None,root=self.mpiroot)
         return s2 / s
 
     @vectorize_columns
@@ -571,6 +571,7 @@ class Samples(ScatteredBaseClass):
                     row.append(round_errors(low-ref_center,up-ref_center))
                 elif quantity.startswith('interval'):
                     nsigmas = int(re.match('interval:(.*)sigma',quantity).group(1))
+                    low,up = self.interval(param,nsigmas=nsigmas)
                     row.append(round_errors(low-ref_center,up-ref_center))
                 else:
                     raise RuntimeError('Unknown quantity {}.'.format(quantity))

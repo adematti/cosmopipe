@@ -1,5 +1,5 @@
 main:
-  execute: [params, boltzmann, mpi, plotting]
+  execute: [params, perturbations, background, mpi, plotting]
   #execute: [plotting]
 
 mpi:
@@ -19,20 +19,27 @@ cobaya:
   module_name: cosmopipe.samplers.cobaya.sampler
   module_class: CobayaSampler
   modules: [like]
-  sampler: mcmc
-  max_tries: 10000
-  Rminus1_stop: 0.01
-  Rminus1_cl_stop: 0.1
+  sampler:
+    mcmc:
+      max_tries: 10000
+      Rminus1_stop: 0.01
+      Rminus1_cl_stop: 0.07
   save_cosmomc: '_samples/samples_cobaya'
 
 params:
   module_name: cosmopipe.parameters.parameterisation
   common_parameters:
     configblock_load: [cosmological_parameters.yaml, linear_parameters.yaml]
+    background:
+      scale_factor:
+        value: 0.5
+        fixed: True
 
-boltzmann:
-  module_name: cosmopipe.theory.boltzmann
-  z: 1.0
+perturbations:
+  module_name: cosmopipe.theory.linear_perturbations
+
+background:
+  module_name: cosmopipe.theory.background
 
 mockcov:
   module_name: cosmopipe.theory.gaussian_covariance
@@ -61,15 +68,15 @@ plotting:
   #samples_files: ['_samples/samples_cobaya_0.txt','_samples/samples_cobaya_1.txt']
   save_stats: [_plots/stats_0.tex, _plots/stats_1.tex]
   labels: ['$\ell = 2$, $k < 0.2 \; h/\mathrm{Mpc}$','$\ell = 2$, $k < 0.3 \; h/\mathrm{Mpc}$']
-  burnin: 0.2
+  burnin: 0.3
   toplot:
     - plot_1d:
         parameter: galaxy_bias.b1
-        truth: 1.0
+        truth: value
         filename: _plots/plot_b1.png
     - plot_corner:
         parameters: [galaxy_bias.b1, galaxy_bias.sigmav, galaxy_bias.As]
-        truths: [1.0, 4.0, 0.0]
+        truths: value
         filename: _plots/corner.png
 #    - plot_gelman_rubin:
 #        filename: _plots/gelman_rubin.png

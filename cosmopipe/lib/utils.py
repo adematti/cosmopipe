@@ -110,6 +110,8 @@ def _check_inv(mat, invmat, **kwargs):
 
 
 def inv(mat, inv=np.linalg.inv, check=True):
+    if np.isscalar(mat) or isinstance(mat,np.ndarray) and mat.ndim == 0:
+        return 1./mat
     toret = inv(mat)
     if check:
         _check_inv(mat,toret)
@@ -356,46 +358,6 @@ def round_measurement(x, u=0.1, v=None, sigfigs=2, notation='auto'):
     else:
         v = float(v)
     logx = 0
-    if x != 0.: logx = -math.floor(math.log10(abs(x)))
-    if u == 0.: logu = logx
-    else: logu = -math.floor(math.log10(abs(u)))
-    if v == 0.: logv = logx
-    else: logv = -math.floor(math.log10(abs(v)))
-    if x == 0.: logx = min(logu,logv)
-
-    def round_notation(value, sigfigs, notation='auto'):
-        if notation == 'auto':
-            if 1e-3 - abs(u) < abs(x) < 1e3 + v:
-                notation = 'std'
-            else:
-                notation = 'sci'
-        notation_dict = {'std':std_notation,'sci':sci_notation}
-        if notation in notation_dict:
-            return notation_dict[notation](value,sigfigs=sigfigs)
-        return notation(value,sigfigs=sigfigs)
-
-    if logv>logu:
-        xr = round_notation(x,sigfigs=logv-logx+sigfigs,notation=notation)
-        ur = round_notation(u,sigfigs=logv-logu+sigfigs,notation=notation)
-        vr = round_notation(v,sigfigs=sigfigs,notation=notation)
-    else:
-        xr = round_notation(x,sigfigs=logu-logx+sigfigs,notation=notation)
-        ur = round_notation(u,sigfigs=sigfigs,notation=notation)
-        vr = round_notation(v,sigfigs=logu-logv+sigfigs,notation=notation)
-
-    if return_v: return xr, ur, vr
-    return xr, ur
-
-
-def round_measurement(x, u=0.1, v=None, sigfigs=2, notation='auto'):
-    x,u = float(x),float(u)
-    return_v = True
-    if v is None:
-        return_v = False
-        v = u
-    else:
-        v = float(v)
-    logx = 0
     if x != 0.: logx = math.floor(math.log10(abs(x)))
     if u == 0.: logu = logx
     else: logu = math.floor(math.log10(abs(u)))
@@ -403,16 +365,17 @@ def round_measurement(x, u=0.1, v=None, sigfigs=2, notation='auto'):
     else: logv = math.floor(math.log10(abs(v)))
     if x == 0.: logx = max(logu,logv)
 
-    def round_notation(value, sigfigs, notation='auto', center=True):
+    def round_notation(val, sigfigs, notation='auto', center=False):
         if notation == 'auto':
-            if 1e-3 < abs(value) < 1e3 or center and (1e-3 - abs(u) < abs(value) < 1e3 + v):
+            #if 1e-3 < abs(val) < 1e3 or center and (1e-3 - abs(u) < abs(x) < 1e3 + abs(v)):
+            if (1e-3 - abs(u) < abs(x) < 1e3 + abs(v)):
                 notation = 'std'
             else:
                 notation = 'sci'
         notation_dict = {'std':std_notation,'sci':sci_notation}
         if notation in notation_dict:
-            return notation_dict[notation](value,sigfigs=sigfigs)
-        return notation(value,sigfigs=sigfigs)
+            return notation_dict[notation](val,sigfigs=sigfigs)
+        return notation(val,sigfigs=sigfigs)
 
     if logv>logu:
         xr = round_notation(x,sigfigs=logx-logu+sigfigs,notation=notation,center=True)

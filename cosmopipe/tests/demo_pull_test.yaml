@@ -1,0 +1,88 @@
+main:
+  execute: [params, perturbations, background, model, mockcov, mpi, data_plotting, bestfit_plotting]
+
+mpi:
+  module_name: pypescript
+  module_class: BasePipeline
+  iter: range(500)
+  nprocs_per_task: 1
+  execute: [mockdata:execute, minuit]
+  configblock_iter:
+    mockdata.seed: "lambda i: i"
+    mockdata.save_txt: "lambda i: '_data/data_{:d}.txt'.format(i)"
+  datablock_iter_key:
+    likelihood.profiles: "lambda i: 'likelihood.profiles_{:d}'.format(i)"
+    data.data_vector: "lambda i: 'data.data_vector_{:d}'.format(i)"
+
+minuit:
+  module_name: cosmopipe.samplers.minuit.minuit
+  module_class: MinuitProfiler
+  modules: [like]
+  torun: [migrad]
+
+params:
+  module_name: cosmopipe.parameters.parameterisation
+  common_parameters:
+    configblock_load: [cosmological_parameters.yaml, linear_parameters.yaml]
+    background:
+      scale_factor:
+        value: 0.5
+        fixed: True
+
+perturbations:
+  module_name: cosmopipe.theory.linear_perturbations
+
+background:
+  module_name: cosmopipe.theory.background
+
+mockcov:
+  module_name: cosmopipe.theory.gaussian_covariance
+  module_class: GaussianPkCovariance
+  kedges:
+    min: 0.02
+    max: 0.2
+    step: 0.01
+  shotnoise: 1e3
+  volume: 1e10
+  projs: [ell_0, ell_2, ell_4]
+
+mockdata:
+  module_name: cosmopipe.data.mock_data_vector
+  mean: False
+  seed: 42
+  save_txt: '_data/data.txt'
+
+data_plotting:
+  module_name: cosmopipe.data.plotting
+  module_class: DataVectorPlotting
+  data_keys: "['data.data_vector_{:d}'.format(i) for i in range(500)]"
+  style: pk
+  kwplt: {'alpha': 0.3}
+  covariance_key: covariance_matrix
+  filename: '_plots/data_vectors.png'
+
+bestfit_plotting:
+  module_name: cosmopipe.samplers.plotting
+  module_class: ProfilesPlotting
+  profiles_keys: "['likelihood.profiles_{:d}'.format(i) for i in range(500)]"
+  toplot:
+    - plot_1d:
+        parameter: galaxy_bias.b1
+        filename: _plots/pull_b1.png
+    - plot_corner:
+        parameters: [galaxy_bias.b1, galaxy_bias.sigmav, galaxy_bias.As]
+        filename: _plots/pull_corner.png
+
+like:
+  module_name: cosmopipe.likelihood.likelihood
+  module_class: GaussianLikelihood
+  setup: [model, projection]
+  execute: [model, projection]
+
+model:
+  module_name: cosmopipe.theory.linear_model
+  FoG: gaussian
+
+projection:
+  module_name: cosmopipe.theory.projection
+  module_class: DataVectorProjection

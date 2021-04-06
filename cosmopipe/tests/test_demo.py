@@ -1,7 +1,6 @@
 import os
 
 from pypescript.main import main
-
 from cosmopipe.lib import setup_logging
 
 
@@ -18,8 +17,12 @@ def test_demo_mock():
     #main(config='demo_mock3_cosmosis.yaml')
     #main(config='demo_velocileptors_minuit.yaml')
     #main(config='demo_pybird_minuit.yaml')
-    main(config='demo_xlim_cobaya.yaml')
+    #main(config='demo_xlim_cobaya.yaml')
+    #main(config='demo_bao_templatefit_cobaya.yaml')
+    pass
 
+
+test()
 
 if __name__ == '__main__':
 
