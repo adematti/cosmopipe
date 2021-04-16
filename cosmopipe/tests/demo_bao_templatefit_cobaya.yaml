@@ -1,7 +1,7 @@
 main:
-  #execute: [params, perturbations, background, model, mockcov, mockdata, cobaya, samples_plotting, params_compressed, cobaya_compressed, samples_compressed_plotting]
+  execute: [params, perturbations, background, model, mockcov, mockdata, cobaya, samples_plotting, params_compressed, cobaya_compressed, samples_compressed_plotting]
   #execute: [params, perturbations, background, model, mockcov, mockdata, cobaya, samples_plotting]
-  execute: [params_compressed, cobaya_compressed, samples_compressed_plotting]
+  #execute: [params_compressed, cobaya_compressed, samples_compressed_plotting]
   #execute: [samples_compressed_plotting]
 
 one_compressed:
@@ -203,6 +203,7 @@ profiles_plotting:
 samples_plotting:
   module_name: cosmopipe.samplers.plotting
   module_class: SamplesPlotting
+  samples_files: [_samples/samples_bao_templatefit.txt]
   save_stats: [_plots/stats_bao_templatefit.tex]
   burnin: 0.2
   toplot:

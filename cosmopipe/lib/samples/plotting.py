@@ -705,8 +705,8 @@ class ProfilesPlotStyle(ListPlotStyle):
     def _get_label(parameter, residual='parabolic_errors'):
         if residual:
             if parameter.latex is not None:
-                return '${0}/\sigma({0})$'.format(parameter.latex)
-            return '{0}/sigma({0})'.format(parameter.name)
+                return '$\Delta {0}/\sigma({0})$'.format(parameter.latex)
+            return '$\Delta$ {0}/sigma({0})'.format(parameter.name)
         return parameter.get_label()
 
     def plot_1d(self, profiles=None, parameter=None, select='best', residual='parabolic_errors', truth=None, filename=None, **kwargs):
