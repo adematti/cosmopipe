@@ -33,7 +33,7 @@ class GaussianPkCovariance(object):
         self.covariance = gaussian_covariance.GaussianPkCovarianceMatrix(**kwargs)
 
     def execute(self):
-        self.covariance.run(self.data_block[section_names.model,'y_callable'])
+        self.covariance.compute(self.data_block[section_names.model,'y_callable'])
         if self.options.has('use_data_xlim'):
             self.kwview = get_kwview(self.covariance.x[0],SectionBlock(self.config_block,self.options.get_string('use_data_xlim')))
         cov = self.covariance.view(**self.kwview)

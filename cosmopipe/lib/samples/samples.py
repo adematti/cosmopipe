@@ -19,7 +19,7 @@ from cosmopipe.lib import mpi
 def vectorize_columns(func):
     @functools.wraps(func)
     def wrapper(self, column, **kwargs):
-        if not isinstance(column,(tuple,list)):
+        if not isinstance(column,list):
             return func(self,column,**kwargs)
         toret = np.asarray([func(self,col,**kwargs) for col in column])
         return toret

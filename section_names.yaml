@@ -2,14 +2,13 @@
 - data
 - covariance
 - likelihood
-- common
 - parameters
 - cosmological_parameters
 - background
-- linear_perturbations
+- primordial_perturbations
+- primordial_cosmology
+- survey_geometry
 - galaxy_bias
 - effect_ap
 - galaxy_power
 - galaxy_rsd
-- mpi
-- nocopy: [mpi, common]

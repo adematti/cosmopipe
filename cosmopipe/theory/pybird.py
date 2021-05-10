@@ -9,9 +9,12 @@ from cosmopipe import section_names
 class PyBird(object):
 
     def setup(self):
-        pklin = self.data_block[section_names.linear_perturbations,'pk_callable']
-        klin,pklin = pklin['k'],pklin['pk']
-        self.growth_rate = self.data_block[section_names.background,'growth_rate']
+        zeff = self.data_block[section_names.survey_geometry,'zeff']
+        pklin = self.data_block[section_names.primordial_perturbations,'pk_callable']
+        self.sigma8 = pklin.sigma8_z(zeff)
+        klin,pklin = pklin.k,pklin(pklin.k,z=self.zeff)
+        fo = self.data_block[section_names.primordial_cosmology,'cosmo'].get_fourier()
+        self.growth_rate = fo.sigma8_z(zeff,of='theta_cb')/fo.sigma8_z(zeff,of='delta_cb')
         kwargs = {}
         kwargs['optiresum'] = self.options.get_bool('optiresum',True)
         self.co = pybird.Common(optiresum=kwargs['optiresum'])
@@ -28,7 +31,8 @@ class PyBird(object):
         pars = []
         for par in self.required_params:
             pars.append(self.data_block.get(section_names.galaxy_bias,par))
-        f = self.data_block.get(section_names.galaxy_rsd,'f',self.growth_rate)
+        fsig = self.data_block.get(section_names.galaxy_rsd,'fsig',self.growth_rate*self.sigma8)
+        f = fsig/self.sigma8
         qpar = self.data_block.get(section_names.effect_ap,'qpar',1.)
         qperp = self.data_block.get(section_names.effect_ap,'qperp',1.)
 

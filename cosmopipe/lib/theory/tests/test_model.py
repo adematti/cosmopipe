@@ -1,16 +1,19 @@
 import numpy as np
 
-from cosmopipe.lib.theory import PkEHNoWiggle, LinearModel
+from cosmopipe.lib.primordial import Cosmology
+from cosmopipe.lib.theory import LinearModel
 from cosmopipe.lib import setup_logging
 
 
 def test_linear():
 
-    pk = PkEHNoWiggle(k=np.linspace(0.01,0.5,100))
-    pk.run(sigma8=1.)
-    assert np.allclose(pk.sigma8(),1.)
-    model = LinearModel(pklin=pk,cosmo={'growth_rate':0.8})
-    assert np.allclose(model.pk_mu(k=pk.k,mu=0.),pk['pk'])
+    pk = Cosmology().get_fourier(engine='eisenstein_hu').pk_interpolator().to_1d()
+    model = LinearModel(pklin=pk)
+    assert model.pk_mu(k=pk.k,mu=0.,f=0.8).shape == (pk.k.size,)
+    assert model.pk_mu(k=0.1,mu=0.,f=0.8).ndim == 0
+    assert model.pk_mu(k=0.1,mu=np.linspace(0.,0.4,3),f=0.8).shape == (3,)
+    assert model.pk_mu(k=pk.k,mu=np.linspace(0.,0.4,3),f=0.8).shape == (pk.k.size,3)
+    assert np.allclose(model.pk_mu(k=pk.k,mu=0.,f=0.8),pk(pk.k))
 
 
 if __name__ == '__main__':

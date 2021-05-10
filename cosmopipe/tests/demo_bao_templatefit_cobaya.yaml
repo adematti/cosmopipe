@@ -1,6 +1,6 @@
 main:
-  execute: [params, perturbations, background, model, mockcov, mockdata, cobaya, samples_plotting, params_compressed, cobaya_compressed, samples_compressed_plotting]
-  #execute: [params, perturbations, background, model, mockcov, mockdata, cobaya, samples_plotting]
+  #execute: [params, primordial, model, mockcov, mockdata, cobaya, samples_plotting, params_compressed, cobaya_compressed, samples_compressed_plotting]
+  execute: [params, primordial, model, mockcov, mockdata, cobaya, samples_plotting]
   #execute: [params_compressed, cobaya_compressed, samples_compressed_plotting]
   #execute: [samples_compressed_plotting]
 
@@ -48,6 +48,14 @@ minuit_compressed:
   modules: [params_compressed, like_compressed]
   torun: [migrad]
 
+one:
+  module_name: cosmopipe.samplers.cobaya.sampler
+  module_class: CobayaSampler
+  modules: [params, like]
+  sampler:
+    evaluate:
+  save_cosmomc: _samples/samples_bao_templatefit
+
 cobaya:
   module_name: cosmopipe.samplers.cobaya.sampler
   module_class: CobayaSampler
@@ -88,21 +96,21 @@ params:
         dist: uniform
         limits: [0.3,0.5]
       latex: 'f\sigma_{8}'
-    background:
-      scale_factor:
-        value: 0.5
+    survey_geometry:
+      zeff:
+        value: 1.0
         fixed: True
 
 params_compressed:
   module_name: cosmopipe.parameters.parameterisation
   common_parameters:
     cosmological_parameters:
-      omega_c:
+      omega_cdm:
         value: 0.1225
         prior:
           dist: uniform
           limits: [0.0735,0.1715]
-        latex: '\omega_{c}'
+        latex: '\omega_{cdm}'
       omega_b:
         value: 0.0245
         prior:
@@ -120,17 +128,15 @@ params_compressed:
       n_s:
         value: 0.96
         fixed: True
-    background:
-      scale_factor:
-        value: 0.5
+    survey_geometry:
+      zeff:
+        value: 1.0
         fixed: True
 
-perturbations:
-  module_name: cosmopipe.theory.linear_perturbations
-  transfer_function: eisenstein_hu
-
-background:
-  module_name: cosmopipe.theory.background
+primordial:
+  module_name: cosmopipe.theory.primordial
+  engine: eisenstein_hu
+  compute: pk_m
 
 mockcov:
   module_name: cosmopipe.theory.gaussian_covariance
@@ -177,17 +183,10 @@ isoscaling:
   module_name: cosmopipe.theory.isotropic_scaling
   pivot: 0.333
 
-perturbations:
-  module_name: cosmopipe.theory.linear_perturbations
-  transfer_function: eisenstein_hu
-
-background:
-  module_name: cosmopipe.theory.background
-
 bao:
   module_name: cosmopipe.theory.galaxy_bao
   module_class: GalaxyBAO
-  Omega_c: 0.25
+  Omega_cdm: 0.25
   Omega_b: 0.05
   h: 0.7
 

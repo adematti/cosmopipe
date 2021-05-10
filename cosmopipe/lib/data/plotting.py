@@ -163,7 +163,7 @@ class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
         super(CovarianceMatrixPlotStyle,self).__init__(style=style)
         if not isinstance(data_styles,(tuple,list)):
             data_styles = (data_styles,data_styles)
-        self.styles = tuple(PlotStyle(style) for style in data_styles)
+        self.styles = tuple(DataPlotStyle(style) for style in data_styles)
         self.wspace = self.hspace = 0.18
         self.figsize = None
         self.ticksize = 13

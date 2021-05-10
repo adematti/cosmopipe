@@ -1,28 +1,31 @@
 import numpy as np
-from pyccl import ccllib
-import pyccl
 
-from cosmopipe.lib.theory import PkEHNoWiggle
+from cosmopipe.lib.primordial import Cosmology
 from cosmopipe import section_names
 
 
 class GalaxyBAO(object):
 
     def setup(self):
-        kwargs = dict(Omega_c=self.options['Omega_c'],Omega_b=self.options['Omega_b'],h=self.options['h'])
-        cosmo = pyccl.Cosmology(**kwargs,n_s=1,sigma8=1)
-        self.rdrag = PkEHNoWiggle.sound_horizon(**kwargs)
-        self.rdrag = 144.16545636718809*self.options['h'] # hack because pyccl does not provide it
-        a = self.data_block[section_names.background,'scale_factor']
-        self.hubble_rate = pyccl.background.h_over_h0(cosmo,a)
-        self.comoving_angular_distance = pyccl.background.comoving_angular_distance(cosmo,a)*cosmo['h']
+        self.zeff = self.data_block[section_names.survey_geometry,'zeff']
+        params = {}
+        params['engine'] = self.options.get('engine','class')
+        for name,value in Cosmology.get_default_parameters(of='cosmology',include_conflicts=True).items():
+            if name in self.options:
+                params[name] = self.options[name]
+        cosmo = Cosmology(**params)
+        th = cosmo.get_thermodynamics()
+        ba = cosmo.get_background()
+        self.hubble_rate = ba.efunc(self.zeff)
+        self.comoving_transverse_distance = ba.comoving_angular_distance(self.zeff)
+        self.rs_drag = th.rs_drag
 
     def execute(self):
-        hubble_rate = self.data_block[section_names.background,'hubble_rate']
-        comoving_angular_distance = self.data_block[section_names.background,'comoving_angular_distance']
-        rdrag = self.data_block[section_names.linear_perturbations,'sound_horizon_drag']
-        self.data_block[section_names.effect_ap,'qpar'] = self.hubble_rate*self.rdrag/hubble_rate/rdrag
-        self.data_block[section_names.effect_ap,'qperp'] = comoving_angular_distance*self.rdrag/self.comoving_angular_distance/rdrag
+        cosmo = self.data_block[section_names.primordial_cosmology,'cosmo']
+        th = cosmo.get_thermodynamics()
+        ba = cosmo.get_background()
+        self.data_block[section_names.effect_ap,'qpar'] = self.hubble_rate*self.rs_drag/ba.efunc(self.zeff)/th.rs_drag
+        self.data_block[section_names.effect_ap,'qperp'] = ba.comoving_angular_distance(self.zeff)*self.rs_drag/self.comoving_angular_distance/th.rs_drag
 
     def cleanup(self):
         pass

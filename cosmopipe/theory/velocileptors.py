@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import interpolate
 
-from cosmopipe.lib.theory import PkLinear, PkEHNoWiggle
+from cosmopipe.lib.primordial import Cosmology, PowerSpectrumBAOFilter
 from cosmopipe import section_names
 
 
@@ -24,16 +24,17 @@ class Velocileptors(object):
         return options
 
     def set_pklin(self):
+        self.zeff = self.data_block[section_names.survey_geometry,'zeff']
         self.growth_rate = self.data_block[section_names.background,'growth_rate']
-        pklin = self.data_block[section_names.linear_perturbations,'pk_callable']
-        self.klin,self.pklin = pklin['k'],pklin['pk']
+        pklin = self.data_block[section_names.primordial_perturbations,'pk_callable']
+        self.sigma8 = pklin.sigma8_z(self.zeff)
+        self.klin,self.pklin = pklin.k,pklin(pklin.k,z=self.zeff)
+        fo = self.data_block[section_names.primordial_cosmology,'cosmo'].get_fourier()
+        self.growth_rate = fo.sigma8_z(self.zeff,of='theta_cb')/fo.sigma8_z(self.zeff,of='delta_cb')
 
     def set_pknow(self):
-        pknow = PkEHNoWiggle(k=self.klin)
-        kwargs = {par: self.data_block[section_names.cosmological_parameters,par] for par in ['Omega_c','Omega_b', 'h', 'n_s', 'sigma8']}
-        pknow.run(**kwargs)
-        pknow.adjust_to_pk(self.data_block[section_names.linear_perturbations,'pk_callable'])
-        self.pknow = pknow['pk']
+        pklin = self.data_block[section_names.primordial_perturbations,'pk_callable'].to_1d(z=zeff)
+        self.pknow = PowerSpectrumBAOFilter(pklin,engine='wallish2018').pk_smooth_interpolator()(self.klin)
 
     def execute(self):
         pars = []
@@ -42,7 +43,8 @@ class Velocileptors(object):
         opts = {}
         for par in self.optional_params:
             opts[par] = self.data_block.get(section_names.galaxy_bias,par,self.optional_params[par])
-        f = self.data_block.get(section_names.galaxy_rsd,'f',self.growth_rate)
+        fsig = self.data_block.get(section_names.galaxy_rsd,'fsig',self.growth_rate*self.sigma8)
+        f = fsig/self.sigma8
         qpar = self.data_block.get(section_names.effect_ap,'qpar',1.)
         qperp = self.data_block.get(section_names.effect_ap,'qperp',1.)
 

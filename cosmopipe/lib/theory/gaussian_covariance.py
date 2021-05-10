@@ -20,7 +20,7 @@ class GaussianPkCovarianceMatrix(CovarianceMatrix):
         self.projection = DataVectorProjection(k,projs,basemodel='xmu',integration=integration)
         self.attrs = {'shotnoise':shotnoise,'nk':nk}
 
-    def run(self, pk_mu, **kwargs):
+    def compute(self, pk_mu, **kwargs):
         mean = self.projection(pk_mu,concatenate=False)
         covariance = []
 
@@ -37,4 +37,5 @@ class GaussianPkCovarianceMatrix(CovarianceMatrix):
             covariance.append(np.concatenate([np.diag(li) for li in line],axis=-1))
 
         covariance = np.concatenate(covariance,axis=0)
+        covariance = (covariance + covariance.T)/2.
         super(GaussianPkCovarianceMatrix,self).__init__(covariance,x=self.projection.x[0],mean=mean,mapping_proj=self.projection.projnames,**self.attrs)

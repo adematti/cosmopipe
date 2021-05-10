@@ -227,8 +227,8 @@ class CovarianceMatrix(DataVector):
                             file.write('{:{fmt}} {:{fmt}} {:{fmt}}\n'.format(x1,x2,self._cov[ix1,ix2],fmt=fmt))
 
     def plot(self, style='corr', data_styles=None, **kwargs_style):
-        from .plotting import PlotStyle
-        style = PlotStyle(style,data_styles=data_styles,**kwargs_style)
+        from .plotting import DataPlotStyle
+        style = DataPlotStyle(style,data_styles=data_styles,**kwargs_style)
         style.plot(covariance=self)
 
 

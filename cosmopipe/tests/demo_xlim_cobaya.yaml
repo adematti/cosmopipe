@@ -1,12 +1,12 @@
 main:
-  execute: [params, perturbations, background, mpi, plotting]
+  execute: [params, primordial, mpi, plotting]
   #execute: [plotting]
 
 mpi:
   module_name: pypescript
   module_class: BasePipeline
   iter: range(2)
-  nprocs_per_task: 2
+  nprocs_per_task: 1
   execute: [cobaya]
   configblock_iter:
     mockdata.xlim: [{'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.2], 'ell_4': [0.02, 0.2]}, {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}]
@@ -30,16 +30,15 @@ params:
   module_name: cosmopipe.parameters.parameterisation
   common_parameters:
     configblock_load: [cosmological_parameters.yaml, linear_parameters.yaml]
-    background:
-      scale_factor:
-        value: 0.5
+    survey_geometry:
+      zeff:
+        value: 1.0
         fixed: True
 
-perturbations:
-  module_name: cosmopipe.theory.linear_perturbations
-
-background:
-  module_name: cosmopipe.theory.background
+primordial:
+  module_name: cosmopipe.theory.primordial
+  engine: eisenstein_hu
+  compute: pk_m
 
 mockcov:
   module_name: cosmopipe.theory.gaussian_covariance

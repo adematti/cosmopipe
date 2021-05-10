@@ -1,5 +1,4 @@
-numpy
-scipy
 matplotlib
-mpi4py
 tabulate
+pypescript @ git+https://github.com/adematti/pypescript
+cosmoprimo @ git+https://github.com/adematti/cosmoprimo

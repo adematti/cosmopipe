@@ -16,18 +16,18 @@ class EffectAP(BaseClass):
         self.qap = qpar/qperp
         self.qiso = (self.qperp**2*self.qpar)**(1./3.)
 
-    def kmu_scaling(self, k, mu):
+    def kmu_scaling(self, k, mu, grid=True):
         factor_ap = np.sqrt(1+mu**2*(1./self.qap**2-1))
-        k,mu = utils.enforce_shape(k,mu)
+        k,mu = utils.enforce_shape(k,mu,grid=grid)
         # Beutler 2016 (arXiv: 1607.03150v1) eq 44
         kap = k/self.qperp*factor_ap
         # Beutler 2016 (arXiv: 1607.03150v1) eq 45
         muap = mu/self.qap/factor_ap
         return kap,muap
 
-    def pk_mu(self, k, mu=0., **kwargs):
-        kap,muap = self.kmu_scaling(k,mu)
-        return 1./self.qiso**3*self.input_pk_mu(k=kap,mu=muap,**kwargs)
+    def pk_mu(self, k, mu=0., grid=True, **kwargs):
+        kap, muap = self.kmu_scaling(k,mu,grid=grid)
+        return 1./self.qiso**3*self.input_pk_mu(k=kap,mu=muap,grid=False,**kwargs)
 
 
 class IsotropicScaling(BaseClass):

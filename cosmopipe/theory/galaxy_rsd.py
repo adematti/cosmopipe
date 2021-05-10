@@ -6,12 +6,12 @@ from cosmopipe import section_names
 class GalaxyRSD(object):
 
     def setup(self):
-        pass
+        self.sigma_radius = self.options.get('sigma_radius',8.)
 
     def execute(self):
-        f = self.data_block[section_names.background,'growth_rate']
-        sig = self.data_block[section_names.linear_perturbations,'pk_callable'].sigma8()
-        self.data_block[section_names.galaxy_rsd,'fsig'] = f*sig
+        cosmo = self.data_block[section_names.primordial_cosmology,'cosmology']
+        zeff = self.data_block[section_names.survey_geometry,'zeff']
+        self.data_block[section_names.galaxy_rsd,'fsig'] = cosmo.get_fourier().sigma_rz(r=self.sigma_radius,z=zeff)
 
     def cleanup(self):
         pass

@@ -11,15 +11,15 @@ class BaseFoG(BaseClass):
 
 class GaussianFoG(BaseFoG):
 
-    def __call__(self, k, mu, sigmav=0.):
-        k,mu = utils.enforce_shape(k,mu)
+    def __call__(self, k, mu, sigmav=0., grid=True):
+        k,mu = utils.enforce_shape(k,mu,grid=grid)
         return np.exp(-k**2*mu**2*sigmav**2)
 
 
 class LorentzianFoG(BaseFoG):
 
-    def __call__(self, k, mu, sigmav=0.):
-        k,mu = utils.enforce_shape(k,mu)
+    def __call__(self, k, mu, sigmav=0., grid=True):
+        k,mu = utils.enforce_shape(k,mu,grid=grid)
         return 1./(1 + k**2*mu**2*sigmav**2)**2
 
 

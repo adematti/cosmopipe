@@ -1,0 +1,2 @@
+pybird @ https://github.com/pierrexyz/pybird
+velocileptors @ https://github.com/sfschen/velocileptors

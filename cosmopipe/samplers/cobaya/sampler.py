@@ -7,6 +7,7 @@ import numpy as np
 from pypescript import BasePipeline
 
 import cobaya
+cobaya.log.exception_handler = sys.excepthook # deactivate cobaya's exception handler
 from cobaya.model import get_model
 from cobaya.sampler import get_sampler
 from cobaya.mpi import is_main_process, sync_processes
@@ -35,7 +36,6 @@ class CobayaSampler(BasePipeline):
     def execute(self):
         super(CobayaSampler,self).setup()
         cobaya.mpi._mpi_comm = self.mpicomm
-        cobaya.log.exception_handler = sys.excepthook # deactivate cobaya's exception handler
 
         #cobaya.theory.always_stop_exceptions = (Exception,)
         #from cobaya.mpi import get_mpi_comm

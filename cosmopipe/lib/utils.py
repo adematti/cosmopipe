@@ -110,7 +110,8 @@ def _check_inv(mat, invmat, **kwargs):
 
 
 def inv(mat, inv=np.linalg.inv, check=True):
-    if np.isscalar(mat) or isinstance(mat,np.ndarray) and mat.ndim == 0:
+    mat = np.asarray(mat)
+    if mat.ndim == 0:
         return 1./mat
     toret = inv(mat)
     if check:
@@ -199,26 +200,23 @@ def weighted_quantile(x, q, weights=None):
     if weights is None:
         # If no weights provided, this simply calls `np.percentile`.
         return np.quantile(x, q)
-    else:
-        # If weights are provided, compute the weighted quantiles.
-        weights = np.atleast_1d(weights)
-        if len(x) != len(weights):
-            raise ValueError("Dimension mismatch: len(weights) != len(x).")
-        idx = np.argsort(x)  # sort samples
-        sw = weights[idx]  # sort weights
-        cdf = np.cumsum(sw)[:-1]  # compute CDF
-        cdf /= cdf[-1]  # normalize CDF
-        cdf = np.append(0, cdf)  # ensure proper span
-        quantiles = np.interp(q, cdf, x[idx])
-        return quantiles
+
+    # If weights are provided, compute the weighted quantiles.
+    weights = np.atleast_1d(weights)
+    if len(x) != len(weights):
+        raise ValueError("Dimension mismatch: len(weights) != len(x).")
+    idx = np.argsort(x)  # sort samples
+    sw = weights[idx]  # sort weights
+    cdf = np.cumsum(sw)[:-1]  # compute CDF
+    cdf /= cdf[-1]  # normalize CDF
+    cdf = np.append(0, cdf)  # ensure proper span
+    quantiles = np.interp(q, cdf, x[idx])
+    return quantiles
 
 
-def enforce_shape(x,y):
-    if np.isscalar(y):
-        return x,y
-    if x.shape == y.shape:
-        return x,y
-    if (x.shape[-1],) == y.shape:
+def enforce_shape(x, y, grid=True):
+    x,y = np.asarray(x),np.asarray(y)
+    if (not grid) or (x.ndim == 0) or (y.ndim == 0):
         return x,y
     return x[:,None],y
 
