@@ -1,6 +1,0 @@
-effect_ap.qpar 0.9 1.1
-effect_ap.qperp 0.9 1.1
-galaxy_rsd.fsig 0.3 0.5
-galaxy_bias.b1 1.0 2.0
-galaxy_bias.As -1 1
-galaxy_bias.sigmav 1 6

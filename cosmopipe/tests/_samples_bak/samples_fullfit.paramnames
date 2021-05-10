@@ -1,8 +1,0 @@
-cosmological_parameters.Omega_c \Omega_{c}
-cosmological_parameters.Omega_b \Omega_{b}
-cosmological_parameters.h h
-cosmological_parameters.n_s n_s
-cosmological_parameters.sigma8 \sigma_{8}
-galaxy_bias.b1 b_{1}
-galaxy_bias.As A_{s}
-galaxy_bias.sigmav \sigma_{v}
