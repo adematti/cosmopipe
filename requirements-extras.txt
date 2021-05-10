@@ -1,2 +1,3 @@
-pybird @ https://github.com/pierrexyz/pybird
-velocileptors @ https://github.com/sfschen/velocileptors
+cosmoprimo @ git+https://github.com/adematti/cosmoprimo#egg=cosmoprimo[extras]
+pybird @ git+https://github.com/pierrexyz/pybird
+velocileptors @ git+https://github.com/sfschen/velocileptors
