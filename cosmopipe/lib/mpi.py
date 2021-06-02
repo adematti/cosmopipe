@@ -1,4 +1,5 @@
 import atexit
+import random
 
 import numpy as np
 from numpy.core.numeric import normalize_axis_tuple
@@ -16,19 +17,21 @@ def set_common_seed(seed=None, mpicomm=None):
             seed = np.random.randint(0, high=0xffffffff, size=1)
     seed = mpicomm.bcast(seed,root=0)
     np.random.seed(seed)
+    random.seed(int(seed))
     return seed
 
 @CurrentMPIComm.enable
 def bcast_seed(seed=None, mpicomm=None, size=10000):
     if mpicomm.rank == 0:
-        np.random.seed(seed=seed)
-        seed = np.random.randint(0, high=0xffffffff, size=size)
-    return mpicomm.bcast(seed,root=0)
+        seeds = np.random.RandomState(seed=seed).randint(0, high=0xffffffff, size=size)
+    return broadcast_array(seeds if mpicomm.rank == 0 else None,root=0,mpicomm=mpicomm)
 
 @CurrentMPIComm.enable
 def set_independent_seed(seed=None, mpicomm=None, size=10000):
-    seed = bcast_seed(seed=seed,mpicomm=mpicomm,size=size)
-    return seed[mpicomm.rank]
+    seed = bcast_seed(seed=seed,mpicomm=mpicomm,size=size)[mpicomm.rank]
+    np.random.seed(seed)
+    random.seed(int(seed))
+    return seed
 
 
 class MPIPool(object):
@@ -46,7 +49,7 @@ class MPIPool(object):
     """
 
     @CurrentMPIComm.enable
-    def __init__(self, mpicomm=None):
+    def __init__(self, mpicomm=None, check_tasks=False):
 
         self.mpicomm = MPI.COMM_WORLD if mpicomm is None else mpicomm
 
@@ -63,6 +66,7 @@ class MPIPool(object):
         self.workers = set(range(self.mpicomm.size))
         self.workers.discard(self.master)
         self.size = self.mpicomm.Get_size() - 1
+        self.check_tasks = check_tasks
 
         if self.size == 0:
             raise ValueError("Tried to create an MPI pool, but there "
@@ -118,6 +122,15 @@ class MPIPool(object):
         #    self.wait()
         #    return
         results = None
+        tasks = list(tasks)
+
+        # check
+        if self.check_tasks:
+            alltasks = self.mpicomm.allgather(tasks)
+            tasks = np.array(alltasks[self.master])
+            for t in alltasks:
+                if t is not None and not np.all(np.array(t) == tasks):
+                    raise ValueError('Something fishy: not the same input tasks on all ranks')
 
         if self.is_master():
 
@@ -401,11 +414,11 @@ def sort_array(data, axis=-1, kind=None, mpicomm=None):
     if axis != 0:
         return toret
 
-    gathered = gather_array(toret,root=0)
+    gathered = gather_array(toret,root=0,mpicomm=mpicomm)
     toret = None
     if mpicomm.rank == 0:
         toret = np.sort(gathered,axis=axis,kind=kind)
-    return scatter_array(toret,root=0)
+    return scatter_array(toret,root=0,mpicomm=mpicomm)
 
     """
     # Algorithms below are slower than the serial implementation on my laptop + they would need array padding, etc. Drop it for now.
@@ -438,11 +451,11 @@ def sort_array(data, axis=-1, kind=None, mpicomm=None):
 @CurrentMPIComm.enable
 def quantile_array(data, q, axis=None, overwrite_input=False, interpolation='linear', keepdims=False, mpicomm=None):
     if axis is None or 0 in normalize_axis_tuple(axis,data.ndim):
-        gathered = gather_array(data,root=0)
+        gathered = gather_array(data,root=0,mpicomm=mpicomm)
         toret = None
         if mpicomm.rank == 0:
             toret = np.quantile(gathered,q,axis=axis,overwrite_input=overwrite_input,keepdims=keepdims)
-        return broadcast_array(toret,root=0)
+        return broadcast_array(toret,root=0,mpicomm=mpicomm)
     return np.quantile(data,q,axis=axis,overwrite_input=overwrite_input,keepdims=keepdims)
 
 
@@ -451,12 +464,12 @@ def weighted_quantile_array(data, q, weights=None, mpicomm=None):
     # TODO extend to other axes
     axis = 0
     if axis is None or 0 in normalize_axis_tuple(axis,data.ndim):
-        gathered = gather_array(data,root=0)
-        weights = gather_array(weights,root=0)
+        gathered = gather_array(data,root=0,mpicomm=mpicomm)
+        weights = gather_array(weights,root=0,mpicomm=mpicomm)
         toret = None
         if mpicomm.rank == 0:
             toret = utils.weighted_quantile(gathered,q,weights=weights)
-        return broadcast_array(toret,root=0)
+        return broadcast_array(toret,root=0,mpicomm=mpicomm)
     return utils.weighted_quantile(data,q,weights=weights)
 
 
@@ -587,13 +600,17 @@ def var_array(a, axis=-1, fweights=None, aweights=None, ddof=0, mpicomm=None):
 
 
 @CurrentMPIComm.enable
+def std_array(*args, **kwargs):
+    return np.sqrt(var_array(*args,**kwargs))
+
+
+@CurrentMPIComm.enable
 def cov_array(m, y=None, ddof=1, rowvar=True, fweights=None, aweights=None, dtype=None, mpicomm=None):
     # scatter axis is data second axis
     # data (nobs, ndim)
     # Check inputs
     if ddof is not None and ddof != int(ddof):
-        raise ValueError(
-            "ddof must be integer")
+        raise ValueError("ddof must be integer")
 
     # Handles complex arrays too
     m = np.asarray(m)

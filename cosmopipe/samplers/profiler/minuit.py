@@ -4,7 +4,7 @@ import logging
 
 import numpy as np
 import iminuit
-from pypescript import BasePipeline
+from pypescript import BasePipeline, syntax
 from pypescript.config import ConfigError
 
 from cosmopipe import section_names
@@ -20,48 +20,62 @@ class MinuitProfiler(BasePipeline):
         self.minuit_params = self.options.get('minuit',{})
         self.migrad_params = self.options.get('migrad',{})
         self.minos_params = self.options.get('minos',{})
-        self.iter = self.options.get('iter',None)
-        self.torun = self.options.get('torun',['migrad'])
+        self.torun = self.options.get('torun',None)
+        if self.torun is None:
+            self.torun = []
+            for torun in ['migrad','minos']:
+                if getattr(self,'{}_params'.format(torun)):
+                    self.torun.append(torun)
+        self.n_iterations = self.migrad_params.pop('n_iterations',None)
+        self.max_tries = self.options.get('max_tries',10000)
         self.save = self.options.get('save',False)
         self.seed = self.options.get('seed',None)
         self.profiles_key = self.options.get('profiles_key',None)
         if self.profiles_key is not None:
-            self.profiles_key = utils.split_section_name(self.profiles_key)
-            if len(self.profiles_key) == 1:
-                self.profiles_key = (section_names.likelihood,) + self.profiles_key
+            self.profiles_key = syntax.split_sections(self.profiles_key,default_section=section_names.likelihood)
 
     def execute(self):
         super(MinuitProfiler,self).setup()
         minuit_params = self.minuit_params.copy()
-        self.parameter_names = []
-        parameters = self.pipe_block[section_names.parameters,'list']
-        for param in parameters:
-            self.parameter_names.append(str(param.name))
-        minuit_params['name'] = self.parameter_names
-        self._data_block = self.data_block
-        self.data_block = BasePipeline.mpi_distribute(self.data_block.copy(),dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
-        chi2 = get_cosmopipe_chi2(self)
-        minuit = iminuit.Minuit(chi2,**get_minuit_values(parameters,sample=False),**minuit_params)
-        minuit.errordef = 1.0
-        for key,val in get_minuit_fixed(parameters).items(): minuit.fixed[key] = val
-        for key,val in get_minuit_limits(parameters).items(): minuit.limits[key] = val
-        for key,val in get_minuit_errors(parameters).items(): minuit.errors[key] = val
+        self.parameters = self.pipe_block[section_names.parameters,'list']
+        minuit_params['name'] = parameter_names = [str(param.name) for param in self.parameters]
+        self._data_block = self.data_block.copy().mpi_distribute(dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
 
-        profiles = Profiles(parameters=parameters)
+        minuit = iminuit.Minuit(self.chi2,**dict(zip(parameter_names,[param.value for param in self.parameters])),**minuit_params)
+        minuit.errordef = 1.0
+        for key,val in get_minuit_fixed(self.parameters).items(): minuit.fixed[key] = val
+        for key,val in get_minuit_limits(self.parameters).items(): minuit.limits[key] = val
+        for key,val in get_minuit_errors(self.parameters).items(): minuit.errors[key] = val
+
+        profiles = Profiles(parameters=self.parameters)
         if 'migrad' in self.torun:
-            if self.iter is None:
-                self.iter = self.mpicomm.size
-            seeds = mpi.bcast_seed(self.seed,mpicomm=self.mpicomm)[:self.iter]
+            if self.n_iterations is None:
+                self.n_iterations = self.mpicomm.size
+            seeds = mpi.bcast_seed(self.seed,mpicomm=self.mpicomm,size=self.n_iterations)
 
             def get_result(seed):
                 np.random.seed(seed)
-                for key,val in get_minuit_values(parameters,sample=True).items(): minuit.values[key] = val
+                correct_init = False
+                itry = 0
+                while itry < self.max_tries:
+                    values = get_minuit_values(self.parameters,sample=True)
+                    for key,value in zip(parameter_names,values):
+                        minuit.values[key] = value
+                    itry += 1
+                    if np.isfinite(self.chi2(*values)):
+                        correct_init = True
+                        break
+                if not correct_init:
+                    raise ValueError('Could not find finite log posterior after {:d} calls'.format(self.max_tries))
                 result = {}
-                result['init'] = {par:minuit.values[par] for par in self.parameter_names}
+                result['init'] = {par:minuit.values[par] for par in parameter_names}
                 minuit.migrad(**self.migrad_params)
-                result['metrics'] = {'minchi2':minuit.fval}
-                result['bestfit'] = {par:minuit.values[par] for par in self.parameter_names}
-                result['parabolic_errors'] = {par:minuit.errors[par] for par in self.parameter_names}
+                loglkl = self.pipe_block[section_names.likelihood,'loglkl']
+                logposterior = minuit.fval/(-2.)
+                logprior = logposterior - loglkl
+                result['metrics'] = {'fval':minuit.fval,'loglkl':loglkl,'logprior':logprior,'logposterior':logposterior}
+                result['bestfit'] = {par:minuit.values[par] for par in parameter_names}
+                result['parabolic_errors'] = {par:minuit.errors[par] for par in parameter_names}
                 result['covariance'] = np.array(minuit.covariance)
                 return result
 
@@ -89,7 +103,7 @@ class MinuitProfiler(BasePipeline):
             if 'parameters' in self.minos_params:
                 parameters = self.minos_params.pop('parameters')
             else:
-                parameters = [par for par in self.parameter_names if not minuit.fixed[par]]
+                parameters = [par for par in parameter_names if not minuit.fixed[par]]
 
             values = []
             def get_errors(param):
@@ -101,22 +115,34 @@ class MinuitProfiler(BasePipeline):
 
             profiles.set_deltachi2_errors({param:value for param,value in zip(parameters,values)})
 
-        self.data_block = self._data_block
         self.data_block[section_names.likelihood,'profiles'] = profiles
-        if self.save:
-            profiles.save(self.save)
+        if self.save: profiles.save_auto(self.save)
+
+    def chi2(self, *values):
+        logprior = 0
+        self.pipe_block = self._data_block.copy()
+        for param,value in zip(self.parameters,values):
+            logprior += param.prior(value)
+        if np.isinf(logprior):
+            return logprior
+        for param,value in zip(self.parameters,values):
+            self.pipe_block[param.name.tuple] = value
+        for todo in self.execute_todos:
+            todo()
+        return -2.*(self.pipe_block[section_names.likelihood,'loglkl'] + logprior)
 
     def cleanup(self):
         pass
 
 
 def get_minuit_values(parameters, sample=True):
-    toret = {}
+    toret = []
     for param in parameters:
         name = str(param.name)
-        toret[name] = param.value
         if sample and (not param.fixed) and param.ref.is_proper():
-            toret[name] = param.ref.sample()
+            toret.append(param.ref.sample())
+        else:
+            toret.append(param.value)
     return toret
 
 
@@ -142,20 +168,3 @@ def get_minuit_limits(parameters):
     for param in parameters:
         toret[str(param.name)] = tuple(None if np.isinf(lim) else lim for lim in param.prior.limits)
     return toret
-
-
-def get_cosmopipe_chi2(self):
-
-    def chi2(*args):
-        self.pipe_block = self.data_block.copy()
-        prior = 0
-        for iparam,param in enumerate(self.pipe_block[section_names.parameters,'list']):
-            self.pipe_block[param.name.tuple] = args[iparam]
-            prior += param.prior(args[iparam],norm=False)
-        if np.isinf(prior):
-            return np.inf
-        for todo in self.execute_todos:
-            todo()
-        return -2.*(self.pipe_block[section_names.likelihood,'loglkl'] + prior)
-
-    return chi2

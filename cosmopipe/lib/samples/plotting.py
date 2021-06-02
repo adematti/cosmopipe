@@ -46,12 +46,11 @@ def get_color_sequence(colors, ncolors=1, lighten=-0.5):
 
 def plot_samples_1d(ax, samples, parameter, normalise='max', method='gaussian_kde', bins=60, **kwargs):
     ax.set_ylim(bottom=0)
-    samples.add_default_weight()
     if not isinstance(samples,Mesh):
-        mesh = samples.to_mesh(parameters=[parameter],method=method,bins=bins)
+        mesh = samples.to_mesh([parameter],method=method,bins=bins)
     else:
         mesh = samples
-    x,pdf = mesh(parameters=[parameter])
+    x,pdf = mesh([parameter])
     if normalise == 'max': pdf /= pdf.max()
     if method == 'histo':
         ax.hist(x,bins=mesh.edges[0],weights=pdf,density=False,**kwargs)
@@ -64,11 +63,14 @@ def plot_samples_2d(ax, samples, parameters, sigmas=2, method='gaussian_kde', sc
         ax.scatter(samples[parameters[0]],samples[parameters[1]],**kwargs)
         if scatter == 'only': return
     if not isinstance(samples,Mesh):
-        mesh = samples.to_mesh(parameters=parameters,method=method,bins=bins)
+        mesh = samples.to_mesh(parameters,method=method,bins=bins)
     else:
         mesh = samples
     levels = mesh.get_sigmas(sigmas)
-    (x,y),pdf = mesh(parameters=parameters)
+    for ilevel,level in enumerate(levels):
+        if level is None:
+            levels = levels[:ilevel]
+    (x,y),pdf = mesh(parameters)
     if colors is not None:
         colors = get_color_sequence(colors,ncolors=len(levels),lighten=lighten)
     if fill:
@@ -128,151 +130,6 @@ def plot_normal_2d(ax, mean=None, covariance=None, sigmas=2, **kwargs):
     plot_contour_2d(ax, contours, **kwargs)
 
 
-def univariate_gelman_rubin(chains):
-    """
-    http://www.stat.columbia.edu/~gelman/research/published/brooksgelman2.pdf
-    dim 0: nchains
-    dim 1: nsteps
-    """
-    nchains = len(chains)
-    mean = np.asarray([np.mean(chain,axis=0) for chain in chains])
-    variance = np.asarray([np.var(chain,ddof=1,axis=0) for chain in chains])
-    nsteps = np.asarray([len(chain) for chain in chains])
-    Wn1 = np.mean(variance)
-    Wn = np.mean((nsteps-1.)/nsteps*variance)
-    B = np.var(mean,ddof=1)
-    V = Wn + (nchains+1.)/nchains*B
-    return V/Wn1
-
-
-def multivariate_gelman_rubin(chains):
-    """
-    http://www.stat.columbia.edu/~gelman/research/published/brooksgelman2.pdf
-    dim 0: nchains
-    dim 1: nsteps
-    dim 2: ndim
-    """
-    nchains = len(chains)
-    mean = np.asarray([np.mean(chain,axis=0) for chain in chains])
-    variance = np.asarray([np.cov(chain.T,ddof=1) for chain in chains])
-    nsteps = np.asarray([len(chain) for chain in chains])
-    Wn1 = np.mean(variance,axis=0)
-    Wn = np.mean(((nsteps-1.)/nsteps)[:,None,None]*variance,axis=0)
-    B = np.cov(mean.T,ddof=1)
-    V = Wn + (nchains+1.)/nchains*B
-    invWn1 = np.linalg.inv(Wn1)
-    assert np.absolute(Wn1.dot(invWn1)-np.eye(Wn1.shape[0])).max() < 1e-5
-    eigen = np.linalg.eigvalsh(invWn1.dot(V))
-    return eigen.max()
-
-
-def autocorrelation_1d(x):
-    """Estimate the normalized autocorrelation function of a 1-D series
-
-    Args:
-        x: The series as a 1-D numpy array.
-
-    Returns:
-        array: The autocorrelation function of the time series.
-
-    Taken from: https://github.com/dfm/emcee/blob/master/emcee/autocorr.py
-    """
-    from numpy import fft
-    x = np.atleast_1d(x)
-    if len(x.shape) != 1:
-        raise ValueError("invalid dimensions for 1D autocorrelation function")
-
-    def next_pow_two(n):
-        """Returns the next power of two greater than or equal to `n`"""
-        i = 1
-        while i < n:
-            i = i << 1
-        return i
-    n = next_pow_two(len(x))
-
-    # Compute the FFT and then (from that) the auto-correlation function
-    f = fft.fft(x - np.mean(x), n=2*n)
-    acf = fft.ifft(f * np.conjugate(f))[:len(x)].real
-
-    acf /= acf[0]
-    return acf
-
-
-def integrated_autocorrelation_time(x, c=5, tol=50, quiet=False):
-    """Estimate the integrated autocorrelation time of a time series.
-
-    This estimate uses the iterative procedure described on page 16 of
-    `Sokal's notes <http://www.stat.unc.edu/faculty/cji/Sokal.pdf>`_ to
-    determine a reasonable window size.
-
-    Args:
-        x: The time series. If multidimensional, set the time axis using the
-            ``axis`` keyword argument and the function will be computed for
-            every other axis.
-        c (Optional[float]): The step size for the window search. (default:
-            ``5``)
-        tol (Optional[float]): The minimum number of autocorrelation times
-            needed to trust the estimate. (default: ``50``)
-        quiet (Optional[bool]): This argument controls the behavior when the
-            chain is too short. If ``True``, give a warning instead of raising
-            an :class:`AutocorrError`. (default: ``False``)
-
-    Returns:
-        float or array: An estimate of the integrated autocorrelation time of
-            the time series ``x`` computed along the axis ``axis``.
-
-    Raises
-        ValueError: If the autocorrelation time can't be reliably estimated
-            from the chain and ``quiet`` is ``False``. This normally means
-            that the chain is too short.
-
-    Taken from: https://github.com/dfm/emcee/blob/master/emcee/autocorr.py
-    """
-    x = np.atleast_1d(x)
-    if len(x.shape) == 1:
-        x = x[:, np.newaxis, np.newaxis]
-    if len(x.shape) == 2:
-        x = x[:, :, np.newaxis]
-    if len(x.shape) != 3:
-        raise ValueError("Invalid dimensions")
-
-    n_t, n_w, n_d = x.shape
-    tau_est = np.empty(n_d)
-    windows = np.empty(n_d, dtype=int)
-
-    def auto_window(taus, c):
-        m = np.arange(len(taus)) < c * taus
-        if np.any(m):
-            return np.argmin(m)
-        return len(taus) - 1
-
-    # Loop over parameters
-    for d in range(n_d):
-        f = np.zeros(n_t)
-        for k in range(n_w):
-            f += autocorrelation_1d(x[:, k, d])
-        f /= n_w
-        taus = 2.0*np.cumsum(f)-1.0
-        windows[d] = auto_window(taus, c)
-        tau_est[d] = taus[windows[d]]
-
-    # Check convergence
-    flag = tol * tau_est > n_t
-
-    # Warn or raise in the case of non-convergence
-    if np.any(flag):
-        msg = (
-            "The chain is shorter than {:d} times the integrated "
-            "autocorrelation time for {:d} parameter(s). Use this estimate "
-            "with caution and run a longer chain!\n"
-        ).format(tol, np.sum(flag))
-        msg += "N/{:d} = {:.0f};\ntau: {}".format(tol,n_t*1./tol,tau_est)
-        if not quiet: raise ValueError(msg)
-        logger.warning(msg)
-
-    return tau_est
-
-
 def make_list(obj, length=1):
     if isinstance(obj,tuple):
         return list(obj)
@@ -310,12 +167,6 @@ class ListPlotStyle(plotting.BasePlotStyle):
         return make_list(value,length=len(default) if default is not None else 1)
 
     @staticmethod
-    def _get_default_parameters(parameters, samples):
-        if parameters is None:
-            parameters = samples.parameters.select(fixed=False)
-        return parameters
-
-    @staticmethod
     def get_parameters(parameters, chains=None):
         isscalar = not isinstance(parameters,(tuple,list,ParamBlock))
         if isscalar:
@@ -338,7 +189,7 @@ class ListPlotStyle(plotting.BasePlotStyle):
             return toret[0]
         return toret
 
-    def _get_default_truths(self, truths, parameters):
+    def get_default_truths(self, truths, parameters):
         isscalar = not isinstance(parameters,(tuple,list,ParamBlock))
         if isscalar:
             truths = [truths]
@@ -375,12 +226,18 @@ class SamplesPlotStyle(ListPlotStyle):
         self.filename = None
         self.update(**kwargs)
 
+    @staticmethod
+    def get_default_parameters(parameters, samples):
+        if parameters is None:
+            parameters = samples.columns(fixed=False)
+        return parameters
+
     def plot_1d(self, chains=None, parameter=None, labels=None, truth=None, ax=None, filename=None):
         tosave = ax is None
         if tosave: ax = plt.gca()
         chains = self.get_list('chains',chains)
         parameter = self.get_parameters(parameter,chains=chains)
-        truth = self._get_default_truths(truth,parameter)
+        truth = self.get_default_truths(truth,parameter)
         labels = self.get_list('labels',labels,[getattr(chain,'name',None) for chain in chains])
         add_legend = any(label is not None for label in labels)
         for ichain,(chain,label) in enumerate(zip(chains,labels)):
@@ -405,7 +262,7 @@ class SamplesPlotStyle(ListPlotStyle):
         if tosave: ax = plt.gca()
         chains = self.get_list('chains',chains)
         parameters = self.get_parameters(parameters,chains=chains)
-        truths = self._get_default_truths(truths,parameters)
+        truths = self.get_default_truths(truths,parameters)
         labels = self.get_list('labels',labels,[getattr(chain,'name',None) for chain in chains])
         fills = self.get_list('fills',default=[True]*len(chains))
         handles = []
@@ -427,9 +284,9 @@ class SamplesPlotStyle(ListPlotStyle):
 
     def plot_corner(self, chains=None, parameters=None, labels=None, truths=None, filename=None):
         chains = self.get_list('chains',chains)
-        parameters = self._get_default_parameters(parameters,chains[0])
+        parameters = self.get_default_parameters(parameters,chains[0])
         parameters = self.get_parameters(parameters,chains=chains)
-        truths = self._get_default_truths(truths,parameters)
+        truths = self.get_default_truths(truths,parameters)
         labels = self.get_list('labels',labels,[getattr(chain,'name',None) for chain in chains])
         handles = []
         add_legend = any(label is not None for label in labels)
@@ -482,10 +339,10 @@ class SamplesPlotStyle(ListPlotStyle):
         return fig,dax
 
     def plot_chain(self, chain, parameters=None, filename=None):
-        parameters = self._get_default_parameters(parameters,chain)
+        parameters = self.get_default_parameters(parameters,chain)
         parameters = self.get_parameters(parameters,chains=chain)
         nparams = len(parameters)
-        steps = 1 + np.arange(len(chain))
+        steps = 1 + np.arange(chain.gsize)
         figsize = self.figsize or (8,1.5*nparams)
         fig,lax = plt.subplots(nparams,sharex=True,sharey=False,figsize=figsize,squeeze=False)
         lax = lax.flatten()
@@ -494,7 +351,7 @@ class SamplesPlotStyle(ListPlotStyle):
             ax.grid(True)
             ax.tick_params(labelsize=self.labelsize)
             ax.set_ylabel(param.get_label(),fontsize=self.labelsize)
-            ax.plot(steps,chain[param],color='k')
+            ax.plot(steps,chain.gget(param),color='k')
 
         lax[-1].set_xlabel('step',fontsize=self.labelsize)
         filename = filename or self.filename
@@ -503,16 +360,17 @@ class SamplesPlotStyle(ListPlotStyle):
 
     def plot_gelman_rubin(self, chains=None, parameters=None, multivariate=False, threshold=1.1, slices=None, ax=None, filename=None):
         chains = self.get_list('chains',chains)
-        parameters = self._get_default_parameters(parameters,chains[0])
+        parameters = self.get_default_parameters(parameters,chains[0])
         parameters = self.get_parameters(parameters,chains=chains)
         if slices is None:
-            nsteps = np.amin([len(chain) for chain in chains])
+            nsteps = np.amin([chain.gsize for chain in chains])
             slices = np.arange(100,nsteps,500)
         gr_multi = []
         gr = {param.name:[] for param in parameters}
         for end in slices:
-            if multivariate: gr_multi.append(multivariate_gelman_rubin([np.asarray([chain[param.name][:end] for param in parameters]).T for chain in chains]))
-            for param in gr: gr[param].append(univariate_gelman_rubin([chain[param][:end] for chain in chains]))
+            chains_ = [chain.gslice(end) for chain in chains]
+            if multivariate: gr_multi.append(Samples.gelman_rubin(chains_,parameters,method='eigen').max())
+            for param in gr: gr[param].append(Samples.gelman_rubin(chains_,param,method='diag'))
         for param in gr: gr[param] = np.asarray(gr[param])
 
         if ax is None: ax = plt.gca()
@@ -533,16 +391,19 @@ class SamplesPlotStyle(ListPlotStyle):
 
     def plot_autocorrelation_time(self, chains=None, parameters=None, threshold=50, slices=None, ax=None, filename=None):
         chains = self.get_list('chains',chains)
-        parameters = self._get_default_parameters(parameters,chains[0])
+        parameters = self.get_default_parameters(parameters,chains[0])
         parameters = self.get_parameters(parameters,chains=chains)
         if slices is None:
-            nsteps = np.amin([len(chain) for chain in chains])
+            nsteps = np.amin([chain.gsize for chain in chains])
             slices = np.arange(100,nsteps,500)
 
         autocorr = {param.name:[] for param in parameters}
+        weights = [chain.sum('metrics.weight') for chain in chains]
         for end in slices:
+            chains_ = [chain.gslice(end) for chain in chains]
             for param in autocorr:
-                autocorr[param].append(integrated_autocorrelation_time(np.asarray([chain[param][:end] for chain in chains]).T,tol=0))
+                tmp = Samples.integrated_autocorrelation_time(chains,param)
+                autocorr[param].append(tmp)
         for param in autocorr: autocorr[param] = np.asarray(autocorr[param])
 
         if ax is None: ax = plt.gca()
@@ -595,6 +456,11 @@ class ProfilesPlotStyle(ListPlotStyle):
         self.kwticklabel = {'scilimits':(-3,3)}
         self.update(**kwargs)
 
+    @staticmethod
+    def get_default_parameters(parameters, profiles):
+        if parameters is None:
+            parameters = profiles.parameters.select(fixed=False)
+        return parameters
 
     def plot_aligned(self, profiles=None, parameter=None, ids=None, labels=None, truth=None, yband=None, ax=None, filename=None):
 
@@ -602,7 +468,7 @@ class ProfilesPlotStyle(ListPlotStyle):
         if tosave: ax = plt.gca()
         profiles = self.get_list('profiles',profiles)
         parameter = self.get_parameters(parameter,chains=profiles)
-        truth = self._get_default_truths(truth,parameter)
+        truth = self.get_default_truths(truth,parameter)
         if ids is None: ids = [None] * len(profiles)
         maxpoints = max(map(len,profiles))
         labels = self.get_list('labels',labels,[None]*maxpoints)
@@ -645,8 +511,8 @@ class ProfilesPlotStyle(ListPlotStyle):
     def plot_aligned_stacked(self, profiles=None, parameters=None, ids=None, labels=None, truths=None, ybands=None, ylimits=None, filename=None):
 
         profiles = self.get_list('profiles',profiles)
-        parameters = self._get_default_parameters(parameters,profiles[0])
-        truths = self._get_default_truths(truths,parameters)
+        parameters = self.get_default_parameters(parameters,profiles[0])
+        truths = self.get_default_truths(truths,parameters)
         ybands = self.get_list('ybands',ybands,[None]*len(parameters))
         ylimits = self.get_list('ylimits',ylimits,[None]*len(parameters))
         maxpoints = max(map(len,profiles))
@@ -679,7 +545,7 @@ class ProfilesPlotStyle(ListPlotStyle):
             return profiles
 
         def to_samples(profiles, parameters):
-            parameters = self._get_default_parameters(parameters,profiles[0])
+            parameters = self.get_default_parameters(parameters,profiles[0])
             toret = Profiles.to_samples(profiles,parameters=parameters,name='bestfit',select=select)
             if residual:
                 for iparam,param in enumerate(parameters):
@@ -710,7 +576,7 @@ class ProfilesPlotStyle(ListPlotStyle):
         return parameter.get_label()
 
     def plot_1d(self, profiles=None, parameter=None, select='best', residual='parabolic_errors', truth=None, filename=None, **kwargs):
-        truths = [self._get_default_truths(truth,parameter)]
+        truths = [self.get_default_truths(truth,parameter)]
         chains = self._profiles_to_samples(profiles=profiles,parameters=[parameter],select=select,residual=residual,truths=truths)
         parameter = self.get_parameters(parameter,chains=chains)
         ax = SamplesPlotStyle.plot_1d(self,chains,parameter=parameter,**kwargs)
@@ -725,7 +591,7 @@ class ProfilesPlotStyle(ListPlotStyle):
         return ax
 
     def plot_2d(self, profiles=None, parameters=None, select='best', residual='parabolic_errors', truths=None, filename=None, **kwargs):
-        truths = self._get_default_truths(truths,parameters)
+        truths = self.get_default_truths(truths,parameters)
         chains = self._profiles_to_samples(profiles=profiles,parameters=parameters,select=select,residual=residual,truths=truths)
         parameters = self.get_parameters(parameters,chains=chains)
         ax = SamplesPlotStyle.plot_2d(self,chains,parameters=parameters,**kwargs)
@@ -736,6 +602,6 @@ class ProfilesPlotStyle(ListPlotStyle):
         return ax
 
     def plot_corner(self, profiles=None, parameters=None, select='best', residual='parabolic_errors', truths=None, **kwargs):
-        truths = self._get_default_truths(truths,parameters)
+        truths = self.get_default_truths(truths,parameters)
         chains = self._profiles_to_samples(profiles=profiles,parameters=parameters,select=select,residual=residual,truths=truths)
         return SamplesPlotStyle.plot_corner(self,chains,parameters=parameters,**kwargs)

@@ -199,6 +199,17 @@ class DataVector(BaseClass):
         return attrs
 
     @classmethod
+    def load_auto(cls, filename, *args, **kwargs):
+        if os.path.splitext(filename)[-1] == '.txt':
+            return cls.load_txt(filename,*args,**kwargs)
+        return cls.load(filename,*args,**kwargs)
+
+    def save_auto(self, filename, *args, **kwargs):
+        if os.path.splitext(filename)[-1] == '.txt':
+            return self.save_txt(filename,*args,**kwargs)
+        return self.save(filename)
+
+    @classmethod
     def load_txt(cls, filename, mapping_header=None, xdim=None, comments='#', usecols=None, skip_rows=0, max_rows=None, **attrs):
 
         cls.log_info('Loading {}.'.format(filename),rank=0)

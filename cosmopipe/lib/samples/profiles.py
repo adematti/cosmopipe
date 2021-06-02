@@ -2,7 +2,6 @@ import os
 import logging
 
 import numpy as np
-import tabulate
 
 from cosmopipe.lib.utils import BaseClass
 from cosmopipe.lib import utils
@@ -117,10 +116,10 @@ class Profiles(BaseClass):
         self.covariance = ParamCovariance(mat,parameters=parameters if parameters is not None else self.parameters)
 
     def argmin(self):
-        return self.metrics['minchi2'].argmin()
+        return self.metrics['fval'].argmin()
 
     def ntries(self):
-        return len(self.metrics['minchi2'])
+        return len(self.metrics['fval'])
 
     def get(self, name):
         return getattr(self,name)
@@ -172,11 +171,14 @@ class Profiles(BaseClass):
         for param in parameters:
             if select == 'best':
                 samples[param] = np.array([prof.get(name)[param][prof.argmin()] for prof in profiles])
-                samples['metrics.logposterior'] = -0.5*np.array([prof.metrics['minchi2'][prof.argmin()] for prof in profiles])
+                for metrics in ['loglkl','logprior','logposterior']:
+                    if metrics in prof.metrics:
+                        samples['metrics.{}'.format(metrics)] = np.array([prof.metrics[metrics][prof.argmin()] for prof in profiles])
         return samples
 
 
     def to_stats(self, parameters=None, quantities=None, sigfigs=2, tablefmt='latex_raw', filename=None):
+        import tabulate
         if parameters is None: parameters = self.parameters
         data = []
         if quantities is None: quantities = [quantity for quantity in ['bestfit','parabolic_errors','deltachi2_errors'] if self.has(quantity)]
@@ -205,8 +207,10 @@ class Profiles(BaseClass):
                 else:
                     raise RuntimeError('Unknown quantity {}.'.format(quantity))
             data.append(row)
-        chi2min = '{:.2f}'.format(self.metrics['minchi2'][argmin])
-        headers = [('$\chi^{{2}} = {}$' if is_latex else 'chi2 = {}').format(chi2min)]
+        headers = []
+        if 'loglkl' in self.metrics:
+            chi2min = '{:.2f}'.format(-2.*self.metrics['loglkl'][argmin])
+            headers += [('$\chi^{{2}} = {}$' if is_latex else 'chi2 = {}').format(chi2min)]
         headers += [quantity.replace('_',' ') for quantity in quantities]
         tab = tabulate.tabulate(data,headers=headers,tablefmt=tablefmt)
         if filename and self.is_mpi_root():

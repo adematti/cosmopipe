@@ -25,7 +25,6 @@ class Velocileptors(object):
 
     def set_pklin(self):
         self.zeff = self.data_block[section_names.survey_geometry,'zeff']
-        self.growth_rate = self.data_block[section_names.background,'growth_rate']
         pklin = self.data_block[section_names.primordial_perturbations,'pk_callable']
         self.sigma8 = pklin.sigma8_z(self.zeff)
         self.klin,self.pklin = pklin.k,pklin(pklin.k,z=self.zeff)
@@ -33,8 +32,8 @@ class Velocileptors(object):
         self.growth_rate = fo.sigma8_z(self.zeff,of='theta_cb')/fo.sigma8_z(self.zeff,of='delta_cb')
 
     def set_pknow(self):
-        pklin = self.data_block[section_names.primordial_perturbations,'pk_callable'].to_1d(z=zeff)
-        self.pknow = PowerSpectrumBAOFilter(pklin,engine='wallish2018').pk_smooth_interpolator()(self.klin)
+        pklin = self.data_block[section_names.primordial_perturbations,'pk_callable'].to_1d(z=self.zeff)
+        self.pknow = PowerSpectrumBAOFilter(pklin,engine='wallish2018').smooth_pk_interpolator()(self.klin)
 
     def execute(self):
         pars = []

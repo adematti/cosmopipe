@@ -14,7 +14,7 @@ from cobaya.mpi import is_main_process, sync_processes
 from cobaya.log import LoggedError
 
 from cosmopipe import section_names
-from cosmopipe.lib import Samples, mpi, utils, setup_logging
+from cosmopipe.lib import Samples, mpi, utils
 from .likelihood import CosmopipeLikelihood
 
 
@@ -30,18 +30,18 @@ class CobayaSampler(BasePipeline):
         self.cobaya_requirements = self.options.get_list('requirements',[])
         self.seed = self.options.get('seed',None)
         self.save = self.options.get('save',False)
-        self.save_cosmomc = self.options.get('save_cosmomc',False)
         self.extra_output = self.options.get_string('extra_output','').split()
 
     def execute(self):
         super(CobayaSampler,self).setup()
-        cobaya.mpi._mpi_comm = self.mpicomm
+        cobaya.mpi._mpi_comm = mpicomm = self.mpicomm
 
         #cobaya.theory.always_stop_exceptions = (Exception,)
         #from cobaya.mpi import get_mpi_comm
-        #print(self.mpicomm,get_mpi_comm())
+        #print(mpicomm,get_mpi_comm())
         self.cobaya_params, self.cosmopipe_params = {},{}
-        for param in self.pipe_block[section_names.parameters,'list']:
+        self.parameters = self.pipe_block[section_names.parameters,'list']
+        for param in self.parameters:
             name = str(param.name)
             param = get_cobaya_parameter(param)
             if (name in CosmopipeLikelihood.renames) and self.cobaya_requirements:
@@ -60,11 +60,12 @@ class CobayaSampler(BasePipeline):
         info['theory'] = self.options.get('theory',{})
 
         if self.cobaya_sampler_name == 'mcmc':
-            mpi.set_independent_seed(seed=self.seed,mpicomm=self.mpicomm)
+            mpi.set_independent_seed(seed=self.seed,mpicomm=mpicomm)
         else:
-            mpi.set_common_seed(seed=self.seed,mpicomm=self.mpicomm)
+            mpi.set_common_seed(seed=self.seed,mpicomm=mpicomm)
         self._data_block = self.data_block
-        self.data_block = BasePipeline.mpi_distribute(self.data_block.copy(),dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
+        # now mpicomm is mpi.COMM_SELF, use mpicomm!
+        self.data_block = self.data_block.copy().mpi_distribute(dests=range(mpicomm.size),mpicomm=mpi.COMM_SELF)
 
         success = False
         try:
@@ -74,27 +75,27 @@ class CobayaSampler(BasePipeline):
             success = True
         except LoggedError as err:
             pass
-        success = all(self.mpicomm.allgather(success))
+        success = all(mpicomm.allgather(success))
         if not success:
             self.log_warning('Sampling failed!',rank=0)
 
-        self.mpicomm.Barrier()
+        mpicomm.Barrier()
         self.data_block = self._data_block
-        samples = Samples(parameters=self.pipe_block[section_names.parameters,'list'],mpicomm=self.mpicomm)
+        samples = Samples(parameters=self.parameters,mpicomm=mpicomm,mpiroot=0)
 
         if self.cobaya_sampler_name == 'mcmc':
             output = sampler.products()['sample']
             # multiple chains run in parallel, we interleave them
-            samples.attrs['interleaved_chain_sizes'] = sizes = self.mpicomm.allgather(output.values.shape[0])
-            values = mpi.gather_array(output.values,mpicomm=self.mpicomm,root=0)
-            if self.mpicomm.rank == 0:
+            samples.attrs['interleaved_chain_sizes'] = sizes = mpicomm.allgather(output.values.shape[0])
+            values = mpi.gather_array(output.values,mpicomm=mpicomm,root=0)
+            if mpicomm.rank == 0:
                 csizes = [0] + np.cumsum(sizes).tolist()
                 values = utils.interleave(*[values[start:stop] for start,stop in zip(csizes[:-1],csizes[1:])])
-        elif self.mpicomm.rank == 0:
+        elif mpicomm.rank == 0:
             output = sampler.products()['sample']
             values = output.values
 
-        if self.mpicomm.rank == 0:
+        if mpicomm.rank == 0:
             convert_minus = {'minuslogprior':('metrics','logprior'),'minuslogpost':('metrics','logposterior')}
             for col,val in zip(output.columns,values.T):
                 match = re.match('chi2__(.*)_like$',col)
@@ -104,12 +105,11 @@ class CobayaSampler(BasePipeline):
                 elif col in convert_minus:
                     samples[convert_minus[col]] = -val
                 elif col == 'weight':
-                    samples['metrics','weight'] = val
+                    samples['metrics','aweight'] = val
                 elif name is not None:
                     samples[name] = val
-            samples = samples[~np.isnan(samples['metrics','weight'])]
-            if self.save: samples.save(self.save)
-            if self.save_cosmomc: samples.save_cosmomc(self.save_cosmomc)
+            samples = samples[~np.isnan(samples['metrics','aweight'])]
+        if self.save: samples.save_auto(self.save)
 
         samples.mpi_scatter()
         self.data_block[section_names.likelihood,'samples'] = samples
@@ -123,7 +123,7 @@ def get_cosmopipe_likelihood(pipeline, params):
     cls.params = params
 
     def initialize(self, *args, **kwargs):
-        pass
+        self.parameters = pipeline.parameters
 
     cls.requirements = pipeline.cobaya_requirements
     cls.initialize = initialize
@@ -142,12 +142,12 @@ def get_cobaya_parameter(parameter):
         dist = getattr(parameter,attr)
         toret[attr] = {}
         toret[attr]['dist'] = dist.dist
-        for key in dist._keys:
+        for key in dist.attrs:
             toret[attr][key] = getattr(dist,key)
-        if dist._keys:
+        if dist.dist != 'uniform':
             if dist.is_limited():
                 parameter.logger.warning('In {} {} for parameter {} '\
-                'Cobaya does not accept limits = {} when loc/scale are provided. Dropping limits.'.format(dist.dist,attr,parameter.name,parameter.limits))
+                'Cobaya does not accept limits = {} for non-uniform distributions. Dropping limits.'.format(dist.dist,attr,parameter.name,parameter.limits))
         else:
             toret[attr] = {'min':dist.limits[0],'max':dist.limits[1]}
     return toret

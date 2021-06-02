@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 from pypescript.config import ConfigError
+from pypescript import syntax
 
 from cosmopipe import section_names
 from cosmopipe.lib.parameter import ParamBlock, ParamError
@@ -13,8 +14,8 @@ class Parameterisation(object):
     logger = logging.getLogger('Parameterisation')
 
     def setup(self):
-        self.parameters = ParamBlock(self.options.get('common_parameters',None))
-        specific_modules = self.options.get_dict('specific_parameters',{})
+        self.parameters = ParamBlock(syntax.collapse_sections(self.options.get_dict('common_parameters',{}),maxdepth=2))
+        specific_modules = syntax.collapse_sections(self.options.get_dict('specific_parameters',{}),maxdepth=2)
         for module_name,specific in specific_modules.items():
             if module_name not in self.config_block:
                 raise ConfigError('Specific parameters provided for module [{}] which does not exist.'.format(module_name))
@@ -28,7 +29,7 @@ class Parameterisation(object):
                     raise ParamError('Attempting to rename specific parameter {} for module [{}] as {},\
                                     which already exists in common_parameters'.format(param_name,module_name,param.name))
                 mapping[param_name.tuple] = param.name.tuple
-            self.config_block[module_name,'datablock_mapping'].update(mapping)
+            self.config_block[module_name,syntax.datablock_mapping].update(mapping)
             self.parameters.update(specific)
         for param in self.parameters:
             if param.value is None:

@@ -1,0 +1,136 @@
+main:
+  #$execute: [params, primordial, mpi, plotting]
+  $execute: [params, primordial, emcee]
+  #$execute: [params, primordial, one]
+  #$execute: [plotting]
+
+mpi:
+  $module_name: pypescript
+  $module_class: MPIPipeline
+  $nprocs_per_task: 2
+  #$execute: [cobaya]
+  $execute: [emcee]
+  #$execute: [zeus]
+  #$execute: [dynesty]
+  $configblock_iter:
+    mockdata.xlim: [{'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.2], 'ell_4': [0.02, 0.2]}, {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}]
+    mockdata.save_txt: "$(lambda i: '_data/data_{:d}.txt'.format(i))"
+    cobaya.save: [_samples/samples_cobaya_0.txt, _samples/samples_cobaya_1.txt]
+    emcee.save: [_samples/samples_emcee_0.txt, _samples/samples_emcee_1.txt]
+    zeus.save: [_samples/samples_zeus_0.txt, _samples/samples_zeus_1.txt]
+    dynesty.save: [_samples/samples_dynesty_0.txt, _samples/samples_dynesty_1.txt]
+  $datablock_key_iter:
+    likelihood.samples: [samples_0, samples_1]
+
+emcee:
+  $module_name: cosmopipe.samplers.ensemble.emcee
+  $module_class: EmceeSampler
+  $modules: [like]
+  eigen_gr_stop: 0.02
+  save: _samples/samples_emcee.txt
+
+zeus:
+  $module_name: cosmopipe.samplers.ensemble.zeus
+  $module_class: ZeusSampler
+  $modules: [like]
+  eigen_gr_stop: 0.02
+  save: _samples/samples_zeus.txt
+
+dynesty:
+  $module_name: cosmopipe.samplers.nested.dynesty
+  $module_class: DynestySampler
+  $modules: [like]
+  save: _samples/samples_dynesty.txt
+
+cobaya:
+  $module_name: cosmopipe.samplers.cobaya.sampler
+  $module_class: CobayaSampler
+  $modules: [like]
+  sampler:
+    mcmc:
+      max_tries: 10000
+      Rminus1_stop: 0.01
+      Rminus1_cl_stop: 0.07
+  save: _samples/samples_cobaya.txt
+
+one:
+  $module_name: cosmopipe.samplers.one
+  $module_class: OneSampler
+  $modules: [like]
+
+minuit:
+  $module_name: cosmopipe.samplers.profiler.minuit
+  $module_class: MinuitProfiler
+  $modules: [like]
+  torun: [migrad]
+  save: _samples/minuit.npy
+
+params:
+  $module_name: cosmopipe.parameters.parameterisation
+  common_parameters:
+    ${cosmological_parameters.yaml:}:
+    ${linear_parameters.yaml:}:
+    survey_geometry:
+      zeff:
+        value: 1.0
+        fixed: True
+
+primordial:
+  $module_name: cosmopipe.theory.primordial
+  engine: eisenstein_hu
+  compute: pk_m
+
+mockcov:
+  $module_name: cosmopipe.theory.gaussian_covariance
+  $module_class: GaussianPkCovariance
+  kedges:
+    min: 0.02
+    max: 0.3
+    step: 0.01
+  shotnoise: 1e3
+  volume: 1e10
+  projs: [ell_0, ell_2, ell_4]
+  use_data_xlim: mockdata
+  xlim: $&{mockdata.xlim}
+
+mockdata:
+  $module_name: cosmopipe.data.mock_data_vector
+  mean: False
+  seed: 42
+  xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
+  save_txt: _data/data.txt
+
+plotting:
+  $module_name: cosmopipe.samplers.plotting
+  $module_class: SamplesPlotting
+  samples_keys: ${mpi.$datablock_key_iter.likelihood.samples}
+  #samples_files: ${mpi.$configblock_iter.cobaya.save}
+  #samples_files: ${mpi.$configblock_iter.emcee.save}
+  #save_stats: [_plots/stats_0.tex, _plots/stats_1.tex]
+  labels: ['$\ell = 2$, $k < 0.2 \; h/\mathrm{Mpc}$','$\ell = 2$, $k < 0.3 \; h/\mathrm{Mpc}$']
+  burnin: 0.3
+  toplot:
+    - plot_1d:
+        parameter: galaxy_bias.b1
+        truth: value
+        filename: _plots/plot_b1.png
+    - plot_corner:
+        parameters: [galaxy_bias.b1, galaxy_bias.sigmav, galaxy_bias.As]
+        truths: value
+        filename: _plots/corner.png
+#    - plot_gelman_rubin:
+#        filename: _plots/gelman_rubin.png
+
+like:
+  $module_name: cosmopipe.likelihood.likelihood
+  $module_class: GaussianLikelihood
+  $setup: [model.execute, mockcov.execute, mockdata.execute, model, projection]
+  $execute: [model, projection]
+
+model:
+  $module_name: cosmopipe.theory.linear_model
+  FoG: gaussian
+
+projection:
+  $module_name: cosmopipe.theory.projection
+  $module_class: DataVectorProjection

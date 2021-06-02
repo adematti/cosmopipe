@@ -19,7 +19,7 @@ galaxy_bias:
     value: 0.
     fixed: False
     latex: 'b_{4}'
-  ct:
+  cct:
     value: 0.
     fixed: False
     latex: 'c_{t}'
@@ -31,10 +31,3 @@ galaxy_bias:
     value: 0.
     fixed: False
     latex: 'c_{r,2}'
-galaxy_rsd:
-  f:
-    value: 0.8
-    prior:
-      dist: 'uniform'
-      limits: [0.0, 1.0]
-    latex: f

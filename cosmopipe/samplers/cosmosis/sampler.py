@@ -31,7 +31,6 @@ class CosmosisSampler(BasePipeline):
         self.cosmosis_sampler_class = Sampler.registry[self.cosmosis_sampler_name]
         self.seed = self.options.get('seed',None)
         self.save = self.options.get('save',False)
-        self.save_cosmomc = self.options.get('save_cosmomc',False)
         self.extra_output = self.options.get_string('extra_output','').split()
         exclude = self._reserved_option_names + ['sampler','config_cosmosis','extra_output','save','save_cosmomc']
         override = {(self.cosmosis_sampler_name,name):str(value) for name,value in self.options.items() if name not in exclude}
@@ -50,23 +49,24 @@ class CosmosisSampler(BasePipeline):
         output = InMemoryOutput()
         pool = False
         kwargs = {}
+        mpicomm = self.mpicomm
         if self.cosmosis_sampler_class.is_parallel_sampler:
-            mpi.set_common_seed(seed=self.seed,mpicomm=self.mpicomm)
+            mpi.set_common_seed(seed=self.seed,mpicomm=mpicomm)
 
-            if self.mpicomm.size > 1:
-                    kwargs['pool'] = pool = mpi.MPIPool(mpicomm=self.mpicomm)
+            if mpicomm.size > 1:
+                    kwargs['pool'] = pool = mpi.MPIPool(mpicomm=mpicomm)
 
             def is_master(self):
                 return True
 
             self.cosmosis_sampler_class.is_master = is_master # hack to get sampler running on all ranks
         else:
-            mpi.set_independent_seed(seed=self.seed,mpicomm=self.mpicomm)
+            mpi.set_independent_seed(seed=self.seed,mpicomm=mpicomm)
 
         sampler = self.cosmosis_sampler_class(self.cosmosis_ini,self.cosmosis_pipeline,output,**kwargs)
         sampler.config()
         self._data_block = self.data_block
-        self.data_block = BasePipeline.mpi_distribute(self.data_block.copy(),dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
+        self.data_block = BasePipeline.mpi_distribute(self.data_block.copy(),dests=range(mpicomm.size),mpicomm=mpi.COMM_SELF)
 
         sampler.execute()
         #while not sampler.is_converged():
@@ -75,22 +75,22 @@ class CosmosisSampler(BasePipeline):
         #        output.flush()
         #if pool and sampler.is_parallel_sampler:
         #    pool.close()
-        self.mpicomm.Barrier()
+        mpicomm.Barrier()
         self.data_block = self._data_block
-        samples = Samples(parameters=self.pipe_block[section_names.parameters,'list'],attrs={**output.meta,**output.final_meta})
+        samples = Samples(parameters=self.pipe_block[section_names.parameters,'list'],attrs={**output.meta,**output.final_meta},mpicomm=mpicomm,mpiroot=0)
 
         values = np.array(output.rows)
         if not self.cosmosis_sampler_class.is_parallel_sampler:
             # multiple chains run in parallel, we interleave them
-            samples.attrs['interleaved_chain_sizes'] = sizes = self.mpicomm.allgather(values.shape[0])
-            values = mpi.gather_array(values,mpicomm=self.mpicomm,root=0)
-            if self.mpicomm.rank == 0:
+            samples.attrs['interleaved_chain_sizes'] = sizes = mpicomm.allgather(values.shape[0])
+            values = mpi.gather_array(values,mpicomm=mpicomm,root=0)
+            if mpicomm.rank == 0:
                 csizes = [0] + np.cumsum(sizes).tolist()
                 values = utils.interleave(*[values[start:stop] for start,stop in zip(csizes[:-1],csizes[1:])])
 
-        if self.mpicomm.rank == 0:
-            convert = {'prior':('metrics','logprior'),'post':('metrics','logposterior')}
-            #if self.mpicomm.rank == 0:
+        if mpicomm.rank == 0:
+            convert = {'prior':('metrics','logprior'),'post':('metrics','logposterior'),'weight':('metrics','aweight')}
+            #if mpicomm.rank == 0:
             for col,val in zip(output.columns,values.T):
                 col = col[0]
                 match = re.match('(.*)--(.*)',col)
@@ -98,8 +98,9 @@ class CosmosisSampler(BasePipeline):
                     samples[match.group(1),match.group(2)] = val
                 elif col in convert:
                     samples[convert[col]] = val
-            if self.save: samples.save(self.save)
-            if self.save_cosmomc: samples.save_cosmomc(self.save_cosmomc)
+                elif col == 'log_weight':
+                    samples['metrics','aweight'] = np.exp(col)
+        if self.save: samples.save_auto(self.save)
         samples.mpi_scatter()
         self.data_block[section_names.likelihood,'samples'] = samples
         if output:

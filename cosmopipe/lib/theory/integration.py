@@ -18,11 +18,11 @@ class BaseMultipolesIntegration(BaseClass):
         return np.sum(array*self.muw[:,None,:],axis=-1)
 
 
-# TODO: implement legendre integration
+# TODO: implement gauss-legendre integration
 class TrapzMultipolesIntegration(BaseMultipolesIntegration):
 
     def set_mu_weights(self):
-        if np.isscalar(self.mu):
+        if np.ndim(self.mu) == 0:
             self.mu = np.linspace(0.,1.,self.mu)
         muw_trapz = weights_trapz(self.mu)
         from scipy import special

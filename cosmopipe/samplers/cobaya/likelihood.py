@@ -38,7 +38,8 @@ class CosmopipeLikelihood(CobayaLikelihood):
         self._pipeline.setup()
         self._pipeline.data_block = BasePipeline.mpi_distribute(self._pipeline.data_block,dests=self._pipeline.mpicomm.rank,mpicomm=mpi.COMM_SELF)
         from .sampler import get_cobaya_parameter
-        self.params = {str(param.name):param.value for param in self._pipeline.pipe_block[section_names.parameters,'list']}
+        self.parameters = self._pipeline.pipe_block[section_names.parameters,'list']
+        self.params = {str(param.name):param.value for param in self.parameters}
         #if 'rdrag' in self.get_requirements():
         #    self.params['rdrag'] = {'latex': 'r_\mathrm{drag}'}
 
@@ -68,7 +69,7 @@ class CosmopipeLikelihood(CobayaLikelihood):
 
     def logp(self, **kwargs):
         self._pipeline.pipe_block = self._pipeline.data_block.copy()
-        for param in self._pipeline.pipe_block[section_names.parameters,'list']:
+        for param in self.parameters:
             name = str(param.name)
             if name in self.renames and self.requirements:
                 self._pipeline.pipe_block[param.name.tuple] = self.theory.get_param(self.cosmopipe_to_cobaya_name(name))

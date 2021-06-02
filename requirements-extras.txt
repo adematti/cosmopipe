@@ -1,6 +1,0 @@
-cython
-pyclass @ git+https://github.com/adematti/pyclass
-camb
-pyfftw
-pybird @ git+https://github.com/pierrexyz/pybird
-velocileptors @ git+https://github.com/sfschen/velocileptors

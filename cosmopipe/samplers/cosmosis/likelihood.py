@@ -14,7 +14,7 @@ class CosmopipeModule(CosmosisModule):
 
     def execute(self, data_block):
         self._pipeline.pipe_block = self._pipeline.data_block.copy()
-        for param in self._pipeline.pipe_block[section_names.parameters,'list']:
+        for param in self.parameters:
             self._pipeline.pipe_block[param.name.tuple] = data_block[param.name.tuple]
         for todo in self._pipeline.execute_todos:
             todo()
@@ -30,7 +30,7 @@ def setup(options):
     like._pipeline = BasePipeline(config_block=SectionOptions(options).get_string('config_file'))
     like._pipeline.setup()
     like._pipeline.data_block = BasePipeline.mpi_distribute(like._pipeline.data_block,dests=like._pipeline.mpicomm.rank,mpicomm=mpi.COMM_SELF)
-    like._pipeline.data_block[section_names.parameters,'list'] = like._pipeline.pipe_block[section_names.parameters,'list']
+    like.parameters = like._pipeline.data_block[section_names.parameters,'list'] = like._pipeline.pipe_block[section_names.parameters,'list']
     like.name = 'cosmopipe'
     return like
 

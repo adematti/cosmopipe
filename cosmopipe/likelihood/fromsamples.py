@@ -1,8 +1,7 @@
 import logging
 
 import numpy as np
-from pypescript import BasePipeline
-from pypescript.config import ConfigError
+from pypescript import BasePipeline, ConfigError, syntax
 
 from cosmopipe import section_names
 from cosmopipe.lib import utils
@@ -22,7 +21,7 @@ class GaussianLikelihoodFromSamples(GaussianLikelihood):
         if self.samples_file is None:
             if self.samples_key is None: self.samples_key = (section_names.likelihood,'samples')
             else:
-                self.samples_key = utils.split_section_name(self.samples_key)
+                self.samples_key = syntax.split_sections(self.samples_key)
                 if len(self.samples_key) == 1:
                     self.samples_key = (section_names.likelihood,) + self.samples_key
         elif self.samples_key is not None:

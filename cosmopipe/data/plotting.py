@@ -1,3 +1,5 @@
+from pypescript import syntax
+
 from cosmopipe import section_names
 from cosmopipe.lib.data import DataPlotStyle
 from cosmopipe.lib import utils
@@ -6,9 +8,7 @@ from cosmopipe.lib import utils
 class DataVectorPlotting(object):
 
     def setup(self):
-        self.covariance_key = utils.split_section_name(self.options.get('covariance_key',None))
-        if self.covariance_key is not None and len(self.covariance_key) == 1:
-            self.covariance_key = (section_names.covariance,) + self.covariance_key
+        self.covariance_key = syntax.split_sections(self.options.get('covariance_key','covariance_matrix'),default_section=section_names.covariance)
         data_keys = self.options.get('data_keys',None)
         if data_keys is None:
             data_keys = ['data_vector']
@@ -16,9 +16,7 @@ class DataVectorPlotting(object):
             data_keys = eval(data_keys)
         self.data_keys = []
         for key in data_keys:
-            key = utils.split_section_name(key)
-            if len(key) == 1:
-                key = (section_names.data,) + key
+            key = syntax.split_sections(key,default_section=section_names.data)
             self.data_keys.append(key)
         self.style = DataPlotStyle(**self.options)
 
@@ -40,9 +38,7 @@ class CovarianceMatrixPlotting(object):
 
     def setup(self):
         self.style = self.options['style']
-        self.covariance_key = utils.split_section_name(self.options.get('covariance_key','covariance_matrix'))
-        if len(self.covariance_key) == 1:
-            self.covariance_key = (section_names.covariance,) + self.covariance_key
+        self.covariance_key = syntax.split_sections(self.options.get('covariance_key','covariance_matrix'),default_section=section_names.covariance)
         self.style = DataPlotStyle(self.style,**self.options)
 
     def execute(self):

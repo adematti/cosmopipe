@@ -1,0 +1,35 @@
+name: module
+version: '1.0.0'
+date: 03/01/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Template Fortran module
+url: ''
+licence: ''
+cite: []
+bibtex: []
+requirements: []
+compile:
+  sources: [module.F90]
+  include_dirs: []
+  library_dirs: []
+  libraries: []
+  extra_objects: []
+  extra_compile_args: []
+  extra_f90_compile_args: []
+  extra_link_args: []
+  depends: []
+
+long_description: Explain here in finer details what your module is about
+
+options:
+  answer:
+    type: int
+    default: 42
+    description: Answer to the Ultimate Question of Life, the Universe, and Everything
+
+# provide here the list of module inputs
+inputs:
+
+# provide here the list of module outputs
+outputs:

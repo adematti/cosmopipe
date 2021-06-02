@@ -4,6 +4,7 @@ import math
 import re
 
 import numpy as np
+from scipy import stats
 from pypescript.config import ConfigBlock
 
 from . import utils
@@ -21,7 +22,9 @@ class ParamBlock(BaseClass):
 
     logger = logging.getLogger('ParamBlock')
 
-    def __init__(self, filename=None, string=None, parser=utils.parse_yaml):
+    def __init__(self, filename=None, string=None, parser=None):
+        if parser is None:
+            parser = utils.yaml_parser
         data = {}
         self.data = []
         if isinstance(filename,self.__class__):
@@ -49,14 +52,9 @@ class ParamBlock(BaseClass):
         for name,conf in data.items():
             if isinstance(conf,Parameter):
                 self.set(conf)
-            elif any(key in Parameter._keys for key in conf.keys()) or not conf:
-                conf = Parameter(name=name.split('.'),**conf)
-                self.set(conf)
             else:
-                for name2,conf2 in conf.items():
-                    if not isinstance(conf2,Parameter):
-                         conf2 = Parameter(name=(name,name2),**conf2)
-                    self.set(conf2)
+                conf = Parameter(name=name,**conf)
+                self.set(conf)
 
     def __getitem__(self, name):
         if isinstance(name,Parameter):
@@ -146,6 +144,8 @@ class ParamBlock(BaseClass):
 
 class ParamName(BaseClass):
 
+    sep = '.'
+
     def __init__(self, *names):
         if len(names) == 1:
             if isinstance(names[0],Parameter):
@@ -155,7 +155,7 @@ class ParamName(BaseClass):
                 self.__dict__.update(names[0].__dict__)
                 return
             if isinstance(names[0],str):
-                names = tuple(names[0].split('.'))
+                names = tuple(names[0].split(self.sep))
             if isinstance(names[0],(tuple,list)):
                 names = tuple(names[0])
         self.tuple = tuple(str(name) for name in names)
@@ -167,10 +167,10 @@ class ParamName(BaseClass):
         return '{}{}'.format(self.__class__.__name__,self.tuple)
 
     def __str__(self):
-        return '.'.join(self.tuple)
+        return self.sep.join(self.tuple)
 
-    def split(self, sep='.'):
-        return str(self).split(sep)
+    def split(self):
+        return str(self).split(self.sep)
 
     def __eq__(self, other):
         if isinstance(other,str):
@@ -259,7 +259,7 @@ class Parameter(BaseClass):
         super(Parameter,self).__setstate__(state)
         self.name = ParamName.from_state(state['name'])
         for key in ['prior','ref']:
-            setattr(self,key,Prior(**state[key]))
+            setattr(self,key,Prior.from_state(state[key]))
 
     def __repr__(self):
         return '{}({}, {})'.format(self.__class__.__name__,self.name,'fixed' if self.fixed else 'varied')
@@ -271,31 +271,37 @@ class Parameter(BaseClass):
         return type(other) == type(self) and all(getattr(other,key) == getattr(self,key) for key in self._keys)
 
 
-def Prior(dist='uniform', limits=None, **kwargs):
-
-    if isinstance(dist,BasePrior):
-        dist = dist.copy()
-        if limits is not None:
-            dist.set_limits(limits)
-        return dist
-
-    if dist.lower() in BasePrior.registry:
-        cls = BasePrior.registry[dist.lower()]
-    else:
-        raise ParamError('Unable to understand prior {}; it should be one of {}'.format(dist,list(prior_registry.keys())))
-
-    return cls(**kwargs, limits=limits)
-
-
 class PriorError(Exception):
 
     pass
 
 
-class BasePrior(BaseClass):
+class Prior(BaseClass):
 
-    logger = logging.getLogger('BasePrior')
-    _keys = []
+    logger = logging.getLogger('Prior')
+
+    def __init__(self, dist='uniform', limits=None, **kwargs):
+
+        if isinstance(dist,Prior):
+            self.__dict__.update(dist.__dict__)
+            return
+
+        self.set_limits(limits)
+        self.dist = dist
+        self.attrs = kwargs
+
+        # improper prior
+        if not self.is_proper():
+            return
+
+        if self.is_limited():
+            dist = getattr(stats,self.dist if self.dist.startswith('trunc') or self.dist == 'uniform' else 'trunc{}'.format(self.dist))
+            if self.dist == 'uniform':
+                self.rv = dist(self.limits[0],self.limits[1]-self.limits[0])
+            else:
+                self.rv = dist(*self.limits,**kwargs)
+        else:
+            self.rv = getattr(scipy.stats,self.dist)(**kwargs)
 
     def set_limits(self, limits=None):
         if not limits:
@@ -311,114 +317,48 @@ class BasePrior(BaseClass):
         return 0
 
     def isin(self, x):
-        return  self.limits[0] < x < self.limits[1]
+        return self.limits[0] < x < self.limits[1]
 
     def __call__(self, x):
-        raise NotImplementedError
+        if not self.is_proper():
+            return 1.
+        return self.logpdf(x)
+
+    def sample(self, size=None, random_state=None):
+        if not self.is_proper():
+            raise PriorError('Cannot sample from improper prior')
+        return self.rvs(size=size,random_state=random_state)
 
     def __str__(self):
-        raise NotImplementedError
+        base = self.dist
+        if self.is_limited():
+            base = '{}[{}, {}]'.format(self.dist,*self.limits)
+        return '{}({})'.format(base,self.attrs)
 
-    def __setstate__(self,state):
-        super(BasePrior,self).__setstate__(state)
-        self.set_limits(self.limits)
+    def __setstate__(self, state):
+        self.__init__(state['dist'],state['limits'],**state['attrs'])
 
     def __getstate__(self):
         state = {}
-        for key in ['dist','limits'] + self._keys:
+        for key in ['dist','limits','attrs']:
             state[key] = getattr(self,key)
         return state
+
+    def is_proper(self):
+        return self.dist != 'uniform' or not np.isinf(self.limits).any()
 
     def is_limited(self):
         return not np.isinf(self.limits).all()
 
-    def is_proper(self):
-        return True
+    def __getattribute__(self, name):
+        try:
+            return object.__getattribute__(self,name)
+        except AttributeError:
+            attrs = object.__getattribute__(self,'attrs')
+            if name in attrs:
+                return attrs[name]
+            rv = object.__getattribute__(self,'rv')
+            return getattr(rv,name)
 
     def __eq__(self, other):
-        return type(other) == type(self) and all(getattr(other,key) == getattr(self,key) for key in ['limits'] + self._keys)
-
-
-class UniformPrior(BasePrior):
-
-    logger = logging.getLogger('UniformPrior')
-
-    def __init__(self, limits=None):
-        self.set_limits(limits)
-
-    def set_limits(self, limits=None):
-        if super(UniformPrior,self).set_limits(limits) == 1:
-            self.norm = 0. # we tolerate improper priors
-        else:
-            self.norm = -np.log(limits[1] - limits[0])
-
-    def __call__(self, x, norm=True):
-        if not self.isin(x):
-            return -np.inf
-        return self.norm if norm else 0
-
-    def __str__(self):
-        return '{}({}, {})'.format(self.dist,*self.limits)
-
-    def sample(self, size=None, seed=None, rng=None):
-        if not self.is_proper():
-            raise PriorError('Cannot sample from improper prior')
-        self.rng = rng or np.random.RandomState(seed=seed)
-        return self.rng.uniform(*self.limits,size=size)
-
-    def is_proper(self):
-        return not np.isinf(self.limits).any()
-
-
-class NormPrior(BasePrior):
-
-    logger = logging.getLogger('NormPrior')
-    _keys = ['loc','scale']
-
-    def __init__(self, loc=0., scale=1., limits=None):
-        self.loc = loc
-        self.scale = scale
-        self.set_limits(limits)
-
-    @property
-    def scale2(self):
-        return self.scale**2
-
-    def set_limits(self, limits):
-        super(NormPrior,self).set_limits(limits)
-
-        def cdf(x):
-            return 0.5*(math.erf(x/math.sqrt(2.)) + 1)
-
-        a,b = [(x-self.loc)/self.scale for x in self.limits]
-        self.norm = np.log(cdf(b) - cdf(a)) + 0.5*np.log(2*np.pi*self.scale**2)
-
-    def __call__(self, x, norm=True):
-        if not self.isin(x):
-            return -np.inf
-        return -0.5 * ((x-self.loc) / self.scale)**2 - (self.norm if norm else 0.)
-
-    def __str__(self):
-        return '{}({}, {})'.format(self.dist,self.loc,self.scale)
-
-    def sample(self, size=None, seed=None, rng=None):
-        self.rng = rng or np.random.RandomState(seed=seed)
-        if self.limits == (-np.inf,np.inf):
-            return self.rng.normal(loc=self.loc,scale=self.scale,size=size)
-        samples = []
-        isscalar = size is None
-        if isscalar: size = 1
-        while len(samples) < size:
-            x = self.rng.normal(loc=self.loc,scale=self.scale)
-            if self.isin(x):
-                samples.append(x)
-        if isscalar:
-            return samples[0]
-        return np.array(samples)
-
-
-BasePrior.registry = {}
-for cls in BasePrior.__subclasses__():
-    dist = cls.__name__[:-len('Prior')].lower()
-    cls.dist = dist
-    BasePrior.registry[dist] = cls
+        return type(other) == type(self) and all(getattr(other,key) == getattr(self,key) for key in ['dist','limits','attrs'])

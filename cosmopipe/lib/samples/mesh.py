@@ -40,9 +40,9 @@ class Mesh(BaseClass):
     logger = logging.getLogger('Mesh')
 
     @mpi.MPIInit
-    def __init__(self, mesh, parameters, edges=None, nodes=None, isdensity=True):
+    def __init__(self, mesh, names, edges=None, nodes=None, isdensity=True):
         self.mesh = mesh
-        self.parameters = parameters
+        self.names = names
         self.edges = edges
         self.nodes = nodes
         if nodes is not None and edges is None:
@@ -88,24 +88,25 @@ class Mesh(BaseClass):
         if np.isscalar(axis): axis = [axis]
         return np.prod(np.meshgrid(*self.widths(axis),indexing='ij'),axis=0) # very memory inefficient...
 
-    def get_axis(self, parameters=None):
-        if parameters is None: parameters = self.parameters
-        return [self.parameters.index(param) for param in parameters]
+    def get_axis(self, names=None):
+        if names is None: names = self.names
+        return [self.names.index(param) for param in names]
 
     @classmethod
-    def from_samples(cls, samples, parameters, weights=None, bins=30, method='cic', bw_method='scott'):
-        if not isinstance(samples,(tuple,list,np.ndarray)):
-            samples = [samples[param] for param in parameters]
+    def from_samples(cls, samples, weights=None, names=None, bins=30, method='cic', bw_method='scott'):
+        if not isinstance(samples,(tuple,list)):
+            samples = [samples]
+            names = [names]
         edges = []
         if not isinstance(bins,list): bins = [bins]*len(samples)
         if weights is None: weights = np.ones_like(samples[0])
         for d,b in zip(samples,bins):
-            tmp = np.linspace(d.min(),d.max(),b) if np.isscalar(b) else b
+            tmp = np.linspace(d.min(),d.max(),b) if np.ndim(b) == 0 else b
             edges.append(tmp)
         nodes = [(edge[:-1] + edge[1:])/2. for edge in edges]
 
-        self = cls(mesh=None, parameters=parameters, edges=edges, nodes=nodes)
-        #print('LOOOL',samples[0].shape,np.isnan(samples[0]).any(),np.isnan(samples[0]).sum(),np.isinf(samples[0]).any(),parameters,samples[0])
+        self = cls(mesh=None, names=names, edges=edges, nodes=nodes)
+        #print('LOOOL',samples[0].shape,np.isnan(samples[0]).any(),np.isnan(samples[0]).sum(),np.isinf(samples[0]).any(),names,samples[0])
         if method == 'gaussian_kde':
             from scipy import stats
             density = stats.gaussian_kde(samples,weights=weights,bw_method=bw_method)
@@ -117,11 +118,11 @@ class Mesh(BaseClass):
             self.mesh = np.histogramdd(samples,weights=weights,bins=self.edges)[0]/weights.sum()/self.volume()
         return self
 
-    def __call__(self, parameters):
-        if np.isscalar(parameters):
-            parameters = [parameters]
-        ndim = len(parameters)
-        indices = self.get_axis(parameters)
+    def __call__(self, names):
+        if np.isscalar(names):
+            names = [names]
+        ndim = len(names)
+        indices = self.get_axis(names)
         axis = tuple([axis for axis in range(self.ndim) if axis not in indices])
         toret = self.integrate(axis=axis)
         x = [self.nodes[ax] for ax in indices]
@@ -129,21 +130,21 @@ class Mesh(BaseClass):
         sindices = sorted(indices)
         return x,np.moveaxis(toret,range(len(indices)),[sindices.index(ind) for ind in indices])
 
-    def maximum(self, parameters=None):
-        if parameters is None:
+    def maximum(self, names=None):
+        if names is None:
             mesh,nodes = self.mesh,self.nodes
         else:
-            nodes,mesh = self(parameters)
-            if len(parameters) == 1: nodes = [nodes]
+            nodes,mesh = self(names)
+            if len(names) == 1: nodes = [nodes]
         argmax = np.unravel_index(np.argmax(mesh),shape=mesh.shape)
         return np.array([node[arg] for node,arg in zip(nodes,argmax)])
 
-    def mean(self, parameters=None):
-        if parameters is None:
+    def mean(self, names=None):
+        if names is None:
             mesh,nodes = self.mesh,self.nodes
         else:
-            nodes,mesh = self(parameters)
-            if len(parameters) == 1: nodes = [nodes]
+            nodes,mesh = self(names)
+            if len(names) == 1: nodes = [nodes]
         mnodes = np.meshgrid(*nodes,indexing='ij')
         average = [np.average(mnode,weights=mesh) for mnode in mnodes]
         return np.array(average)
@@ -160,7 +161,7 @@ class Mesh(BaseClass):
 
     @savefile
     def save_txt(self, filename, header='', fmt='%.8e', delimiter=' ', **kwargs):
-        #print self.parameters, self.nodes
+        #print self.names, self.nodes
         toret = [p.ravel() for p in self.mnodes()]
         toret.append(self.mesh.ravel()/self.max())
         if self.is_mpi_root():
@@ -174,26 +175,29 @@ class Mesh(BaseClass):
 
         from scipy import optimize
         def _get_levels(target):
-            return optimize.bisect(objective,0,self.mesh.max(),args=(target,))
+            try:
+                return optimize.bisect(objective,0,self.mesh.max(),args=(target,))
+            except ValueError:
+                self.log_warning('bisection did not converge for confidence level {:.3f}.'.format(target))
 
-        if np.isscalar(targets):
+        if np.ndim(targets) == 0:
             return _get_levels(targets)
         return [_get_levels(target) for target in targets]
 
     def get_sigmas(self, sigmas):
-        if np.isscalar(sigmas): sigmas = 1 + np.arange(sigmas)
+        if np.ndim(sigmas) == 0: sigmas = 1 + np.arange(sigmas)
         targets = nsigmas_to_quantiles_1d(sigmas)
         return self.get_levels(targets)
 
     def __getstate__(self):
         state = {}
-        for key in ['mesh','edges','nodes','parameters']:
+        for key in ['mesh','edges','nodes','names']:
             if hasattr(self,key): state[key] = self.get(key)
         return state
 
     def deepcopy(self):
         new = self.__new__(self.__class__)
-        for key in ['mesh','edges','nodes','parameters']:
+        for key in ['mesh','edges','nodes','names']:
             if hasattr(self,key): setattr(self,key,getattr(self,key).copy())
         return new
 

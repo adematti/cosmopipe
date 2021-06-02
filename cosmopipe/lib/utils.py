@@ -9,9 +9,18 @@ from collections import UserDict
 import numpy as np
 from numpy.linalg import LinAlgError
 
-from pypescript.utils import setup_logging, mkdir, savefile, snake_to_pascal_case, BaseClass, ScatteredBaseClass, TaskManager, MemoryMonitor
-from pypescript.utils import split_section_name
-from pypescript.config import parse_yaml
+from pypescript.utils import setup_logging, mkdir, savefile, snake_to_pascal_case, ScatteredBaseClass, TaskManager, MemoryMonitor
+from pypescript.utils import BaseClass as _BaseClass
+from pypescript.syntax import yaml_parser
+
+
+class BaseClass(_BaseClass):
+
+    def save_auto(self, *args, **kwargs):
+        return self.save(*args,**kwargs)
+
+    def load_auto(self, *args, **kwargs):
+        return self.load(*args,**kwargs)
 
 
 class OrderedMapping(BaseClass,UserDict):
@@ -67,7 +76,7 @@ class MappingArray(BaseClass):
         except AttributeError:
             self.array = np.array(array,dtype=dtype)
 
-    def __eq__(self,other):
+    def __eq__(self, other):
         if other in self.keys:
             return self.array == self.keys.index(other)
         return self.array == other
@@ -106,23 +115,40 @@ def _check_inv(mat, invmat, **kwargs):
     tmp = mat.dot(invmat)
     ref = np.diag(np.ones(tmp.shape[0]))
     if not np.allclose(tmp,ref,**kwargs):
-        raise LinalgError('Numerically inacurrate inverse matrix, max absolute diff {:.3f}.'.format(np.max(np.abs(tmp-ref))))
+        raise LinAlgError('Numerically inacurrate inverse matrix, max absolute diff {:.3f}.'.format(np.max(np.abs(tmp-ref))))
 
 
 def inv(mat, inv=np.linalg.inv, check=True):
     mat = np.asarray(mat)
     if mat.ndim == 0:
         return 1./mat
-    toret = inv(mat)
+    if check:
+        toret = inv(mat)
+    else:
+        try:
+            toret = inv(mat)
+        except LinAlgError:
+            pass
     if check:
         _check_inv(mat,toret)
     return toret
 
 
 def blockinv(blocks, inv=np.linalg.inv, check=True):
+
+    def _inv(mat):
+        if check:
+            toret = inv(mat)
+        else:
+            try:
+                toret = inv(mat)
+            except LinAlgError:
+                pass
+        return toret
+
     A = blocks[0][0]
     if (len(blocks),len(blocks[0])) == (1,1):
-        return inv(A)
+        return _inv(A)
     B = np.bmat(blocks[0][1:]).A
     C = np.bmat([b[0].T for b in blocks[1:]]).A.T
     invD = blockinv([b[1:] for b in blocks[1:]],inv=inv)
@@ -130,7 +156,7 @@ def blockinv(blocks, inv=np.linalg.inv, check=True):
     def dot(*args):
         return np.linalg.multi_dot(args)
 
-    invShur = inv(A - dot(B,invD,C))
+    invShur = _inv(A - dot(B,invD,C))
     toret = np.bmat([[invShur,-dot(invShur,B,invD)],[-dot(invD,C,invShur), invD + dot(invD,C,invShur,B,invD)]]).A
     if check:
         mat = np.bmat(blocks).A
@@ -162,56 +188,211 @@ def interleave(*a):
 
 
 def cov_to_corrcoef(cov):
-    d = np.diag(cov)
-    stddev = np.sqrt(d.real)
-    c = cov/stddev[:, None]
-    c /= stddev[None, :]
+    if np.ndim(cov) == 0:
+        return 1.
+    stddev = np.sqrt(np.diag(cov).real)
+    c = cov/stddev[:,None]/stddev[None,:]
     return c
 
 
-def weighted_quantile(x, q, weights=None):
+def weighted_quantile(x, q, weights=None, axis=None, interpolation='lower'):
     """
-    Compute (weighted) quantiles from an input set of samples.
-    Taken from https://github.com/minaskar/cronus/blob/master/cronus/plot.py.
+    Compute the q-th quantile of the weighted data along the specified axis.
 
     Parameters
     ----------
-    x : `~numpy.ndarray` with shape (nsamps,)
-        Input samples.
-    q : `~numpy.ndarray` with shape (nquantiles,)
-       The list of quantiles to compute from `[0., 1.]`.
-    weights : `~numpy.ndarray` with shape (nsamps,), optional
-        The associated weight from each sample.
+    a : array_like
+        Input array or object that can be converted to an array.
+    q : array_like of float
+        Quantile or sequence of quantiles to compute, which must be between
+        0 and 1 inclusive.
+    weights : array_like, optional
+        An array of weights associated with the values in `a`. Each value in
+        `a` contributes to the average according to its associated weight.
+        The weights array can either be 1-D (in which case its length must be
+        the size of `a` along the given axis) or of the same shape as `a`.
+        If `weights=None`, then all data in `a` are assumed to have a
+        weight equal to one.  The 1-D calculation is::
+            avg = sum(a * weights) / sum(weights)
+        The only constraint on `weights` is that `sum(weights)` must not be 0.
+    axis : {int, tuple of int, None}, optional
+        Axis or axes along which the quantiles are computed. The
+        default is to compute the quantile(s) along a flattened
+        version of the array.
+    interpolation : {'linear', 'lower', 'higher', 'midpoint', 'nearest'}
+        This optional parameter specifies the interpolation method to
+        use when the desired quantile lies between two data points
+        ``i < j``:
+            * linear: ``i + (j - i) * fraction``, where ``fraction``
+              is the fractional part of the index surrounded by ``i``
+              and ``j``.
+            * lower: ``i``.
+            * higher: ``j``.
+            * nearest: ``i`` or ``j``, whichever is nearest.
+            * midpoint: ``(i + j) / 2``.
 
     Returns
     -------
-    quantiles : `~numpy.ndarray` with shape (nquantiles,)
-        The weighted sample quantiles computed at `q`.
+    quantile : scalar or ndarray
+        If `q` is a single quantile and `axis=None`, then the result
+        is a scalar. If multiple quantiles are given, first axis of
+        the result corresponds to the quantiles. The other axes are
+        the axes that remain after the reduction of `a`. If the input
+        contains integers or floats smaller than ``float64``, the output
+        data-type is ``float64``. Otherwise, the output data-type is the
+        same as that of the input. If `out` is specified, that array is
+        returned instead.
+
+    Note
+    ----
+    Inspired from https://github.com/minaskar/cronus/blob/master/cronus/plot.py.
     """
+    if weights is None:
+        # If no weights provided, this simply calls `np.percentile`.
+        return np.quantile(x,q,axis=axis,interpolation=interpolation)
 
     # Initial check.
     x = np.atleast_1d(x)
+    isscalar = np.ndim(q) == 0
     q = np.atleast_1d(q)
 
     # Quantile check.
     if np.any(q < 0.) or np.any(q > 1.):
-        raise ValueError("Quantiles must be between 0. and 1.")
+        raise ValueError('Quantiles must be between 0. and 1.')
 
-    if weights is None:
-        # If no weights provided, this simply calls `np.percentile`.
-        return np.quantile(x, q)
+    if axis is None:
+        axis = range(x.ndim)
 
-    # If weights are provided, compute the weighted quantiles.
-    weights = np.atleast_1d(weights)
-    if len(x) != len(weights):
-        raise ValueError("Dimension mismatch: len(weights) != len(x).")
-    idx = np.argsort(x)  # sort samples
-    sw = weights[idx]  # sort weights
-    cdf = np.cumsum(sw)[:-1]  # compute CDF
-    cdf /= cdf[-1]  # normalize CDF
-    cdf = np.append(0, cdf)  # ensure proper span
-    quantiles = np.interp(q, cdf, x[idx])
+    if np.ndim(axis) == 0:
+        axis = (axis,)
+
+    if weights.ndim > 1:
+        if x.shape != weights.shape:
+            raise ValueError('Dimension mismatch: shape(weights) != shape(x).')
+
+    x = np.moveaxis(x,axis,range(x.ndim-len(axis),x.ndim))
+    x = x.reshape(x.shape[:-len(axis)]+(-1,))
+    if weights.ndim > 1:
+        weights = np.moveaxis(weights,axis,range(x.ndim-len(axis),x.ndim))
+        weights = weights.reshape(weights.shape[:-len(axis)]+(-1,))
+    else:
+        reps = x.shape[:-1]+(1,)
+        weights = np.tile(weights,reps)
+
+    idx = np.argsort(x,axis=-1) # sort samples
+    x = np.take_along_axis(x,idx,axis=-1)
+    sw = np.take_along_axis(weights,idx,axis=-1) # sort weights
+    cdf = np.cumsum(sw,axis=-1) # compute CDF
+    cdf = cdf[...,:-1]
+    cdf = cdf/cdf[...,-1][...,None]  # normalize CDF
+    zeros = np.zeros_like(cdf,shape=cdf.shape[:-1]+(1,))
+    cdf = np.concatenate([zeros,cdf],axis=-1)  # ensure proper span
+    idx0 = np.apply_along_axis(np.searchsorted,-1,cdf,q,side='right') - 1
+    if interpolation != 'higher':
+        q0 = np.take_along_axis(x,idx0,axis=-1)
+    if interpolation != 'lower':
+        idx1 = np.clip(idx0+1,None,x.shape[-1]-1)
+        q1 = np.take_along_axis(x,idx1,axis=-1)
+    if interpolation in ['nearest','linear']:
+        cdf0,cdf1 = np.take_along_axis(cdf,idx0,axis=-1),np.take_along_axis(cdf,idx1,axis=-1)
+    if interpolation == 'nearest':
+        mask_lower = q - cdf0 < cdf1 - q
+        quantiles = q1
+        # in place, q1 not used in the following
+        quantiles[mask_lower] = q0[mask_lower]
+    if interpolation == 'linear':
+        step = cdf1 - cdf0
+        diff = q - cdf0
+        mask = idx1 == idx0
+        step[mask] = diff[mask]
+        fraction = diff/step
+        quantiles = q0 + fraction * (q1 - q0)
+    if interpolation == 'lower':
+        quantiles = q0
+    if interpolation == 'higher':
+        quantiles = q1
+    if interpolation == 'midpoint':
+        quantiles = (q0 + q1)/2.
+    quantiles = quantiles.swapaxes(-1,0)
+    if isscalar:
+        return quantiles[0]
     return quantiles
+
+
+def rebin_ndarray(ndarray, new_edges, statistic=np.sum, interpolation='linear'):
+    """Bin an ndarray in all axes based on the target shape, by summing or
+    averaging. Number of output dimensions must match number of input dimensions and
+    new axes must divide old ones.
+
+    Taken from https://stackoverflow.com/questions/8090229/resize-with-averaging-or-rebin-a-numpy-2d-array
+    and https://nbodykit.readthedocs.io/en/latest/_modules/nbodykit/binned_statistic.html#BinnedStatistic.reindex.
+
+    Example
+    -------
+    >>> m = np.arange(0,100,1).reshape((10,10))
+    >>> n = bin_ndarray(m, new_shape=(5,5), operation='sum')
+    >>> print(n)
+
+    [[ 22  30  38  46  54]
+     [102 110 118 126 134]
+     [182 190 198 206 214]
+     [262 270 278 286 294]
+     [342 350 358 366 374]]
+
+    """
+    from scipy import stats
+
+    def hist_laxis(data, edges, statistic='sum'):
+        # Setup bins and determine the bin location for each element for the bins
+        n = data.shape[-1]
+        data_2d = data.reshape(-1,n)
+        idx = np.searchsorted(edges,np.arange(data_2d.shape[-1]),'right') - 1
+        idx = np.tile(idx,(data.shape[0],1))
+        nbins = len(edges)-1
+
+        # Some elements would be off limits, so get a mask for those
+        mask = (idx==-1) | (idx==nbins)
+
+        # We need to use bincount to get bin based counts. To have unique IDs for
+        # each row and not get confused by the ones from other rows, we need to
+        # offset each row by a scale (using row length for this).
+        scaled_idx = nbins*np.arange(data_2d.shape[0])[:,None] + idx
+
+        # Set the bad ones to be last possible index+1 : n_bins*data2D.shape[0]
+        limit = nbins*data_2d.shape[0] + 1
+        scaled_idx[mask] = limit
+
+        # Get the counts and reshape to multi-dim
+        #counts = np.bincount(scaled_idx.ravel(),minlength=limit+1)[:-1]
+        bins = np.arange(0,limit)
+        counts = stats.binned_statistic(scaled_idx.ravel(),values=data_2d.ravel(),statistic=statistic,bins=bins)[0]
+        counts.shape = data.shape[:-1] + (nbins,)
+        return counts
+
+    if ndarray.ndim != len(new_edges):
+        raise ValueError('Input array dim is {}, but requested output one is {}'.format(ndarray.ndim,len(new_edges)))
+    _new_edges = new_edges
+    new_edges = []
+    for s,e in zip(ndarray.shape,_new_edges):
+        if np.ndim(e) == 0:
+            if s % e != 0:
+                raise ValueError('If int, new edges must be a divider of the original shape')
+            e = np.arange(0,s+1,s//e)
+        new_edges.append(e)
+
+    for i,e in enumerate(new_edges):
+        ndarray = hist_laxis(ndarray.swapaxes(i,-1),e,statistic).swapaxes(-1,i)
+
+    if interpolation:
+        from scipy import interpolate
+        for i,e in enumerate(new_edges):
+            ie = np.floor(e)
+            ie = (ie[1:] + ie[:-1])/2.
+            e = (e[1:] + e[:-1])/2.
+            if ie.size > 1:
+                ndarray = interpolate.interp1d(ie,ndarray,kind=interpolation,axis=i,copy=True,bounds_error=None,fill_value='extrapolate',assume_sorted=True)(e)
+
+    return ndarray
 
 
 def enforce_shape(x, y, grid=True):
