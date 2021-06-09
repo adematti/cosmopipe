@@ -8,12 +8,7 @@ class GalaxyBAO(object):
 
     def setup(self):
         self.zeff = self.data_block[section_names.survey_geometry,'zeff']
-        params = {}
-        params['engine'] = self.options.get('engine','class')
-        for name,value in Cosmology.get_default_parameters(of='cosmology',include_conflicts=True).items():
-            if name in self.options:
-                params[name] = self.options[name]
-        cosmo = Cosmology(**params)
+        cosmo = self.data_block[section_names.fiducial_cosmology,'cosmo']
         th = cosmo.get_thermodynamics()
         ba = cosmo.get_background()
         self.hubble_rate = ba.efunc(self.zeff)

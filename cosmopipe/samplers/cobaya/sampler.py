@@ -25,12 +25,12 @@ class CobayaSampler(BasePipeline):
     def setup(self):
         #super(CobayaSampler,self).setup()
         self.cobaya_likelihood_name = '{}_like'.format(self.options.get_string('likelihood_name','cosmopipe'))
-        self.cobaya_sampler_name = list(self.options.get('sampler').keys())[0]
         self.cobaya_info_sampler = self.options['sampler']
+        self.cobaya_sampler_name = list(self.cobaya_info_sampler.keys())[0]
         self.cobaya_requirements = self.options.get_list('requirements',[])
         self.seed = self.options.get('seed',None)
         self.save = self.options.get('save',False)
-        self.extra_output = self.options.get_string('extra_output','').split()
+        #self.extra_output = self.options.get_string('extra_output','').split()
 
     def execute(self):
         super(CobayaSampler,self).setup()

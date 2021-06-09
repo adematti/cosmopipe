@@ -43,10 +43,3 @@ galaxy_bias:
     value: 0.
     fixed: False
     latex: 's_{n,4}'
-galaxy_rsd:
-  f:
-    value: 0.8
-    prior:
-      dist: 'uniform'
-      limits: [0.0, 1.0]
-    latex: f

@@ -5,7 +5,7 @@ import re
 
 import numpy as np
 from scipy import stats
-from pypescript.config import ConfigBlock
+from pypescript.syntax import Decoder
 
 from . import utils
 from .utils import BaseClass
@@ -22,32 +22,25 @@ class ParamBlock(BaseClass):
 
     logger = logging.getLogger('ParamBlock')
 
-    def __init__(self, filename=None, string=None, parser=None):
-        if parser is None:
-            parser = utils.yaml_parser
-        data = {}
-        self.data = []
-        if isinstance(filename,self.__class__):
-            self.update(filename)
+    def __init__(self, data=None, string=None, parser=None):
+        if isinstance(data,ParamBlock):
+            self.__dict__.update(data.__dict__)
             return
-        elif isinstance(filename,str):
-            self.filename = filename
-            with open(filename,'r') as file:
-                if string is None: string = ''
-                string += file.read()
-        elif isinstance(filename,(list,tuple)):
-            for name in filename:
+
+        self.data = []
+        if isinstance(data,(list,tuple)):
+            data_ = data
+            data = {}
+            for name in data_:
                 if isinstance(name,Parameter):
                     data[name.name] = name
                 elif isinstance(name,dict):
                     data[name['name']] = name
                 else:
                     data[name] = {}
-        elif filename is not None:
-            data = dict(filename)
 
-        if string is not None and parser is not None:
-            data.update(parser(string))
+        elif not isinstance(data,dict):
+            data = Decoder(data=data,string=string,parser=parser)
 
         for name,conf in data.items():
             if isinstance(conf,Parameter):
@@ -140,6 +133,13 @@ class ParamBlock(BaseClass):
             if all(getattr(param,key) == val for key,val in kwargs.items()):
                 toret.set(param)
         return toret
+
+    def __copy__(self):
+        new = super(ParamBlock,self).__copy__()
+        new.data = []
+        for param in self:
+            new.set(param)
+        return new
 
 
 class ParamName(BaseClass):

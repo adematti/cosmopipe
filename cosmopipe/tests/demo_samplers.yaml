@@ -1,3 +1,7 @@
+data_dir: _data
+samples_dir: _samples
+plots_dir: _plots
+
 main:
   $execute: [params, primordial, model, mockcov, mockdata, compare]
 
@@ -5,7 +9,7 @@ compare:
   $module_name: pypescript
   $module_class: BasePipeline
   #$modules: [emcee, zeus, dynesty, cobaya, plotting]
-  $modules: [emcee, zeus, cobaya, plotting]
+  $modules: [emcee, zeus, plotting]
   #$modules: [plotting]
 
 one:
@@ -18,7 +22,7 @@ emcee:
   $module_class: EmceeSampler
   $modules: [like]
   eigen_gr_stop: 0.5
-  save: _samples/samples_emcee.txt
+  save: f'${samples_dir}/samples_emcee.txt'
   $[likelihood.samples_emcee]: $[likelihood.samples]
 
 zeus:
@@ -26,14 +30,14 @@ zeus:
   $module_class: ZeusSampler
   $modules: [like]
   eigen_gr_stop: 0.5
-  save: _samples/samples_zeus.txt
+  save: f'${samples_dir}/samples_zeus.txt'
   $[likelihood.samples_zeus]: $[likelihood.samples]
 
 dynesty:
   $module_name: cosmopipe.samplers.nested.dynesty
   $module_class: DynestySampler
   $modules: [like]
-  save: _samples/samples_dynesty.txt
+  save: f'${samples_dir}/samples_dynesty.txt'
   $[likelihood.samples_dynesty]: $[likelihood.samples]
 
 cobaya:
@@ -45,7 +49,7 @@ cobaya:
       max_tries: 10000
       Rminus1_stop: 0.01
       Rminus1_cl_stop: 0.07
-  save: _samples/samples_cobaya.txt
+  save: f'${samples_dir}/samples_cobaya.txt'
   $[likelihood.samples_cobaya]: $[likelihood.samples]
 
 minuit:
@@ -53,7 +57,7 @@ minuit:
   $module_class: MinuitProfiler
   $modules: [like]
   torun: [migrad]
-  save: _samples/minuit.npy
+  save: f'${samples_dir}/minuit.npy'
 
 params:
   $module_name: cosmopipe.parameters.parameterisation
@@ -88,24 +92,23 @@ mockdata:
   mean: False
   seed: 42
   xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
-  save_txt: _data/data.txt
+  save: f'${data_dir}/data.txt'
 
 plotting:
   $module_name: cosmopipe.samplers.plotting
   $module_class: SamplesPlotting
-  samples_keys: [likelihood.samples_emcee, likelihood.samples_zeus]
-  #samples_files: [_samples/samples_emcee.txt, _samples/samples_zeus.txt]
+  samples_load: [samples_emcee, samples_zeus]
   labels: [emcee, zeus]
   burnin: 0.3
   toplot:
     - plot_1d:
         parameter: galaxy_bias.b1
         truth: value
-        filename: _plots/plot_b1.png
+        filename: f'${plots_dir}/plot_b1.png'
     - plot_corner:
         parameters: [galaxy_bias.b1, galaxy_bias.sigmav, galaxy_bias.As]
         truths: value
-        filename: _plots/corner.png
+        filename: f'${plots_dir}/corner.png'
 #    - plot_gelman_rubin:
 #        filename: _plots/gelman_rubin.png
 

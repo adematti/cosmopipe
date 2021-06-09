@@ -1,0 +1,49 @@
+name: MockDataVector
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Generate a Gaussian mock data vector provided a covariance matrix
+
+
+options:
+  xlim:
+    type: dict
+    default: None
+    description: dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)})
+                or list of tuples corresponding to the data projections
+  seed:
+    type: int
+    default: None
+    description: random seed to use (MPI-insensitive), ignore in case ``mean`` is ``True``
+  mean:
+    type: bool
+    default: None
+    description: do not add Gaussian noise and set to mean provided with the covariance matrix?
+  save:
+    type: string
+    default: None
+    description: if not ``None``, path to save generated data vector
+
+setup input:
+  covariance.covariance_matrix:
+    type: cosmopipe.lib.data.CovarianceMatrix
+    description: Covariance matrix
+  data.projs:
+    type: list
+    description: list of data projections
+  data.xlims:
+    type: list
+    description: list of corresponding x-limits
+  data.data_vector:
+    type: cosmopipe.lib.data.DataVector
+    description: Data vector
+  data.x:
+    type: float_array
+    description: array view of the x-coordinate of the data vector
+  data.y:
+    type: float_array
+    description: array view of the y-coordinate of the data vector
+  data.shotnoise:
+    type: float
+    description: if known, shot noise corresponding to the data vector

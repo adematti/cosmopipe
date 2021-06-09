@@ -9,7 +9,6 @@ from mpi4py.MPI import COMM_SELF
 from pypescript.mpi import *
 from . import utils
 
-
 @CurrentMPIComm.enable
 def set_common_seed(seed=None, mpicomm=None):
     if seed is None:

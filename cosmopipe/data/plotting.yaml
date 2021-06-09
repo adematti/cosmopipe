@@ -1,0 +1,40 @@
+name: DataVectorPlotting
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Plot data vector(s)
+
+
+options:
+  covariance_load:
+    type: [bool, string]
+    default: False
+    description: if ``True`` or (section, name), loads a covariance matrix from corresponding data_block entry
+  data_load:
+    type: [string, list]
+    default: data_vector
+    description: list of (section, name) in data_block where to find the data vector(s) (defaults to standard location) or, if containing / (or \), a path to data vectors on disk
+  $others: options for :class:`~cosmopipe.lib.data.DataPlotStyle`
+
+---
+
+name: CovarianceMatrixPlotting
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Plot covariance matrices
+
+
+options:
+  covariance_load:
+    type: [string, list]
+    default: covariance_matrix
+    description: list of (section, name) in data_block where to find the covariance matrix (defaults to standard location)
+  style:
+    type: string
+    default: corr
+    choices: [corr, cov]
+    description: plot correlation matrix or covariance matrix?
+  $others: options for :class:`~cosmopipe.lib.dataCovariancePlotStyle`

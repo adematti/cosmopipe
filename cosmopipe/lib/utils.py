@@ -11,7 +11,6 @@ from numpy.linalg import LinAlgError
 
 from pypescript.utils import setup_logging, mkdir, savefile, snake_to_pascal_case, ScatteredBaseClass, TaskManager, MemoryMonitor
 from pypescript.utils import BaseClass as _BaseClass
-from pypescript.syntax import yaml_parser
 
 
 class BaseClass(_BaseClass):
@@ -21,31 +20,6 @@ class BaseClass(_BaseClass):
 
     def load_auto(self, *args, **kwargs):
         return self.load(*args,**kwargs)
-
-
-class OrderedMapping(BaseClass,UserDict):
-
-    def __init__(self, d=None, order=None):
-        self.data = d or {}
-        if order is not None and not callable(order):
-
-            def order_(key):
-                try:
-                    return order.index(key)
-                except ValueError:
-                    return -1
-
-            self.order = order_
-        else:
-            self.order = order
-
-    def keys(self):
-        """Return keys sorted by chronological order in :mod:`legacypipe.runbrick`."""
-        return sorted(self.data.keys(),key=self.order)
-
-    def __iter__(self):
-        """Iterate."""
-        return iter(self.keys())
 
 
 class MappingArray(BaseClass):
@@ -69,9 +43,9 @@ class MappingArray(BaseClass):
             self.array = - np.ones_like(array,dtype=dtype)
             array = np.array(array)
             keys = []
-            for key in mapping.keys():
-                keys.append(key)
-                self.array[array.astype(type(key)) == key] = keys.index(key)
+            for key,value in mapping.items():
+                keys.append(value)
+                self.array[array.astype(type(key)) == key] = keys.index(value)
             self.keys = keys
         except AttributeError:
             self.array = np.array(array,dtype=dtype)

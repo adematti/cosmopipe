@@ -12,21 +12,20 @@ class MockDataVector(object):
         self.seed = self.options.get_int('seed',None)
         self.mean = self.options.get_bool('mean',False)
         self.save = self.options.get_string('save',False)
-        self.save_txt = self.options.get_string('save_txt',False)
-
-    def execute(self):
         covariance = self.data_block[section_names.covariance,'covariance_matrix']
-        seed = self.data_block.get(section_names.data,'seed',self.seed)
-        data = mock_data_vector.MockDataVector(covariance,seed=seed,mean=self.mean)
-        if self.save: data.save(self.save)
-        if self.save_txt: data.save_txt(self.save_txt,ignore_json_errors=True)
-        data = data.view(**get_kwview(data,self.options))
+        #seed = self.data_block.get(section_names.data,'seed',self.seed)
+        data = mock_data_vector.MockDataVector(covariance,seed=self.seed,mean=self.mean)
+        if self.save: data.save_auto(self.save)
+        data = data.view(**get_kwview(data,xlim=self.options.get('xlim',None)))
         self.data_block[section_names.data,'xlims'] = np.array(data.kwview['xlim'])
         self.data_block[section_names.data,'projs'] = np.array(data.kwview['proj'])
         self.data_block[section_names.data,'data_vector'] = data
         self.data_block[section_names.data,'x'] = data.get_x()
         self.data_block[section_names.data,'y'] = data.get_y()
         self.data_block[section_names.data,'shotnoise'] = data.attrs.get('shotnoise',0.)
+
+    def execute(self):
+        pass
 
     def cleanup(self):
         pass

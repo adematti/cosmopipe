@@ -38,9 +38,8 @@ def test_pybird():
         print('{} takes {:.3f} milliseconds'.format(key,dt))
 
 
-
-
 if __name__ == '__main__':
 
     setup_logging()
-    test_pybird()
+    #test_pybird()
+    test_doc()

@@ -1,5 +1,4 @@
-
-def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z', weight_comp=None, nbar=None, weight_fkp=None, P0_fkp=0.):
+def prepare_survey_angular_catalogs(data, randoms, ra='RA', dec='DEC', weight_comp=None):
 
     origin_catalogs = {'data':data,'randoms':randoms}
     catalogs = {name:catalog.copy(columns=[]) for name,catalog in origin_catalogs.items()}
@@ -14,11 +13,25 @@ def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z'
     else:
         from_origin('weight_comp')
 
-    if z is not None:
-        from_origin('z')
-
     from_origin('ra')
     from_origin('dec')
+
+    return catalogs['data'],catalogs['randoms']
+
+
+def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z', weight_comp=None, nbar='NZ', weight_fkp=None, P0_fkp=0.):
+
+    origin_catalogs = {'data':data,'randoms':randoms}
+
+    catalogs = {}
+    catalogs['data'],catalogs['randoms'] = prepare_survey_angular_catalogs(data,randoms,ra=ra,dec=dec,weight_comp=weiht_comp)
+
+    def from_origin(column):
+        for name,catalog in catalogs.items():
+            catalog[name] = origin_catalogs.eval(self.catalog_options[name])
+
+    if z is not None:
+        from_origin('z')
 
     if self.catalog_options['position'] is None:
         cosmo = self.data_block[section_names.fiducial_cosmology,'cosmo']
@@ -29,14 +42,14 @@ def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z'
         from_origin('position')
         catalog['distance'] = utils.distance(catalog['position'])
 
-    if nbar is None or isinstance(nbar,dict):
+    if isinstance(nbar,dict):
         if 'z' in randoms:
             z = randoms['z']
             cosmo = self.data_block[section_names.fiducial_cosmology,'cosmo']
         else:
             z = randoms['distance']
             cosmo = None
-        nbar = utils.RedshiftDensityInterpolator(redshifts,weights=randoms['weight_comp'],bins=nbar,cosmo=cosmo,**randoms.mpi_attrs)
+        nbar = utils.RedshiftDensityInterpolator(redshifts,weights=randoms['weight_comp'],cosmo=cosmo,**nbar,**randoms.mpi_attrs)
         for name,catalog in catalogs.items():
             if 'z' in randoms:
                 catalog['nbar'] = nbar(catalog['z'])
@@ -58,7 +71,7 @@ def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z'
 
 
 def prepare_box_catalog(data, position='Position', weight=None):
-    
+
     origin_data = data
     data = origin_data.copy(columns=[])
     data['position'] = origin_data.eval(position)

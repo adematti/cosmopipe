@@ -1,0 +1,127 @@
+---
+
+name: BaseLikelihood
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Template base likelihood
+
+long description: >
+                  :class:`BaseLikelihood` extends :class:`~pypescript.BasePipeline`, hence is expected to run several modules to e.g. setup data and execute model.
+                  Data vector data.y is set in the setup step.
+                  The model model.y is read at each execute step and the corresponding likelihood.loglkl computed.
+
+setup input:
+  data.y:
+    type: array_1d
+    description: data vector
+
+execute input:
+  model.y:
+    type: array_1d
+    description: model vector
+
+execute output:
+  likelihood.loglkl:
+    type: float
+    description: log-likelihood
+
+---
+
+name: GaussianLikelihood
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Gaussian likelihood
+
+long description: >
+                  Extends :class:`BaseLikelihood` with a calculation for the log-Gaussian likelihood, based on an inverse covariance matrix provided in the setup step.
+
+setup input:
+  data.y:
+    type: array_1d
+    description: data vector
+  covariance.invcov:
+    type: array_2d
+    description: inverse covariance
+  covariance.nobs:
+    type: int
+    description: number of observations, to correct for the Hartlap factor. If ``None``, no Harlap correction is applied
+
+execute input:
+  model.y:
+    type: array_1d
+    description: model vector
+
+execute output:
+  likelihood.loglkl:
+    type: float
+    description: log-likelihood
+
+---
+
+name: SumLikelihood
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Sum of several likelihoods
+
+long description: >
+                  Extends :class:`BaseLikelihood` to perform the sum of independent log-likelihoods.
+                  Inheriting from  :class:`~pypescript.BasePipeline`, it is expected to setup and execute several independent likelihoods;
+                  Adds each likelihood.loglkl together.
+
+execute input:
+  likelihood.loglkl:
+    type: float
+    description: peculiar log-likelihood
+
+execute output:
+  likelihood.loglkl:
+    type: float
+    description: sum of log-likelihood
+
+---
+
+name: JointGaussianLikelihood
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Joint Gaussian likelihoods
+
+long description: >
+                  Extends :class:`GaussianLikelihood` to join non-independent Gaussian likelihoods.
+                  The data.y vectors of each of the input likelihoods (see ``join`` option) are concatenate in the setup step,
+                  similarly for the model.y in the execute step. The full inverse covariance matrix should be provided in the setup step
+                  (by adding the relevant module to the '#modules' list).
+
+options:
+  join:
+    type: list
+    default: []
+    description: :class:`BaseLikelihood` modules to join
+
+setup input:
+  data.y:
+    type: array_1d
+    description: data vector
+  covariance.invcov:
+    type: array_2d
+    description: inverse covariance
+  covariance.nobs:
+    type: int
+    description: number of observations, to correct for the Hartlap factor. If ``None``, no Harlap correction is applied
+
+execute input:
+  model.y:
+    type: array_1d
+    description: model vector
+
+execute output:
+  likelihood.loglkl:
+    type: float
+    description: log-likelihood

@@ -1,0 +1,47 @@
+name: CosmosisSampler
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Interface to CosmoSIS
+url: https://bitbucket.org/joezuntz/cosmosis/wiki/Home
+licence: LGPL
+requirements: []
+bibtex: [arXiv:1409.3409]
+
+long description: >
+                  Installing CosmoSIS is not straightforward, we recommend you follow instructions
+                  at the provided url. There is currently no support to interfacing CosmoSIS theory calculation
+                  with cosmopipe.
+
+options:
+  likelihood_name:
+    type: string
+    default: cosmopipe
+    description: name of the cosmopipe likelihood
+  sampler:
+    type: string
+    description: sampler to be used within CosmoSIS
+  config_cosmosis:
+    type: string
+    default: None
+    description: if not ``None``, CosmoSIS configuration file
+  seed:
+    type: int
+    default: None
+    description: random seed to use for initial parameter values (MPI-insensitive)
+  save:
+    type: string
+    default: None
+    description: if not ``None``, path where to save profiles
+  others: arguments for CosmoSIS sampler
+
+execute input:
+  parameters.list:
+    type: cosmopipe.lib.ParamBlock
+    description: list of parameters
+
+execute output:
+  likelihood.samples:
+    type: cosmopipe.lib.samples.Samples
+    description: posterior samples

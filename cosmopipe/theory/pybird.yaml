@@ -18,20 +18,70 @@ options:
   kmax:
     type: float
     default: 0.25
-    description: Maximum wavenumber in [h/Mpc] for power spectrum evaluation.
+    description: Maximum wavenumber in [h/Mpc] for power spectrum evaluation
   km:
     type: float
     default: 1.0
-    description: Inverse galaxy spatial extension scale in [h/Mpc].
+    description: Inverse galaxy spatial extension scale in [h/Mpc]
   with_resum:
     type: string
     default: 'opti'
-    description: 'opti: Resumming only with the BAO peak. True: Resummation on the full correlation function. False: no resummation.'
+    description: 'opti: Resumming only with the BAO peak. True: Resummation on the full correlation function. False: no resummation'
   with_stoch:
     type: bool
     default: False
-    description: 'With stochastic terms.'
+    description: With stochastic terms
   with_nlo_bias:
     type: bool
     default: False
-    description: 'With next-to-leading bias.'
+    description: With next-to-leading bias
+
+setup input:
+  primordial_perturbations.pk_callable:
+    type: callable
+    description: Power spectrum
+  survey_geometry.zeff:
+    type: float
+    description: Effective redshift
+  primordial_cosmology.cosmo:
+    type: cosmoprimo.Cosmology
+    description: Current cosmology
+  data.shotnoise:
+    type: float
+    description: Data shot noise
+
+execute input:
+  galaxy_bias.b1:
+    type: float
+    description: Linear eulerian bias
+  galaxy_bias.b2:
+    type: float
+    description: Second order bias
+  galaxy_bias.b3:
+    type: float
+    description: Third order bias
+  galaxy_bias.b4:
+  galaxy_bias.cct:
+  galaxy_bias.cr1:
+  galaxy_bias.cr2:
+  galaxy_bias.ce0:
+  galaxy_bias.ce1:
+  galaxy_bias.ce2:
+  galaxy_bias.bnlo:
+  galaxy_bias.fsig:
+    type: float
+    description: Normalisation of velocity power spectrum
+  effect_ap.qpar:
+    type: float
+    description: Scaling parallel to the line-of-sight
+  effect_ap.qper:
+    type: float
+    description: Scaling perpendicular to the line-of-sight
+  primordial_perturbations.pk_callable:
+    type: callable
+    description: Power spectrum
+
+execute output:
+  galaxy_power.pk_mu_callable:
+    type: callable
+    description: Linear galaxy power spectrum

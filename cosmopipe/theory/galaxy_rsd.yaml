@@ -1,0 +1,32 @@
+name: GalaxyRSD
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Compute the normalisation of the power spectrum
+
+long description: >
+                  This module computes the r.m.s. of baryon velocity
+                  perturbations (i.e. normalisation of the baryon velocity
+                  power spectrum) in sphere of a given radius.
+                  Matches the traditional f*sigma8 for a radius of 8 Mpc/h
+                  and in absence of neutrinos.
+
+options:
+  sigma_radius:
+    type: float
+    default: 8
+    description: Sphere radius
+
+execute input:
+  survey_geometry.zeff:
+    type: float
+    description: Effective redshift
+  primordial_cosmology.cosmo:
+    type: cosmoprimo.Cosmology
+    description: Current cosmology
+
+execute output:
+  galaxy_rsd.fsig:
+    type: float
+    description: Normalisation of the baryon velocity power spectrum

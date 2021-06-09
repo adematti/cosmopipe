@@ -1,3 +1,6 @@
+data_dir: _data
+plots_dir: _plots
+
 main:
   $execute: [params, primordial, model, mockcov, mockdata, compare]
 
@@ -45,16 +48,16 @@ mockdata:
   mean: True
   seed: 42
   xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
-  save_txt: _data/data.txt
+  save: f'${data_dir}/data.txt'
 
 plotting:
   $module_name: cosmopipe.samplers.plotting
   $module_class: ProfilesPlotting
-  save_stats: _plots/stats_pybird.tex
+  save_stats: f'${plots_dir}/stats_pybird.tex'
   toplot:
     - plot_aligned_stacked:
         truths: value
-        filename: _plots/aligned_stacked_pybird.png
+        filename: f'${plots_dir}/aligned_stacked_pybird.png'
 
 like:
   $module_name: cosmopipe.likelihood.likelihood

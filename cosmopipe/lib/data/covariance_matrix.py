@@ -29,7 +29,7 @@ class CovarianceMatrix(DataVector):
             proj = (proj,)*covariance.ndim
         if not isinstance(mapping_proj,tuple):
             mapping_proj = (mapping_proj,)*covariance.ndim
-        self._x = list(DataVector(x=x_,y=mean_,proj=proj_,mapping_proj=mapping_proj_)\
+        self._x = list(DataVector(x=x_,y=mean_,proj=proj_,mapping_proj=mapping_proj_,**attrs)\
                                 for x_,mean_,proj_,mapping_proj_ in zip(x,mean,proj,mapping_proj))
         self._covariance = covariance
         self.attrs = attrs
@@ -139,7 +139,7 @@ class CovarianceMatrix(DataVector):
     def load_auto(cls, filename, *args, **kwargs):
         if os.path.splitext(filename)[-1] == '.txt':
             return cls.load_txt(filename,*args,**kwargs)
-        return cls.load(filename,*args,**kwargs)
+        return cls.load(filename)
 
     def save_auto(self, filename, *args, **kwargs):
         if os.path.splitext(filename)[-1] == '.txt':
@@ -238,9 +238,9 @@ class CovarianceMatrix(DataVector):
                             file.write('{:{fmt}} {:{fmt}} {:{fmt}}\n'.format(x1,x2,self._cov[ix1,ix2],fmt=fmt))
 
     def plot(self, style='corr', data_styles=None, **kwargs_style):
-        from .plotting import DataPlotStyle
-        style = DataPlotStyle(style,data_styles=data_styles,**kwargs_style)
-        style.plot(covariance=self)
+        from .plotting import MatrixPlotStyle
+        style = MatrixPlotStyle(style,covariance=self,data_styles=data_styles,**kwargs_style)
+        style.plot()
 
 
 

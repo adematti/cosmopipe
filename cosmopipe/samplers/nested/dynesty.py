@@ -1,4 +1,3 @@
-import sys
 import logging
 
 import numpy as np
@@ -15,16 +14,16 @@ class DynestySampler(BasePipeline):
     logger = logging.getLogger('DynestySampler')
 
     def setup(self):
-        self.save = self.options.get('save',False)
-        self.seed = self.options.get('seed',None)
         self.mode = self.options.get('mode','static')
         self.nlive = self.options.get('nlive',500)
         self.bound = self.options.get('bound','multi')
         self.sample = self.options.get('sample','auto')
-        self.update_interval = self.options.get('update_interval',0.6)
-        self.queue_size = self.options.get('queue_size',None)
-        self.max_iterations = self.options.get('max_iterations',sys.maxsize)
+        self.update_interval = self.options.get('update_interval',None)
+        #self.queue_size = self.options.get('queue_size',None)
+        self.max_iterations = self.options.get('max_iterations',None)
         self.dlogz = self.options.get('dlogz',0.01)
+        self.seed = self.options.get('seed',None)
+        self.save = self.options.get('save',False)
 
     def execute(self):
         super(DynestySampler,self).setup()
@@ -57,7 +56,7 @@ class DynestySampler(BasePipeline):
                 bound=self.bound,
                 sample=self.sample,
                 update_interval=self.update_interval,
-                queue_size=self.queue_size,
+                #queue_size=self.queue_size,
                 pool=self.pool,
                 use_pool=use_pool,
                 )
@@ -72,11 +71,11 @@ class DynestySampler(BasePipeline):
                 bound=self.bound,
                 sample=self.sample,
                 update_interval=self.update_interval,
-                queue_size=self.queue_size,
+                #queue_size=self.queue_size,
                 pool=self.pool,
                 use_pool=use_pool,
                 )
-            sampler.run_nested(maxiter=self.max_iterations,dlogz_init=self.dlogz)
+            sampler.run_nested(nlive_init=self.nlive,maxiter=self.max_iterations,dlogz_init=self.dlogz)
 
         results = sampler.results
 

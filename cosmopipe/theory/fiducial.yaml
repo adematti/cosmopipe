@@ -1,0 +1,26 @@
+name: Fiducial
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Setup fiducial cosmology
+requirements: ['cosmoprimo @ git+https://github.com/adematti/cosmoprimo']
+
+long description: >
+                  This module sets a fiducial cosmology.
+
+options:
+  engine:
+    type: string
+    default: class
+    description: Default engine for the cosmology class
+  Omega_m:
+    type: float
+    default: 0.3
+    description: Matter density parameters
+  others: Valid parameters for cosmoprimo.Cosmology
+
+setup output:
+  fiducial_cosmology.cosmo:
+    type: cosmoprimo.Cosmology
+    description: Fiducial cosmology

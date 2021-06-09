@@ -62,7 +62,10 @@ class Samples(BaseCatalog):
         self.data = {}
         if parameters is None:
             parameters = list((data or {}).keys())
-        self.parameters = ParamBlock(parameters)
+        if isinstance(parameters,ParamBlock):
+            self.parameters = parameters.copy()
+        else:
+            self.parameters = ParamBlock(parameters)
         if data is not None:
             for name in data:
                 self[name] = data[name]
@@ -472,7 +475,7 @@ class Samples(BaseCatalog):
         """
         http://www.stat.columbia.edu/~gelman/research/published/brooksgelman2.pdf
         """
-        if columns is None: columns = self.columns(fixed=False)
+        if columns is None: columns = chains[0].columns(fixed=False)
         isscalar = not _multiple_columns(columns)
         if isscalar: columns = [columns]
 

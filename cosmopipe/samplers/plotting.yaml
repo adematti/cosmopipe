@@ -1,0 +1,63 @@
+name: SamplesPlotting
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Plot samples
+
+long description: >
+                  Plot samples: histograms, corner plots.
+
+options:
+  save_stats:
+    type: [string, list]
+    default: None
+    description: if not ``None``, list of paths where to save summary statistics of input samples
+  tablefmt:
+    type: string
+    default: latex_raw
+    description: if ``save_stats``, table formatting
+  toplot:
+    type: list
+    default: []
+    description: list of :class:`~cosmopipe.lib.samples.SamplesPlotStyle` methods (plot_1d, plot_2d, plot_corner, plot_chain, plot_gelman_rubin, plot_autocorrelation_time)
+  burnin:
+    type: [int, float]
+    default: None
+    description: if int, number of steps to remove; if float < 1, fraction of chain to remove
+  samples_load:
+    type: list
+    default: None
+    description: list of (section, name) in data_block where to find the sample(s) (defaults to standard location) or, if containing / (or \), a path to samples on disk
+  $others: options for :class:`~cosmopipe.lib.samples.SamplesPlotStyle`
+
+---
+
+name: ProfilesPlotting
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Plot samples
+
+long description: >
+                  Plot profiles: comparisons (*aligned*) plots, corner plots.
+
+options:
+  save_stats:
+    type: [string, list]
+    default: None
+    description: if not ``None``, list of paths where to save summary statistics of input samples
+  tablefmt:
+    type: string
+    default: latex_raw
+    description: if ``save_stats``, table formatting
+  toplot:
+    type: list
+    default: []
+    description: list of :class:`~cosmopipe.lib.samples.ProfilesPlotStyle` methods (plot_aligned, plot_aligned_stacked, plot_1d, plot_2d, plot_corner)
+  samples_load:
+    type: list
+    default: None
+    description: list of (section, name) in data_block where to find the profiles (defaults to standard location) or, if containing / (or \), a path to profiles on disk
+  $others: options for :class:`~cosmopipe.lib.samples.ProfilesPlotStyle`

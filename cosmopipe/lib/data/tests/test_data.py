@@ -16,7 +16,7 @@ covariance_fn = os.path.join(data_dir,'covariance.txt')
 def make_data_covariance(data_fn=data_fn,covariance_fn=covariance_fn,mapping_proj=None,ndata=30,seed=42):
     utils.mkdir(os.path.dirname(data_fn))
     utils.mkdir(os.path.dirname(covariance_fn))
-    x = np.linspace(0.01,0.2,20)
+    x = np.linspace(0.01,0.2,5)
     rng = np.random.RandomState(seed=seed)
     list_data = []
     for i in range(ndata):
@@ -63,7 +63,6 @@ def test_data_vector():
     filename = os.path.join(data_dir,'plot_data.png')
     data2.plot(filename=filename,style='pk')
     mapping_proj = ['ell_0']
-
     list_data = make_data_covariance(ndata=1,mapping_proj=mapping_proj)[0]
     mapping_header = {'shotnoise':'.*?Estimated shot noise: (.*)'}
     data = DataVector.load_txt(data_fn.format(0),mapping_header=mapping_header)
@@ -75,10 +74,10 @@ def test_data_vector():
     assert np.all(data2.get_x() == data.get_x())
     filename = os.path.join(data_dir,'data.txt')
     data.save_txt(filename)
-    data2 = DataVector.load_txt(filename)
+    data2 = DataVector.load_txt(filename, type='pk')
     assert np.all(data2.get_x() == data.get_x())
     filename = os.path.join(data_dir,'plot_data_0.png')
-    data2.plot(filename=filename,style='pk')
+    data2.plot(filename=filename)
 
 def test_covariance_matrix():
 
@@ -105,10 +104,10 @@ def test_covariance_matrix():
     mapping_proj = ['ell_0']
     list_data,cov_ref = make_data_covariance(ndata=60,mapping_proj=mapping_proj)
     data = DataVector.load_txt(data_fn.format(0))
-    cov = CovarianceMatrix.load_txt(covariance_fn,data=data)
+    cov = CovarianceMatrix.load_txt(covariance_fn,data=data,type='pk')
     assert np.allclose(cov.get_cov(),cov_ref.get_cov())
     filename = os.path.join(data_dir,'plot_covariance_0.png')
-    cov.plot(filename=filename,data_styles='pk')
+    cov.plot(filename=filename)
 
 
 def test_mock_data_vector():
@@ -131,7 +130,7 @@ def test_plotting():
 if __name__ == '__main__':
 
     setup_logging()
-    #test_data_vector()
-    #test_covariance_matrix()
-    #test_mock_data_vector()
+    test_data_vector()
+    test_covariance_matrix()
+    test_mock_data_vector()
     test_plotting()

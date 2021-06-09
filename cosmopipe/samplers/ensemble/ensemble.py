@@ -14,7 +14,7 @@ class EnsembleSampler(BasePipeline):
 
     def setup(self):
         self.save = self.options.get('save',False)
-        self.load = self.options.get('load',False)
+        self.samples_load = self.options.get('samples_load',False)
         self.seed = self.options.get('seed',None)
         self.nwalkers = self.options.get('nwalkers',None)
         self.thin_by = self.options.get('thin_by',1)
@@ -22,7 +22,7 @@ class EnsembleSampler(BasePipeline):
         self.min_iterations = self.options.get('min_iterations',0)
         self.max_iterations = self.options.get('max_iterations',sys.maxsize)
         self.max_tries = self.options.get('max_tries',1000)
-        diagnostics_options = ['nslabs','stable_over','burnin','eigen_gr_stop','diag_gr_stop','cl_diag_gr_stop','nsigmas_cl_diag_gr_stop','iact_stop','dact_stop']
+        diagnostics_options = ['nsplits','stable_over','burnin','eigen_gr_stop','diag_gr_stop','cl_diag_gr_stop','nsigmas_cl_diag_gr_stop','geweke_stop','iact_stop','dact_stop']
         self.diagnostics = {key:self.options.get(key) for key in diagnostics_options if key in self.options}
 
     def execute(self):
@@ -45,9 +45,9 @@ class EnsembleSampler(BasePipeline):
         samples = Samples(parameters=parameters,attrs={'nwalkers':self.nwalkers},mpicomm=self.mpicomm,mpiroot=0,mpistate='gathered')
         start = None
 
-        if self.load:
+        if self.samples_load:
             if self.mpicomm.rank == 0:
-                samples = Samples.load_auto(self.load)
+                samples = Samples.samples_load_auto(self.samples_load)
                 start = np.array([samples[param][-self.nwalkers:] for param in self.varied]).T
 
         else:
@@ -124,8 +124,8 @@ class EnsembleSampler(BasePipeline):
             todo()
         return self.pipe_block[section_names.likelihood,'loglkl'] + logprior
 
-    def run_diagnostics(self, samples, nslabs=4, stable_over=2, burnin=0.3, eigen_gr_stop=0.03, diag_gr_stop=None,
-                        cl_diag_gr_stop=None, nsigmas_cl_diag_gr_stop=1., iact_stop=None, iact_reliable=50, dact_stop=None):
+    def run_diagnostics(self, samples, nsplits=4, stable_over=2, burnin=0.3, eigen_gr_stop=0.03, diag_gr_stop=None,
+                        cl_diag_gr_stop=None, nsigmas_cl_diag_gr_stop=1., geweke_stop=None, iact_stop=None, iact_reliable=50, dact_stop=None):
 
         def add_diagnostics(name, value):
             if name not in self._current_diagnostics:
@@ -143,14 +143,14 @@ class EnsembleSampler(BasePipeline):
             burnin = burnin*(samples.gsize//self.nwalkers)
         burnin = int(round(burnin))*self.nwalkers
 
-        lenslabs = (samples.gsize - burnin) // nslabs
+        lensplits = (samples.gsize - burnin) // nsplits
 
         msg = '{{}} is {{:.3g}}'.format(samples.gsize//self.nwalkers)
 
-        if lenslabs < 2:
+        if lensplits < 2:
             return False
 
-        chains = [samples.gslice(burnin + islab*lenslabs, burnin + (islab + 1)*lenslabs) for islab in range(nslabs)]
+        chains = [samples.gslice(burnin + islab*lensplits, burnin + (islab + 1)*lensplits) for islab in range(nsplits)]
 
         self.log_info('Diagnostics:',rank=0)
         item = '- '
@@ -190,6 +190,18 @@ class EnsembleSampler(BasePipeline):
             self.log_info('{} {} {:.3g}'.format(msg,'<' if test else '>',cl_diag_gr_stop),rank=0)
             add_diagnostics('cl_diag_gr',test)
             toret = is_stable('cl_diag_gr')
+        else:
+            self.log_info('{}.'.format(msg),rank=0)
+
+        # source: https://github.com/JohannesBuchner/autoemcee/blob/38feff48ae524280c8ea235def1f29e1649bb1b6/autoemcee.py#L337
+        geweke = np.abs(chains[0].mean(self.varied) - chains[-1].mean(self.varied))/(chains[0].var(self.varied) + chains[-1].var(self.varied))**0.5
+        geweke = geweke.max()
+        msg = '{}max Geweke statistic is {:.3g}'.format(item,geweke)
+        if geweke_stop is not None:
+            test = geweke < geweke_stop
+            self.log_info('{} {} {:.3g}.'.format(msg,'<' if test else '>',geweke_stop),rank=0)
+            add_diagnostics('geweke',test)
+            toret = is_stable('geweke')
         else:
             self.log_info('{}.'.format(msg),rank=0)
 

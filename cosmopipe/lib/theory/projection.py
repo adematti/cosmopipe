@@ -6,52 +6,8 @@ from cosmopipe.lib.utils import BaseClass
 from .integration import MultipolesIntegration
 from . import utils
 
+from cosmopipe.lib.data import DataVector, ProjectionName
 
-class ProjectionName(BaseClass):
-
-    shorts = {'multipole':'ell'}
-
-    def __init__(self, *args):
-        if len(args) == 1:
-            if isinstance(args[0],self.__class__):
-                self.__dict__.update(args[0].__dict__)
-                return
-            if isinstance(args[0],(tuple,list)):
-                args = args[0]
-            elif isinstance(args[0],str):
-                for key,short in self.shorts.items():
-                    match = re.match('{}_(.*)'.format(short),args[0])
-                    if match:
-                        args = (key, int(match.group(1)))
-        self.type,self.proj = args
-
-    def __repr__(self):
-        return '{}({}_{})'.format(self.__class__.__name__,self.shorts[self.type],self.proj)
-
-    def __str__(self):
-        return '{}_{}'.format(self.shorts[self.type],self.proj)
-
-    def __eq__(self, other):
-        return str(self) == str(other)
-
-    def __hash__(self):
-        return hash(str(self))
-
-    def __gt__(self, other):
-        return self.proj > other.proj
-
-    def __lt__(self, other):
-        return self.proj < other.proj
-
-    def __getstate__(self):
-        return {'type':self.type,'proj':self.proj}
-
-    def __setstate__(self, state):
-        self.type = state['type']
-        self.proj = state['proj']
-
-
-from cosmopipe.lib.data import DataVector
 
 class DataVectorProjection(BaseClass):
 
@@ -105,7 +61,7 @@ class DataVectorProjection(BaseClass):
     def set_data_projection(self, x, projname, integration=None):
         integration = integration or {}
         #proj = ProjectionName(projname)
-        if projname.type == 'multipole':
+        if projname.mode == 'multipole':
             if self.basemodel == 'xmu':
                 self.projections[projname] = MultipolesIntegration({**integration,'ells':(projname.proj,)})
                 self.projections[projname].evalmesh = [x,self.projections[projname].mu]

@@ -11,7 +11,7 @@ class GaussianPkCovariance(object):
 
     def setup(self):
         kwargs = {}
-        for arg in gaussian_covariance.GaussianPkCovarianceMatrix.__init__.__code__.co_varnames[1:]:
+        for arg in ['kedges','k','projs','volume','shotnoise','integration']:
             if arg in self.options:
                 kwargs[arg] = self.options[arg]
         if 'kedges' in kwargs and isinstance(kwargs['kedges'],dict):
@@ -34,7 +34,7 @@ class GaussianPkCovariance(object):
 
     def execute(self):
         self.covariance.compute(self.data_block[section_names.model,'y_callable'])
-        self.kwview = get_kwview(self.covariance.x[0],self.options)
+        self.kwview = get_kwview(self.covariance.x[0],xlim=self.options.get('xlim',None))
         cov = self.covariance.view(**self.kwview)
         self.data_block[section_names.covariance,'covariance_matrix'] = cov
         self.data_block[section_names.covariance,'cov'] = cov.get_cov()

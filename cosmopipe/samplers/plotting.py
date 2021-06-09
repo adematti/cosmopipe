@@ -1,38 +1,24 @@
 import numpy as np
-from pypescript import syntax
 
 from cosmopipe import section_names
 from cosmopipe.lib.samples import Samples, Profiles, SamplesPlotStyle, ProfilesPlotStyle
-from cosmopipe.lib import utils
+from cosmopipe.lib import syntax, utils
 
 
 class SamplesPlotting(object):
 
     def setup(self):
-        self.save_stats = self.options.get('save_stats',False)
+        self.save_stats = self.options.get('save_stats',None)
+        if self.save_stats is not None and not isinstance(self.save_stats,list):
+            self.save_stats = [self.save_stats]
         self.tablefmt = self.options.get('tablefmt','latex_raw')
         self.toplot = self.options['toplot']
         self.burnin = self.options.get('burnin',None)
-        self.samples_load = self.options.get('samples_load',[])
-        samples_keys = self.options.get('samples_keys','samples' if not self.samples_load else [])
-        if np.isscalar(self.save_stats):
-            self.save_stats = [self.save_stats]
-        if np.isscalar(self.samples_load):
-            self.samples_load = [self.samples_load]
-        if np.isscalar(samples_keys):
-            samples_keys = [samples_keys]
-        self.samples_keys = []
-        for key in samples_keys:
-            key = syntax.split_sections(key,default_section=section_names.likelihood)
-            self.samples_keys.append(key)
+        self.samples_load = self.options.get('samples_load','samples')
         self.style = SamplesPlotStyle(**syntax.remove_keywords(self.options))
 
     def execute(self):
-        chains = []
-        for key in self.samples_keys:
-            chains.append(self.data_block[key])
-        for fn in self.samples_load:
-            chains.append(Samples.load_auto(fn))
+        chains = syntax.load_auto(self.samples_load,data_block=self.data_block,default_section=section_names.likelihood,loader=Samples.load_auto)
         if self.burnin is not None:
             chains = [samples.remove_burnin(self.burnin) for samples in chains]
         #for samples in chains: samples.mpi_scatter()
@@ -51,30 +37,16 @@ class SamplesPlotting(object):
 class ProfilesPlotting(object):
 
     def setup(self):
-        self.save_stats = self.options.get('save_stats',False)
+        self.save_stats = self.options.get('save_stats',None)
+        if self.save_stats is not None and not isinstance(self.save_stats,list):
+            self.save_stats = [self.save_stats]
         self.tablefmt = self.options.get('tablefmt','latex_raw')
         self.toplot = self.options['toplot']
-        self.profiles_load = self.options.get('profiles_load',[])
-        profiles_keys = self.options.get('profiles_keys','profiles' if not self.profiles_load else [])
-        if np.isscalar(self.save_stats):
-            self.save_stats = [self.save_stats]
-        if np.isscalar(self.profiles_load):
-            self.profiles_load = [self.profiles_load]
-        if np.isscalar(profiles_keys):
-            profiles_keys = [profiles_keys]
-        self.profiles_keys = []
-        for key in profiles_keys:
-            key = syntax.split_sections(key,default_section=section_names.likelihood)
-            self.profiles_keys.append(key)
+        self.profiles_load = self.options.get('profiles_load','profiles')
         self.style = ProfilesPlotStyle(**self.options)
 
     def execute(self):
-        profiles = []
-        for key in self.profiles_keys:
-            profiles.append(self.data_block[key])
-        for fn in self.profiles_load:
-            profiles.append(Profiles.load_auto(fn))
-        self.style.profiles = profiles
+        self.style.profiles = profiles = syntax.load_auto(self.profiles_load,data_block=self.data_block,default_section=section_names.likelihood,loader=Profiles.load_auto)
         if self.save_stats:
             for prof,filename in zip(profiles,self.save_stats):
                 prof.to_stats(tablefmt=self.tablefmt,filename=filename)

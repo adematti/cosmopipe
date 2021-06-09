@@ -54,6 +54,15 @@ def test_misc():
     res = utils.rebin_ndarray(a,(3,np.arange(5)-0.1),interpolation=False)
     assert np.allclose(ref,res)
 
+    a = np.random.uniform(size=10).reshape((5,2))
+    weights = np.ones(a.shape)
+    for interpolation in ['lower','higher','midpoint','nearest','linear']:
+        for q in [0.2,(0.4,0.9)]:
+            for axis in [0,1,None]:
+                ref = np.quantile(a,q,axis=axis,interpolation=interpolation)
+                test = utils.weighted_quantile(a,q,weights=weights,axis=axis,interpolation=interpolation)
+                assert np.allclose(ref,test)
+
 
 
 def test_round():

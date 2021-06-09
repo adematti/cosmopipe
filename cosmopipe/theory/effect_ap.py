@@ -8,13 +8,7 @@ class EffectAP(object):
 
     def setup(self):
         self.zeff = self.data_block[section_names.survey_geometry,'zeff']
-        params = {}
-        params['engine'] = self.options.get('engine','class')
-        for name,value in Cosmology.get_default_parameters(of='cosmology',include_conflicts=True).items():
-            if name in self.options:
-                params[name] = self.options[name]
-        cosmo = Cosmology(**params)
-        ba = cosmo.get_background()
+        cosmo = self.data_block[section_names.fiducial_cosmology,'cosmo']
         self.hubble_rate = ba.efunc(self.zeff)
         self.comoving_angular_distance = ba.comoving_angular_distance(self.zeff)
 

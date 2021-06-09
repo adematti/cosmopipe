@@ -19,20 +19,37 @@ class SurveyCorrelationFunction(BoxCorrelationFunction):
             self.catalog_options[name] = self.options.get(name,value)
         self.data_load = self.options.get('data_load','data')
         self.randoms_load = self.options.get('randoms_load','randoms')
+        self.R1R2_load = self.options.get('R1R2_load',False)
+        if isinstance(self.R1R2_load,bool) and self.R1R2_load:
+            self.R1R2_load = 'correlation_estimator'
+
+    def get_R1R2(self):
+        R1R2 = None
+        if self.R1R2_load:
+            R1R2 = syntax.load_auto(self.R1R2_load,data_block=self.data_block,default_section=section_names.data,loader=NaturalEstimator.load)
+        return R1R2
 
     def execute(self):
-        data,randoms = prepare_survey_catalogs(data,randoms,cosmo=self.data_block.get(section_names.fiducial_cosmology,'cosmo',None),**self.catalog_options)
-        data = data.to_nbodykit()
-        randoms = randoms.to_nbodykit()
+        input_data = syntax.load_auto(self.data_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
+        input_randoms = syntax.load_auto(self.randoms_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
+        if len(input_data) != len(input_randoms):
+            raise ValueError('Number of input data and randoms catalogs is different ({:d} v.s. {:d})'.format(len(input_data),len(input_randoms)))
+        list_data,list_randoms = [],[]
+        for data,randoms in zip(input_data,input_randoms):
+            if self.mode == 'angular':
+                data,randoms = prepare_survey_angular_catalogs(data,randoms,**{name: self.catalog_options5[name] for name in ['ra','dec','weight_comp'])
+            list_data.append(data.to_nbodykit())
+            list_randoms.append(randoms.to_nbodykit())
 
         class FakeCosmo(object):
 
             def comoving_distance(z):
                 return np.ones_like(z)
 
-        result = SurveyData2PCF(self.mode,data,randoms,self.edges,cosmo=FakeCosmo(),
-                                data2=None,randoms2=None,R1R2=None,
-                                ra='ra',dec='dec',redshift='distance',weight='weight',
+        cross = len(list_data) > 1
+        result = SurveyData2PCF(self.mode,list_data[0],list_randoms[0],self.edges,cosmo=FakeCosmo(),
+                                data2=list_data[1] if cross else None,randoms2=list_randoms[1] if cross else None,
+                                R1R2=self.get_R1R2(),ra='ra',dec='dec',redshift='distance',weight='weight',
                                 **self.correlation_options)
         args = []
         for name in ['D1D2','R1R2','D1R2','D2R1']:
@@ -50,6 +67,7 @@ class SurveyCorrelationFunction(BoxCorrelationFunction):
         data_vector = self.build_data_vector(estimator)
         if self.save: data_vector.save_auto(self.save)
         self.data_block[section_names.data,'data_vector'] = data_vector
+        self.data_block[section_names.data,'correlation_estimator'] = estimator
 
     def cleanup(self):
         pass

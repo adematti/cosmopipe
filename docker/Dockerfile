@@ -13,50 +13,27 @@ RUN DEBIAN_FRONTEND=noninteractive \
     libbz2-dev \
     libcfitsio-dev \
     libcfitsio-bin \
-    python3 \
-    python3-dev \
-    python3-pip \
-    python3-pil \
-    python3-tk \
     # # Remove APT files
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN ln -s /usr/bin/python3 /usr/bin/python
-RUN ln -s /usr/bin/pip3 /usr/bin/pip
+RUN wget -nv https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
+    bash miniconda.sh -b -p /opt/conda && \
+    conda config --add channels intel && \
+    conda config --set always_yes yes && \
+    conda update conda && \
+    conda install python=3.7 pip numpy scipy && \
+    conda clean -a -y
+
+RUN conda install numpy mpi4py pyyaml cython gsl sphinx-rtd-theme
 
 RUN for x in \
-  scipy \
-  numpy \
-  matplotlib \
-  mpi4py \
-  pyyaml \
-  fitsio \
-  tabulate \
-  git+https://github.com/adematti/cosmoprimo \
-  graphviz \
-#  graphviz-dev \
-  coverage \
-  sphinx \
-  sphinx-rtd-theme \
+  git+https://github.com/adematti/pypescript \
+  git+https://github.com/adematti/cosmopipe \
   ; do pip install $x; done \
   && rm -Rf /root/.cache/pip
 
 WORKDIR /src/
 
-RUN git clone https://github.com/adematti/pypescript \
-  && cd pypescript \
-  && python -m pip install . \
-  && cd template_lib \
-  && python -m pip install .
-
-# RUN git clone https://github.com/adematti/pypescript \
-#  && cd pypescript/template_lib \
-#  && python -m pip install .
-
-RUN for x in \
-  git+https://github.com/CobayaSampler/cobaya \
-  ; do pip install $x; done \
-  && rm -Rf /root/.cache/pip
 
 #RUN git clone http://bitbucket.org/joezuntz/cosmosis \
 #  && cd cosmosis \

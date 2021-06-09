@@ -4,6 +4,7 @@ import numpy as np
 from pypescript import BaseModule, ConfigError
 from nbodykit.lab import SurveyData2PCF
 
+from cosmopipe.lib import syntax
 from cosmopipe.lib.catalog import Catalog, utils
 from .estimator import PairCount, NaturalEstimator
 
@@ -21,7 +22,7 @@ class BoxCorrelationFunction(BaseModule):
 
     def set_correlation_options(self):
         default_min = 1e-12 # non-zero to avoid cross-pairs
-        self.correlation_options = {'mode':'2d','pimax':80,'edges':np.linspace(default_min,200,50),'muedges':100,'muwedges':3,'ells':(0,2,4),'show_progress':False,'nhtreads':1}
+        self.correlation_options = {'mode':'2d','pimax':80,'edges':{'min':default_min,'max':200,'nbins':50},'muedges':100,'muwedges':3,'ells':(0,2,4),'show_progress':False,'nhtreads':1}
         for name,value in self.correlation_options.items():
             self.correlation_options[name] = self.options.get(name,value)
         self.mode = self.correlation_options.pop('mode')
@@ -44,44 +45,48 @@ class BoxCorrelationFunction(BaseModule):
                 raise ConfigError('Unknown scale {}'.format(scale))
 
     def build_data_vector(self, estimator):
-        x,y,proj = [],[],[]
+        x,y,mapping_proj = [],[],[]
         if self.mode == '2d' and self.ells:
             s,poles = project_to_multipoles(estimator)
             x += [s]*len(self.ells)
             y += poles.T.tolist()
-            proj += ['ell_{:d}'.format(ell) for ell in self.ells]
+            mapping_proj += ['ell_{:d}'.format(ell) for ell in self.ells]
         if self.mode == '2d' and self.muwedges:
             estimator.rebin(edges=(estimator.edges[0],muedges))
             x += estimator.sep.T.tolist()
             y += estimator.corr.T.tolist()
-            proj += ['mu_{:d}'.format(imu) for imu in range(len(self.muwedges)-1)]
+            mapping_proj += [('muwedge',(low,up)) for low,up in zip(self.muedges[:-1],self.muwedges[1:])]
         if self.mode == 'rp':
             dpi = np.diff(estimator.edges[1])
             wp = 2*(estimator.corr*dpi).sum(axis=-1)
             sep = estimator.sep[0].mean(axis=-1)
             x.append(sep)
             y.append(wp)
-            proj.append('wp')
+            mapping_proj = None
         if self.mode == 'rppi':
             x += estimator.sep.T.tolist()
             y += estimator.corr.T.tolist()
-            proj += ['pi_{:d}'.format(imu) for imu in range(len(self.edges[-1])-1)]
+            mapping_proj += [('piwedge',(low,up)) for low,up in zip(self.edges[:-1],self.edges[1:])]
         if self.mode == 'angular':
             x.append(estimator.sep)
             y.append(estimator.corr)
-            proj.append('angular')
+            mapping_proj = None
         if self.mode == '1d':
             x.append(estimator.sep)
             y.append(estimator.corr)
-            proj.append('ell_0')
-        return DataVector(x=x,y=y,proj=proj,**estimator.attrs)
+            mapping_proj = None
+        return DataVector(x=x,y=y,mapping_proj=mapping_proj,**estimator.attrs)
 
     def execute(self):
-        data = utils.prepare_box_catalog(**self.catalog_options)
-        data = data.to_nbodykit()
+        input_data = syntax.load_auto(self.data_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
+        list_data = []
+        for data in input_data:
+            data = utils.prepare_box_catalog(data,**self.catalog_options).to_nbodykit()
+            list_data.append(data)
 
-        result = SimulationBox2PCF(self.mode,data,self.edges,randoms=None,
-                                data2=None,randoms2=None,R1R2=None,
+        result = SimulationBox2PCF(self.mode,list_data[0],self.edges,randoms=None,
+                                data2=list_data[1] if len(list_data) > 1 else None,
+                                randoms2=None,R1R2=None,
                                 position='position',weight='weight',
                                 **self.correlation_options)
         args = []
@@ -100,6 +105,7 @@ class BoxCorrelationFunction(BaseModule):
         data_vector = self.build_data_vector(estimator)
         if self.save: data_vector.save_auto(self.save)
         self.data_block[section_names.data,'data_vector'] = data_vector
+        self.data_block[section_names.data,'correlation_estimator'] = estimator
 
     def cleanup(self):
         pass

@@ -1,0 +1,86 @@
+name: data_vector
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Load a covariance matrix
+
+
+options:
+  xlim:
+    type: dict
+    default: None
+    description: dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)})
+                or list of tuples corresponding to the data projections
+  data_load:
+    type: string
+    description: either (section, name) in data_block where to find the data catalog(s) or, if containing / (or \), a path to a catalog on disk.
+                If path ends with .npy, none of the arguments below apply.
+  xdim:
+    type: tuple
+    default: None
+    description: number of x columns for the two dimensions (in the case they are different for each y projection)
+  comments:
+    type: string
+    default: '#'
+    description: the characters used to indicate the start of a comment
+  usecols:
+    type: list
+    default: None
+    description: if not ``None``, list of columns to read the data vector from
+  skip_rows:
+    type: int
+    default: 0
+    description: skip the first skiprows lines, including comments
+  max_rows:
+    type: int
+    default: None
+    description: read max_rows lines of content after skiprows lines. The default is to read all the lines
+  col_proj:
+    type: bool
+    default: False
+    description: is a projection column provided (e.g. list of multipoles ells?).
+                It is assumed to be the first column (column order can be changed with ``usecols``).
+  mapping_header:
+    type: dict
+    default: None
+    description: dictionary holding keyword:regex mapping or (regex, type) to provide the type.
+                The corresponding values will be saved in the :attr:`attrs` dictionary
+  mapping_proj:
+    type: dict
+    default: None
+    description: dictionary holding label in col_proj (or index of y column):projection specifier (e.g. 'ell_0', ('muwedge', (0.0,0.2)))
+  type:
+    type: string
+    default: None
+    choices: [pk, xi]
+    description: data vector type
+  data:
+    type: dict
+    default: None
+    description: dictionary to load the data vector matching the provided covariance matrix (in which case 'x' columns of the covariance file are expected to be indices
+                of the data vector.
+
+setup input:
+  data.projs:
+    type: list
+    description: list of data projections
+  data.xlims:
+    type: list
+    description: list of corresponding x-limits
+
+
+setup output:
+  covariance.covariance_matrix:
+    type: cosmopipe.lib.data.CovarianceMatrix
+    description: Covariance matrix
+  covariance.cov:
+    type: float_array
+    description: array view of the covariance matrix
+  covariance.invcov:
+    type: float_array
+    description: array view of the inverse covariance matrix
+  covariance.nobs:
+    type: int
+    default: None
+    description: number of observations (mocks) used to compute the covariance matrix (if from mocks)

@@ -28,7 +28,7 @@ class Parameterisation(object):
                 if param in self.parameters:
                     raise ParamError('Attempting to rename specific parameter {} for module [{}] as {},\
                                     which already exists in common_parameters'.format(param_name,module_name,param.name))
-                mapping[param_name.tuple] = param.name.tuple
+                mapping[param.name.tuple] = param_name.tuple
             self.config_block[module_name,syntax.datablock_mapping].update(mapping)
             self.parameters.update(specific)
         for param in self.parameters:

@@ -10,7 +10,7 @@ class LinearModel(object):
         self.sigma8 = pklin.sigma8()
         fo = self.data_block[section_names.primordial_cosmology,'cosmo'].get_fourier()
         self.growth_rate = fo.sigma8_z(zeff,of='theta_cb')/fo.sigma8_z(zeff,of='delta_cb')
-        model = theory.LinearModel(pklin=pklin,FoG=self.options['FoG'])
+        model = theory.LinearModel(pklin=pklin,FoG=self.options.get('FoG','gaussian'))
         self.model = theory.EffectAP(pk_mu=model.pk_mu)
         self.data_shotnoise = self.data_block.get(section_names.data,'shotnoise',0.)
 

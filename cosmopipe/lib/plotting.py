@@ -1,14 +1,23 @@
 import os
-import logging
 import re
+import logging
 import functools
 
+import numpy as np
 from matplotlib import pyplot as plt
 
 from . import mpi
 from . import utils
 
 logger = logging.getLogger('Plotting')
+
+
+def make_list(obj, length=1):
+    if isinstance(obj,tuple):
+        return list(obj)
+    if not isinstance(obj,(list,np.ndarray)):
+        return [obj for i in range(length)]
+    return obj
 
 
 class BasePlotStyle(utils.BaseClass):
@@ -31,6 +40,23 @@ class BasePlotStyle(utils.BaseClass):
     def savefig(self, filename, fig=None, root=0):
         if self.is_mpi_root():
             savefig(filename,fig=fig,**self.kwfig)
+
+    def get(self, name, value=None, default=None):
+        if value is not None:
+            return value
+        value = getattr(self,name,None)
+        if value is None:
+            return default
+        return value
+
+    def get_list(self, name, value=None, default=None):
+        if value is not None:
+            value = make_list(value,length=len(default) if default is not None else 1)
+            return value
+        value = getattr(self,name,None)
+        if value is None:
+            return default
+        return make_list(value,length=len(default) if default is not None else 1)
 
 
 def savefig(filename, fig=None, bbox_inches='tight', pad_inches=0.1, dpi=200, **kwargs):

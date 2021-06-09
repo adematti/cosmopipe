@@ -7,7 +7,7 @@ from cosmopipe import section_names
 class Primordial(object):
 
     def setup(self):
-        self.compute = self.options.get('compute',[])
+        self.compute = self.options.get('compute',None)
         self.calculation_params = {}
         self.calculation_params['engine'] = self.options.get('engine','class')
         for name,value in Cosmology.get_default_parameters(of='calculation',include_conflicts=True).items():
@@ -24,9 +24,9 @@ class Primordial(object):
         cosmo = Cosmology(**kwargs,**self.calculation_params)
         self.data_block[section_names.primordial_cosmology,'cosmo'] = cosmo
         fo = cosmo.get_fourier()
-        if 'pk_m' in self.compute:
+        if self.compute == 'pk_m':
             self.data_block[section_names.primordial_perturbations,'pk_callable'] = fo.pk_interpolator(of='delta_m')
-        if 'pk_cb' in self.compute:
+        elif self.compute == 'pk_cb':
             self.data_block[section_names.primordial_perturbations,'pk_callable'] = fo.pk_interpolator(of='delta_cb')
 
     def cleanup(self):

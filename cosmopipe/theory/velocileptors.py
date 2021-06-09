@@ -20,7 +20,7 @@ class Velocileptors(object):
         options['shear'] = self.options.get_bool('shear',True)
         options['extrap_min'] = -6
         options['extrap_max'] = 2
-        options['threads'] = self.options.get_int('threads',1)
+        options['threads'] = self.options.get_int('nthreads',1)
         return options
 
     def set_pklin(self):

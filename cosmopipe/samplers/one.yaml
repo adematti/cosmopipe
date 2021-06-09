@@ -1,0 +1,20 @@
+name: OneSampler
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Trial evaluation of the posterior
+
+long description: >
+                  Tries to evaluate the posterior until a finite value is found.
+
+options:
+  max_tries:
+    type: int
+    default: 1000
+    description: number of tries to find a finite posterior value
+
+execute input:
+  parameters.list:
+    type: cosmopipe.lib.ParamBlock
+    description: list of parameters

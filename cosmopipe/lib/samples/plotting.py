@@ -130,14 +130,6 @@ def plot_normal_2d(ax, mean=None, covariance=None, sigmas=2, **kwargs):
     plot_contour_2d(ax, contours, **kwargs)
 
 
-def make_list(obj, length=1):
-    if isinstance(obj,tuple):
-        return list(obj)
-    if not isinstance(obj,(list,np.ndarray)):
-        return [obj for i in range(length)]
-    return obj
-
-
 class ListPlotStyle(plotting.BasePlotStyle):
 
     def get_color(self, label, labels=None):
@@ -156,15 +148,6 @@ class ListPlotStyle(plotting.BasePlotStyle):
         else:
             color = self.colors[index]
         return color
-
-    def get_list(self, name, value=None, default=None):
-        if value is not None:
-            value = make_list(value,length=len(default) if default is not None else 1)
-            return value
-        value = getattr(self,name,None)
-        if value is None:
-            return default
-        return make_list(value,length=len(default) if default is not None else 1)
 
     @staticmethod
     def get_parameters(parameters, chains=None):

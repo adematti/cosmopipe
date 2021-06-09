@@ -1,0 +1,49 @@
+name: MinuitProfiler
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Likelihood profiling with iminuit
+url: https://github.com/scikit-hep/iminuit
+licence: [LGPL-2.1, MIT]
+requirements: [iminuit>=2.0.0]
+
+long description: >
+                  Likelihood profiling using the iminuit interface for the Minuit2 C++ library maintained by CERN's ROOT team.
+                  Best fits are estimated with migrad, confidence intervals with minos.
+
+options:
+  migrad:
+    type: dict
+    default: {}
+    description: option dictionary for migrad, possibly containing ``n_iterations`` (number of fits starting from different values)
+  minos:
+    type: dict
+    default: {}
+    description: option dictionary for minos, possibly containing ``cl`` (confidence interval, defaults to 68.3%) and 'ncall' (maximum number of likelihood calls)
+  torun:
+    type: list
+    default: []
+    description: list of algorithms to run (migrad, minos)
+  seed:
+    type: int
+    default: None
+    description: random seed to use for initial parameter values (MPI-insensitive)
+  max_tries:
+    type: int
+    default: 1000
+    description: number of tries to find a finite likelihood value
+  save:
+    type: string
+    default: None
+    description: if not ``None``, path where to save profiles
+
+execute input:
+  parameters.list:
+    type: cosmopipe.lib.ParamBlock
+    description: list of parameters
+
+execute output:
+  likelihood.profiles:
+    type: cosmopipe.lib.samples.Profiles
+    description: profiles, containing the best fits, and if minos was run, the error intervals

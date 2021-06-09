@@ -1,3 +1,4 @@
+import os
 import re
 import json
 import copy
@@ -6,6 +7,7 @@ import logging
 import numpy as np
 
 from cosmopipe.lib.utils import BaseClass, savefile, MappingArray
+from . import ProjectionName
 
 
 class DataVector(BaseClass):
@@ -27,7 +29,7 @@ class DataVector(BaseClass):
         if y is None:
             y = np.full(len(x),np.nan)
 
-        y2dim = not np.isscalar(y[0])
+        y2dim = np.ndim(y[0]) != 0
         if y2dim:
             y2dim = len(y)
             self._x = np.tile(x.T,y2dim).T
@@ -40,15 +42,29 @@ class DataVector(BaseClass):
             raise ValueError('x and y shapes cannot be matched.')
 
         self._proj = None
+        def get_mapping_proj(mapping_proj):
+            toret = {}
+            for imp,mp in enumerate(mapping_proj):
+                try:
+                    toret[mp] = mapping_proj[mp]
+                except TypeError:
+                    toret[imp] = ProjectionName(mp)
+                else:
+                    toret[mp] = ProjectionName(toret[mp])
+            return toret
+
         if y2dim:
-            if mapping_proj is None:
-                mapping_proj = list(range(y2dim))
             lens = [0] + np.cumsum([len(y_) for y_ in y]).tolist()
             proj = - np.ones(self.size,dtype=int)
-            for ip,il,iu in zip(range(len(mapping_proj)),lens[:-1],lens[1:]):
+            for ip,il,iu in zip(range(y2dim),lens[:-1],lens[1:]):
                 proj[il:iu] = ip
-            self._proj = MappingArray(proj,mapping=mapping_proj)
+            self._proj = MappingArray(proj,mapping=get_mapping_proj(mapping_proj))
         elif proj is not None:
+            if not isinstance(proj,MappingArray):
+                if mapping_proj is None:
+                    uniques = np.unique(proj)
+                    mapping_proj = {proj:proj for proj in uniques}
+                mapping_proj = get_mapping_proj(mapping_proj)
             self._proj = MappingArray(proj,mapping=mapping_proj)
 
     def get_index(self, concat=True, **kwargs):
@@ -60,7 +76,7 @@ class DataVector(BaseClass):
                 if self.ndim > 1: tmp = tmp.all(axis=-1)
                 mask &= tmp
             if proj is not None:
-                mask &= self._proj == proj
+                mask &= self._proj == ProjectionName(proj)
             index = np.flatnonzero(mask)
             if self._index_view is not None:
                 index = self._index_view[np.isin(self._index_view,index)]
@@ -134,6 +150,10 @@ class DataVector(BaseClass):
         return self._proj.asarray()
 
     @property
+    def type(self):
+        return self.attrs.get('type',None)
+
+    @property
     def kwview(self):
         return self._kwargs_view
 
@@ -202,7 +222,7 @@ class DataVector(BaseClass):
     def load_auto(cls, filename, *args, **kwargs):
         if os.path.splitext(filename)[-1] == '.txt':
             return cls.load_txt(filename,*args,**kwargs)
-        return cls.load(filename,*args,**kwargs)
+        return cls.load(filename)
 
     def save_auto(self, filename, *args, **kwargs):
         if os.path.splitext(filename)[-1] == '.txt':
@@ -261,7 +281,7 @@ class DataVector(BaseClass):
         return cls(x=x,y=y,**attrs)
 
     @savefile
-    def save_txt(self, filename, comments='#', fmt='.18e', ignore_json_errors=False):
+    def save_txt(self, filename, comments='#', fmt='.18e', ignore_json_errors=True):
         if self.is_mpi_root():
             with open(filename,'w') as file:
                 for key,val in self.attrs.items():
@@ -295,5 +315,5 @@ class DataVector(BaseClass):
         if self.ndim > 1:
             raise NotImplementedError('No plot method defined for {:d}-dimensional data vector.'.format(self.ndim))
         from .plotting import DataPlotStyle
-        style = DataPlotStyle(style=style,**kwargs_style)
-        style.plot(self)
+        style = DataPlotStyle(style=style,data_vectors=self,**kwargs_style)
+        style.plot()

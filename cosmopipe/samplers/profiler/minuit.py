@@ -14,10 +14,9 @@ from cosmopipe.lib import mpi, utils, setup_logging
 
 class MinuitProfiler(BasePipeline):
 
-    logger = logging.getLogger('Minuit')
+    logger = logging.getLogger('MinuitProfiler')
 
     def setup(self):
-        self.minuit_params = self.options.get('minuit',{})
         self.migrad_params = self.options.get('migrad',{})
         self.minos_params = self.options.get('minos',{})
         self.torun = self.options.get('torun',None)
@@ -30,13 +29,10 @@ class MinuitProfiler(BasePipeline):
         self.max_tries = self.options.get('max_tries',10000)
         self.save = self.options.get('save',False)
         self.seed = self.options.get('seed',None)
-        self.profiles_key = self.options.get('profiles_key',None)
-        if self.profiles_key is not None:
-            self.profiles_key = syntax.split_sections(self.profiles_key,default_section=section_names.likelihood)
 
     def execute(self):
         super(MinuitProfiler,self).setup()
-        minuit_params = self.minuit_params.copy()
+        minuit_params = {}
         self.parameters = self.pipe_block[section_names.parameters,'list']
         minuit_params['name'] = parameter_names = [str(param.name) for param in self.parameters]
         self._data_block = self.data_block.copy().mpi_distribute(dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
@@ -88,8 +84,8 @@ class MinuitProfiler(BasePipeline):
             ibest = profiles.argmin()
             profiles.set_covariance(results[ibest]['covariance'])
 
-        if self.profiles_key:
-            profiles = self.data_block[self.profiles_key].append(profiles)
+        #if self.profiles_key:
+        #    profiles = self.data_block[self.profiles_key].append(profiles)
 
         if 'minos' in self.torun:
 

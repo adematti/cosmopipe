@@ -26,14 +26,14 @@ class CosmosisSampler(BasePipeline):
     logger = logging.getLogger('CosmosisSampler')
 
     def setup(self):
-        self.cosmosis_likelihood_name = self.options.get_string('cosmosis_likelihood_name','cosmopipe')
+        self.cosmosis_likelihood_name = self.options.get_string('likelihood_name','cosmopipe')
         self.cosmosis_sampler_name = self.options['sampler']
         self.cosmosis_sampler_class = Sampler.registry[self.cosmosis_sampler_name]
         self.seed = self.options.get('seed',None)
         self.save = self.options.get('save',False)
         self.extra_output = self.options.get_string('extra_output','').split()
-        exclude = self._reserved_option_names + ['sampler','config_cosmosis','extra_output','save','save_cosmomc']
-        override = {(self.cosmosis_sampler_name,name):str(value) for name,value in self.options.items() if name not in exclude}
+        exclude = ['sampler','config_cosmosis','extra_output','save']
+        override = {(self.cosmosis_sampler_name,name):str(value) for name,value in syntax.remove_keywords(self.options).items() if name not in exclude}
         override[cosmosis_pipeline_name,'modules'] = ''
         override[cosmosis_pipeline_name,'quiet'] = 'T'
         override[cosmosis_pipeline_name,'debug'] = 'F'

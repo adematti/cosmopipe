@@ -1,0 +1,44 @@
+name: CobayaSampler
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Interface to Bayesian analysis cobaya
+url: https://github.com/CobayaSampler/cobaya
+licence: LGPL
+requirements: [cobaya]
+bibtex: [arXiv:2005.05290]
+
+long description: >
+                  There is currently no support for use of Cobaya-provided theory codes camb and class,
+                  due to the lack of e.g. fsigma8 prediction in the latter. With several MPI processes polychord sampler
+                  will be run in parallel, while mcmc sampler will run several chains, which are further combined into a single
+                  set of samples.
+
+options:
+  likelihood_name:
+    type: string
+    default: cosmopipe
+    description: name of the cosmopipe likelihood
+  sampler:
+    type: dict
+    default: {}
+    description: sampler dictionary, see https://cobaya.readthedocs.io/en/latest/sampler.html (evaluate, mcmc, polychord or minimize)
+  seed:
+    type: int
+    default: None
+    description: random seed to use for initial parameter values (MPI-insensitive)
+  save:
+    type: string
+    default: None
+    description: if not ``None``, path where to save profiles
+
+execute input:
+  parameters.list:
+    type: cosmopipe.lib.ParamBlock
+    description: list of parameters
+
+execute output:
+  likelihood.samples:
+    type: cosmopipe.lib.samples.Samples
+    description: posterior samples

@@ -1,0 +1,33 @@
+name: EffectAP
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Compute Alcock-Paczynski effect
+
+long description: >
+                  This module computes the scaling between the current cosmology
+                  and a fiducial one.
+
+options:
+
+setup input:
+  survey_geometry.zeff:
+    type: float
+    description: Effective redshift
+  fiducial_cosmology.cosmo:
+    type: cosmoprimo.Cosmology
+    description: Fiducial cosmology
+
+execute input:
+  primordial_cosmology.cosmo:
+    type: cosmoprimo.Cosmology
+    description: Current cosmology
+
+execute output:
+  effect_ap.qpar:
+    type: float
+    description: Scaling parallel to the line-of-sight
+  effect_ap.qper:
+    type: float
+    description: Scaling perpendicular to the line-of-sight

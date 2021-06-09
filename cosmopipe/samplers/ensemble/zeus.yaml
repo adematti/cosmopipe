@@ -1,0 +1,75 @@
+name: EmceeSampler
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Posterior ensemble sampling with zeus
+url: https://github.com/minaskar/zeus
+licence: GNUv3
+requirements: [zeus-mcmc]
+bibtex: [arXiv:2002.06212]
+
+options:
+  nwalkers:
+    type: int
+    default: None
+    description: the number of walkers in the ensemble
+  thin_by:
+    type: int
+    default: 1
+    description: if you only want to store and yield every thin_by samples in the chain,
+                set thin_by to an integer greater than 1. To compensate, the number of proposals will be multiplied thin_by
+  check_every:
+    type: int
+    default: 100
+    description: run diagnostics every ``check_every`` samples
+  light_mode:
+    type: bool
+    default: False
+    description: if True then no expansions are performed after the tuning phase.
+                This can significantly reduce the number of evaluations but works best in target distributions that are approximately Gaussian.
+  diagnostics:
+    type: dict
+    default: {}
+    description: >
+                  "dictionary holding diagnostic options, specifying: 'burnin': number (if int) or fraction of samples (default: 0.3) to discard for the tests,
+                  'nsplits': number of splits to estimate Gelman-Rubin (default: 4), 'stable_over': number of repeatedly satisfied diagnostic tests required to stop sampling (default: 2)
+                  'eigen_gr_stop': threshold for the maximum eigenvalue (-1) of Gelman-Rubin test (default: 0.03), 'diag_gr_stop': threshold for the maximum diagonal (-1)
+                  of Gelman-Rubin test (as for univariate chains) (default: None, typically 0.02), 'cl_diag_gr_stop': threshold for maximum Gelman-Rubin test on interval boundaries at 'nsigmas_cl_diag_gr_stop' (typically 1)
+                  'geweke_stop': threshold for Geweke statistics (typically 0.02),
+                  'iact_stop': threshold for sample length divided by integrated autocorrelation time (typically 20), 'dact_stop': threshold for integrated autocorreation time variation between two diagnostic tests (typically 0.01).
+                  All tests that are not ``None``, should pass for the convergence diagnostic to be met.
+  min_iterations:
+    type: int
+    default: None
+    description: minimum number of iterations (to avoid early stop due to termination conditions being met fortuitously)
+  max_iterations:
+    type: int
+    default: None
+    description: maximum number of iterations. Iteration may stop earlier if the termination conditions are reached. Default is sys.maxsize (no limit).
+  seed:
+    type: int
+    default: None
+    description: random seed to use for initial parameter values (MPI-insensitive)
+  max_tries:
+    type: int
+    default: 1000
+    description: number of tries to find a finite likelihood value
+  samples_load:
+    type: string
+    default: None
+    description: if not ``None``, path to samples to resume from
+  save:
+    type: string
+    default: None
+    description: if not ``None``, path where to save profiles
+
+execute input:
+  parameters.list:
+    type: cosmopipe.lib.ParamBlock
+    description: list of parameters
+
+execute output:
+  likelihood.samples:
+    type: cosmopipe.lib.samples.Samples
+    description: posterior samples

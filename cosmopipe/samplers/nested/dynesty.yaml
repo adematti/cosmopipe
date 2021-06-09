@@ -1,0 +1,81 @@
+name: DynestySampler
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Posterior nested sampling with dynesty
+url: https://github.com/joshspeagle/dynesty
+licence: MIT
+requirements: [dynesty]
+bibtex: [arXiv:1904.02180, 10.1063/1.1835238, 10.1214/06-BA127, 10.1007/s11222-018-9844-0]
+
+options:
+  mode:
+    type: string
+    default: static
+    choices: [static, dynamic]
+    description: if 'dynamic', run :class:`dynesty.DynamicNestedSampler` (using a dynamic number of live points), else :class:`dynesty.NestedSampler`
+  nlive:
+    type: int
+    default: 500
+    description: number of live point. Larger numbers result in a more finely sampled posterior (more accurate evidence), but also a larger number of iterations required to converge.
+                in case ``mode`` is 'dynamic', gives the number of live points used during the initial (“baseline”) nested sampling run
+  bound:
+    type: string
+    default: multi
+    choices: ['none', 'single', 'multi', 'balls', 'cubes']
+    description: >
+                Method used to approximately bound the prior using the current set of live points. Conditions the sampling methods used to propose new live points.
+                Choices are no bound ('none'), a single bounding ellipsoid ('single'), multiple bounding ellipsoids ('multi'), balls centered on each live point ('balls'),
+                and cubes centered on each live point ('cubes').
+  sample:
+    type: string
+    default: auto
+    choices: [unif, rwalk, rstagger, slice, rslice, hslice]
+    description: >
+                Method used to sample uniformly within the likelihood constraint, conditioned on the provided bounds.
+                Unique methods available are: uniform sampling within the bounds ('unif'), random walks with fixed proposals ('rwalk'),
+                random walks with variable ('staggering') proposals ('rstagger'), multivariate slice sampling along preferred orientations ('slice'),
+                'random' slice sampling along all orientations ('rslice'), 'Hamiltonian' slices along random trajectories ('hslice').
+                'auto' selects the sampling method based on the dimensionality ndim of the problem (i.e. the number of varied parameters).
+                When ndim < 10, this defaults to 'unif'. When 10 <= ndim <= 20, this defaults to 'rwalk'.
+                When ndim > 20, this defaults to 'hslice' if a gradient is provided and 'slice' otherwise.
+                'rstagger' and 'rslice' are provided as alternatives for 'rwalk' and 'slice', respectively.
+  update_interval:
+    type: [float, int]
+    default: None
+    description: >
+                If an integer is passed, only update the proposal distribution every update_interval-th likelihood call.
+                If a float is passed, update the proposal after every round(update_interval * nlive)-th likelihood call.
+                Larger update intervals can be more efficient when the likelihood function is quick to evaluate.
+                Default behavior is to target a roughly constant change in prior volume, with 1.5 for 'unif', 0.15 * walks for 'rwalk' and 'rstagger',
+                0.9 * ndim * slices for 'slice', 2.0 * slices for 'rslice', and 25.0 * slices for 'hslice'.
+  max_iterations:
+    type: int
+    default: None
+    description: Maximum number of iterations. Iteration may stop earlier if the termination condition is reached. Default is sys.maxsize (no limit).
+  dlogz:
+    type: float
+    default: 0.01
+    description: >
+                Iteration will stop when the estimated contribution of the remaining prior volume to the total evidence falls below this threshold.
+                Explicitly, the stopping criterion is ln(z + z_est) - ln(z) < dlogz, where z is the current evidence from all saved samples
+                and z_est is the estimated contribution from the remaining volume.
+  seed:
+    type: int
+    default: None
+    description: random seed to use (MPI-insensitive)
+  save:
+    type: string
+    default: None
+    description: if not ``None``, path where to save profiles
+
+execute input:
+  parameters.list:
+    type: cosmopipe.lib.ParamBlock
+    description: list of parameters
+
+execute output:
+  likelihood.samples:
+    type: cosmopipe.lib.samples.Samples
+    description: posterior samples

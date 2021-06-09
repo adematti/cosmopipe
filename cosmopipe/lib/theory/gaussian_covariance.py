@@ -28,8 +28,9 @@ class GaussianPkCovarianceMatrix(CovarianceMatrix):
 
             ell1 = 0
             dmu = 1.
-            if proj1.type == 'multipole': ell1 = proj1.proj
-            elif proj1.type == 'muwedge': dmu = abs(proj.proj[1] - proj.proj[0])
+            if proj1.mode == 'multipole': ell1 = proj1.proj
+            elif proj1.mode == 'muwedge': dmu = abs(proj.proj[1] - proj.proj[0])
+            
             def integrand(x, mu):
                 return 2.*(2.*ell1+1.)/dmu/self.attrs['nk'][:,None] * (pk_mu(x,mu) + self.attrs['shotnoise'])**2 * special.legendre(ell1)(mu)
 
