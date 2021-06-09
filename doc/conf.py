@@ -63,9 +63,9 @@ exclude_patterns = ['build', '**.ipynb_checkpoints']
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+#html_static_path = ['_static']
 #html_css_files = ['css/custom.css']
-html_style = 'css/custom.css'
+#html_style = 'css/custom.css'
 
 git_repo = 'https://github.com/adematti/cosmopipe.git'
 git_root = 'https://github.com/adematti/cosmopipe/blob/main/'
@@ -92,11 +92,11 @@ ultimate_replacements = {
 
 
 def setup(app):
-    try:
-        from pypescript.libutils import write_pype_modules_rst_doc
-        write_pype_modules_rst_doc(os.path.join('api','modules.rst'),max_line_len=150,base_dir=lib_dir)
-    except ImportError:
-        pass
+    #try:
+    #    from pypescript.libutils import write_pype_modules_rst_doc
+    #    write_pype_modules_rst_doc(os.path.join('api','modules.rst'),max_line_len=150,base_dir=lib_dir)
+    #except ImportError:
+    #    pass
     app.add_config_value('ultimate_replacements', {}, True)
     app.connect('source-read',_replace)
 
