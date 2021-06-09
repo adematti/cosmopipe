@@ -63,9 +63,9 @@ exclude_patterns = ['build', '**.ipynb_checkpoints']
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-#html_static_path = ['_static']
+html_static_path = ['_static']
 #html_css_files = ['css/custom.css']
-#html_style = 'css/custom.css'
+html_style = 'css/custom.css'
 
 git_repo = 'https://github.com/adematti/cosmopipe.git'
 git_root = 'https://github.com/adematti/cosmopipe/blob/main/'

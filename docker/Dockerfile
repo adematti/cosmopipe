@@ -6,6 +6,8 @@ RUN DEBIAN_FRONTEND=noninteractive \
     apt install -y --no-install-recommends \
     make \
     gcc \
+    gfortran \
+    libgsl-dev \
     git \
     wget \
     mpich \
@@ -16,15 +18,17 @@ RUN DEBIAN_FRONTEND=noninteractive \
     # # Remove APT files
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN wget -nv https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
-    bash miniconda.sh -b -p /opt/conda && \
+RUN wget -nv --no-check-certificate https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
+    bash miniconda.sh -b -p /opt/conda
+
+RUN ln -s /opt/conda/bin/conda /bin/conda && \
     conda config --add channels intel && \
     conda config --set always_yes yes && \
     conda update conda && \
-    conda install python=3.7 pip numpy scipy && \
+    conda init bash && \
+    bash /root/.bashrc && \
+    conda install pip numpy mpi4py pyyaml cython sphinx_rtd_theme && \
     conda clean -a -y
-
-RUN conda install numpy mpi4py pyyaml cython gsl sphinx-rtd-theme
 
 RUN for x in \
   git+https://github.com/adematti/pypescript \

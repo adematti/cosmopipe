@@ -1,7 +1,10 @@
 # cosmopipe
 
-WARNING: In construction!  
-An *attempt* to build up a structure for generating clustering analysis pipelines in view of DESI.
+**cosmopipe** is a framework based on **pypescript** to extract cosmological constraints from clustering data.
+
+## Documentation
+
+Documentation is hosted on Read the Docs, [pypescript docs](https://cosmopipe.readthedocs.io/).
 
 ## Credits
 
