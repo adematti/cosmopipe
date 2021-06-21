@@ -60,9 +60,7 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
 
     @staticmethod
     def get_label(proj):
-        if proj is None:
-            return None
-        return '${}$'.format(ProjectionName(proj).latex)
+        return ProjectionName(proj).get_projlabel()
 
     def get_projs(self, data_vectors=None):
         data_vectors = self.get_list('data_vectors',value=data_vectors)
@@ -93,8 +91,8 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
         self.set_ax_attrs(ax)
         data_vectors = self.get_list('data_vectors',data_vectors)
         linestyles = self.get_list('linestyles',default=['-']*len(data_vectors))
-        add_legend = self.get_projs(data_vectors)
-        projs = add_legend or [None]
+        projs = self.get_projs(data_vectors)
+        add_legend = data_vectors[0].has_proj()
         covariance = self.get('covariance',covariance)
         if covariance is not None:
             for iproj,proj in enumerate(projs):
@@ -129,6 +127,10 @@ class PowerSpectrumPlotStyle(BaseDataPlotStyle):
         self.ylabel = '$k P(k)$ [$(\\mathrm{Mpc} \ h)^{-1})^{2}$]'
         self.update(**kwargs)
 
+    def get_projs(self, data_vectors=None):
+        projs = super(PowerSpectrumPlotStyle,self).get_projs(data_vectors=data_vectors)
+        return [proj for proj in projs if proj.space in (None,ProjectionName.POWER)]
+
     @staticmethod
     def get_y(data, *args, **kwargs):
         return data.get_x(*args,**kwargs)*data.get_y(*args,**kwargs)
@@ -150,6 +152,10 @@ class CorrelationFunctionPlotStyle(BaseDataPlotStyle):
         self.xlabel = '$s$ [$\\mathrm{Mpc} \ h$]'
         self.ylabel = '$s^{2} \\xi(s)$ [$(\\mathrm{Mpc} \ h)^{-1})^{2}$]'
         self.update(**kwargs)
+
+    def get_projs(self, data_vectors=None):
+        projs = super(CorrelationFunctionPlotStyle,self).get_projs(data_vectors=data_vectors)
+        return [proj for proj in projs if proj.space in (None,ProjectionName.CORRELATION)]
 
     @staticmethod
     def get_y(data, *args, **kwargs):
@@ -173,15 +179,19 @@ def DataPlotStyle(style=None, **kwargs):
     if style is None:
         data_vectors = kwargs.get('data_vectors',None)
         if data_vectors is not None:
-            style = make_list(data_vectors)[0].type
+            projs = make_list(data_vectors)[0].get_projs()
+            spaces = np.unique([proj.space for proj in projs])
+            if len(spaces) == 1:
+                style = spaces[0]
+            else:
+                raise ValueError('Data vector contains {}. Specify the desired type'.format(spaces))
 
     return dataplotstyle_registry[style](**kwargs)
 
 
 dataplotstyle_registry = {None:plotting.BasePlotStyle}
-dataplotstyle_registry['pk'] = PowerSpectrumPlotStyle
-dataplotstyle_registry['xi'] = CorrelationFunctionPlotStyle
-
+dataplotstyle_registry[ProjectionName.POWER] = PowerSpectrumPlotStyle
+dataplotstyle_registry[ProjectionName.CORRELATION] = CorrelationFunctionPlotStyle
 
 
 class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
@@ -210,7 +220,7 @@ class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
         mat = self.get_mat(covariance)
         norm = self.norm or Normalize(vmin=mat.min(),vmax=mat.max())
         styles = self.get_styles(covariance)
-        for s in styles: s.projs = s.get_projs() or [None]
+        for s in styles: s.projs = s.get_projs()
         x = [[x.get_x(proj=proj) for proj in s.projs] for s,x in zip(styles,covariance.x)]
         mat = [[mat[np.ix_(*covariance.get_index(proj=(proj1,proj2)))] for proj1 in styles[0].projs] for proj2 in styles[1].projs]
         nrows = len(x[1])
@@ -226,18 +236,21 @@ class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
         for i in range(ncols):
             for j in range(nrows):
                 ax = lax[nrows-1-j][i]
+                iproj,jproj = styles[0].projs[i],styles[1].projs[j]
                 mesh = ax.pcolor(x[0][i],x[1][j],mat[i][j].T,norm=norm,cmap=plt.get_cmap('jet_r'))
                 if i>0: ax.yaxis.set_visible(False)
+                elif jproj: ax.set_ylabel(jproj.get_xlabel())
                 if j>0: ax.xaxis.set_visible(False)
+                elif iproj: ax.set_xlabel(iproj.get_xlabel())
                 ax.tick_params(labelsize=self.ticksize)
-                label1,label2 = styles[0].get_label(styles[0].projs[i]),styles[1].get_label(styles[0].projs[j])
+                label1,label2 = styles[0].get_label(styles[0].projs[i]),styles[1].get_label(styles[1].projs[j])
                 if label1 is not None or label2 is not None:
                     text = '{}\nx {}'.format(label1,label2)
                     ax.text(0.05,0.95,text,horizontalalignment='left',verticalalignment='top',\
                             transform=ax.transAxes,color='black',fontsize=styles[0].labelsize)
 
-        plotting.suplabel('x',styles[0].xlabel,shift=0,labelpad=17,size=styles[0].labelsize)
-        plotting.suplabel('y',styles[1].xlabel,shift=0,labelpad=17,size=styles[0].labelsize)
+        #plotting.suplabel('x',styles[0].xlabel,shift=0,labelpad=17,size=styles[0].labelsize)
+        #plotting.suplabel('y',styles[1].xlabel,shift=0,labelpad=17,size=styles[0].labelsize)
         fig.subplots_adjust(right=xextend)
         cbar_ax = fig.add_axes([xextend+0.05,0.15,0.03,0.7])
         cbar_ax.tick_params(labelsize=self.ticksize)

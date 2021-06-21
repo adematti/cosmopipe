@@ -62,7 +62,7 @@ def test_multipole_data_vector():
     data2 = DataVector.load_txt(filename)
     assert np.all(data2.get_x(proj='ell_4') == data.get_x(proj='ell_4'))
     filename = os.path.join(data_dir,'plot_data.png')
-    data2.plot(filename=filename,style='pk')
+    data2.plot(filename=filename,style='power')
     mapping_proj = ['ell_0']
     list_data = make_data_covariance(ndata=1,mapping_proj=mapping_proj)[0]
     mapping_header = {'shotnoise':'.*?Estimated shot noise: (.*)'}
@@ -75,10 +75,10 @@ def test_multipole_data_vector():
     assert np.all(data2.get_x() == data.get_x())
     filename = os.path.join(data_dir,'data.txt')
     data.save_txt(filename)
-    data2 = DataVector.load_txt(filename, type='pk')
+    data2 = DataVector.load_txt(filename)
     assert np.all(data2.get_x() == data.get_x())
     filename = os.path.join(data_dir,'plot_data_0.png')
-    data2.plot(filename=filename)
+    data2.plot(filename=filename,style='power')
 
 
 def test_multipole_covariance_matrix():
@@ -101,15 +101,15 @@ def test_multipole_covariance_matrix():
     for kwargs in [{'block':False},{'block':True},{'block':True,'proj':['ell_0','ell_2','ell_4']}]:
         assert np.allclose(cov2.get_cov().dot(cov2.get_invcov(**kwargs)),np.eye(*cov2.shape))
     filename = os.path.join(data_dir,'plot_covariance.png')
-    cov2.plot(filename=filename,data_styles='pk')
+    cov2.plot(filename=filename,data_styles='power')
 
     mapping_proj = ['ell_0']
     list_data,cov_ref = make_data_covariance(ndata=60,mapping_proj=mapping_proj)
     data = DataVector.load_txt(data_fn.format(0))
-    cov = CovarianceMatrix.load_txt(covariance_fn,data=data,type='pk')
+    cov = CovarianceMatrix.load_txt(covariance_fn,data=data)
     assert np.allclose(cov.get_cov(),cov_ref.get_cov())
     filename = os.path.join(data_dir,'plot_covariance_0.png')
-    cov.plot(filename=filename)
+    cov.plot(filename=filename,data_styles='power')
 
 
 def test_mock_data_vector():
@@ -148,7 +148,7 @@ def test_muwedge_data_vector():
     data2 = DataVector.load_txt(filename)
     assert np.all(data2.get_x(proj=muwedge0) == data.get_x(proj=muwedge0))
     filename = os.path.join(data_dir,'plot_data.png')
-    data2.plot(filename=filename,style='pk')
+    data2.plot(filename=filename,style='power')
 
 
 def test_projection():
@@ -163,9 +163,9 @@ def test_projection():
 if __name__ == '__main__':
 
     setup_logging()
-    #test_multipole_data_vector()
-    #test_multipole_covariance_matrix()
-    #test_mock_data_vector()
-    #test_plotting()
-    #test_muwedge_data_vector()
+    test_multipole_data_vector()
+    test_multipole_covariance_matrix()
+    test_mock_data_vector()
+    test_plotting()
+    test_muwedge_data_vector()
     test_projection()

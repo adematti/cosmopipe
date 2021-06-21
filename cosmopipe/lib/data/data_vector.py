@@ -44,7 +44,7 @@ class DataVector(BaseClass):
         if len(self._x) != len(self._y):
             raise ValueError('x and y shapes cannot be matched.')
 
-        self._proj = None
+        self._proj = [ProjectionName(None)]
         def get_mapping_proj(mapping_proj):
             toret = {}
             for imp,mp in enumerate(mapping_proj):
@@ -69,6 +69,8 @@ class DataVector(BaseClass):
                     mapping_proj = {proj:proj for proj in uniques}
                 mapping_proj = get_mapping_proj(mapping_proj)
             self._proj = MappingArray(proj,mapping=mapping_proj)
+        else:
+            self._proj = MappingArray(np.zeros(len(self._x),dtype='i4'),{0:ProjectionName(None)})
 
     def get_index(self, concatenate=True, **kwargs):
 
@@ -106,10 +108,10 @@ class DataVector(BaseClass):
 
     @property
     def projs(self):
-        return self._proj.keys if self.has_proj() else None
+        return self._proj.keys
 
     def has_proj(self):
-        return self._proj is not None
+        return len(self._proj.keys) > 1 or self._proj.keys[0] != ProjectionName(None)
 
     def view(self, **kwargs):
         new = self.copy()
@@ -153,10 +155,6 @@ class DataVector(BaseClass):
         return self._proj.asarray()
 
     @property
-    def type(self):
-        return self.attrs.get('type',None)
-
-    @property
     def kwview(self):
         return self._kwargs_view
 
@@ -176,8 +174,6 @@ class DataVector(BaseClass):
 
     def get_projs(self, **kwargs):
         projs = self.projs
-        if projs is None:
-            return projs
         index = self.get_index(**kwargs)
         _proj = self._proj[index]
         return [p for p in projs if p in _proj]
@@ -319,16 +315,14 @@ class DataVector(BaseClass):
 
     def __getstate__(self):
         state = super(DataVector,self).__getstate__()
-        for key in ['_x','_y','_index_view','_kwargs_view','_proj']:
+        for key in ['_x','_y','_index_view','_kwargs_view']:
             state[key] = getattr(self,key)
-        if self.has_proj():
-            state['_proj'] = self._proj.__getstate__()
+        state['_proj'] = self._proj.__getstate__()
         return state
 
     def __setstate__(self, state):
         super(DataVector,self).__setstate__(state)
-        if self._proj is not None:
-            self._proj = MappingArray.from_state(self._proj)
+        self._proj = MappingArray.from_state(self._proj)
 
     def plot(self, style=None, **kwargs_style):
         if self.ndim > 1:
