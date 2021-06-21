@@ -147,6 +147,13 @@ class Samples(BaseCatalog):
         new.data = {col:self[col][name] for col in self.data}
         return new
 
+    def __delitem__(self, name):
+        if isinstance(name,Parameter):
+            paramname = name.name
+        else:
+            paramname = ParamName(name)
+        del self.data[paramname]
+
     def __setitem__(self, name, item):
         if isinstance(name,(Parameter,ParamName,str,tuple)):
             return self.set(name,item)

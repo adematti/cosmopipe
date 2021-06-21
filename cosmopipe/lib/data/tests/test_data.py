@@ -4,6 +4,7 @@ import numpy as np
 
 from cosmopipe.lib.data import DataVector, CovarianceMatrix, MockCovarianceMatrix, MockDataVector
 from cosmopipe.lib.data.plotting import PowerSpectrumPlotStyle
+from cosmopipe.lib.data.projection import ProjectionName
 from cosmopipe.lib import utils, setup_logging
 
 
@@ -41,7 +42,7 @@ def make_data_covariance(data_fn=data_fn,covariance_fn=covariance_fn,mapping_pro
     return list_data,cov
 
 
-def test_data_vector():
+def test_multipole_data_vector():
 
     mapping_proj = ['ell_0','ell_2','ell_4']
 
@@ -79,7 +80,8 @@ def test_data_vector():
     filename = os.path.join(data_dir,'plot_data_0.png')
     data2.plot(filename=filename)
 
-def test_covariance_matrix():
+
+def test_multipole_covariance_matrix():
 
     mapping_proj = ['ell_0','ell_2','ell_4']
     list_data,cov_ref = make_data_covariance(ndata=60,mapping_proj=mapping_proj)
@@ -127,10 +129,43 @@ def test_plotting():
     style.plot(list_data,covariance=cov_ref,filename=os.path.join(data_dir,'plot_list_data.png'))
 
 
+def test_muwedge_data_vector():
+    mapping_proj = [('muwedge',(0.,1./3.)),('muwedge',(1./3.,2./3.))]
+    list_data = make_data_covariance(ndata=1,mapping_proj=mapping_proj)[0]
+    mapping_header = {'shotnoise':'.*?Estimated shot noise: (.*)'}
+    data = DataVector.load_txt(data_fn.format(0),mapping_header=mapping_header,mapping_proj=mapping_proj)
+    assert np.allclose(data.get_x(),list_data[0].get_x())
+    muwedge0 = mapping_proj[0]
+    assert np.allclose(data.get_x(proj=muwedge0),list_data[0].get_x(proj=muwedge0))
+    assert np.all(data.view(proj=muwedge0).get_y() == data.get_y(proj=muwedge0))
+    assert data.attrs['shotnoise'] == 3000.
+    filename = os.path.join(data_dir,'data.npy')
+    data.save(filename)
+    data2 = DataVector.load(filename)
+    assert np.all(data2.get_x(proj=muwedge0) == data.get_x(proj=muwedge0))
+    filename = os.path.join(data_dir,'data.txt')
+    data.save_txt(filename)
+    data2 = DataVector.load_txt(filename)
+    assert np.all(data2.get_x(proj=muwedge0) == data.get_x(proj=muwedge0))
+    filename = os.path.join(data_dir,'plot_data.png')
+    data2.plot(filename=filename,style='pk')
+
+
+def test_projection():
+    ell0 = ProjectionName('ell_0')
+    assert ell0.mode == 'multipole' and ell0.proj == 0
+    mu0 =  ProjectionName('mu_0_0.5')
+    assert mu0.mode == 'muwedge' and mu0.proj == (0.,0.5)
+    mu0 = ProjectionName('mu_0_1/3')
+    assert mu0.mode == 'muwedge' and mu0.proj == (0.,1./3)
+
+
 if __name__ == '__main__':
 
     setup_logging()
-    test_data_vector()
-    test_covariance_matrix()
-    test_mock_data_vector()
-    test_plotting()
+    #test_multipole_data_vector()
+    #test_multipole_covariance_matrix()
+    #test_mock_data_vector()
+    #test_plotting()
+    #test_muwedge_data_vector()
+    test_projection()

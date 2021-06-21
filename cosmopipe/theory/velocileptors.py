@@ -1,8 +1,9 @@
 import numpy as np
 from scipy import interpolate
 
-from cosmopipe.lib.primordial import Cosmology, PowerSpectrumBAOFilter
 from cosmopipe import section_names
+from cosmopipe.lib.primordial import Cosmology, PowerSpectrumBAOFilter
+from cosmopipe.lib.theory.projection import ProjectionBase
 
 
 class Velocileptors(object):
@@ -21,6 +22,7 @@ class Velocileptors(object):
         options['extrap_min'] = -6
         options['extrap_max'] = 2
         options['threads'] = self.options.get_int('nthreads',1)
+        self.data_block[section_names.model,'y_base'] = ProjectionBase('muwedge')
         return options
 
     def set_pklin(self):
@@ -53,6 +55,7 @@ class Velocileptors(object):
             pkmu = np.array([self.theory.compute_redshift_space_power_at_mu(pars,f,mu_,apar=qpar,aperp=qperp,**opts,**self.optional_kw)[-1] for mu_ in mu]).T
             return interpolate.interp1d(self.theory.kv,pkmu,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k)
 
+        self.data_block[section_names.model,'x'] = self.theory.kv
         self.data_block[section_names.model,'y_callable'] = self.data_block[section_names.galaxy_power,'pk_mu_callable'] = pk_mu_callable
 
     def cleanup(self):

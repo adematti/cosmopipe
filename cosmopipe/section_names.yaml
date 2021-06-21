@@ -1,5 +1,6 @@
 - model
 - data
+- catalog
 - covariance
 - likelihood
 - parameters
@@ -7,6 +8,7 @@
 - background
 - primordial_perturbations
 - primordial_cosmology
+- fiducial_cosmology
 - survey_geometry
 - galaxy_bias
 - effect_ap

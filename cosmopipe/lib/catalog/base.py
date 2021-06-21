@@ -10,7 +10,7 @@ from cosmopipe.lib import utils, mpi
 
 
 def _multiple_columns(column):
-    return isinstance(column,(list,ParamBlock))
+    return isinstance(column,list)
 
 
 def vectorize_columns(func):
@@ -238,7 +238,7 @@ class BaseCatalog(ScatteredBaseClass):
             new.data = {col:arr for col,arr in zip(columns,array)}
         return new
 
-    def __copy__(self, columns=None):
+    def copy(self, columns=None):
         new = super(BaseCatalog,self).__copy__()
         if columns is None: columns = self.columns()
         new.data = {col:self[col] if col in self else None for col in columns}
@@ -252,7 +252,6 @@ class BaseCatalog(ScatteredBaseClass):
     def __setstate__(self, state):
         """Set the class state dictionary."""
         self.data = state['data'].copy()
-        self.parameters = ParamBlock.from_state(state['parameters'])
         self.attrs = state['attrs']
 
     def __getitem__(self, name):
@@ -268,13 +267,16 @@ class BaseCatalog(ScatteredBaseClass):
         for col in self.data:
             self[col][name] = item
 
+    def __delitem__(self, name):
+        del self.data[name]
+
     def __repr__(self):
         return '{}(size={:d}, columns={})'.format(self.__class__.__name__,self.gsize,self.columns())
 
     def extend(self, other):
         self_columns = self.columns()
         other_columns = other.columns()
-        assert self.mpicomm == other.mpicomm
+        assert self.mpicomm is other.mpicomm
 
         if self_columns and other_columns and set(other_columns) != set(self_columns):
             raise ValueError('Cannot extend samples as columns do not match: {} != {}.'.format(other_columns,self_columns))
@@ -304,7 +306,7 @@ class BaseCatalog(ScatteredBaseClass):
         other_columns = other.columns()
         if set(other_columns) != set(self_columns):
             return False
-        assert self.mpicomm == other.mpicomm
+        assert self.mpicomm is other.mpicomm
         toret = True
         for col in self_columns:
             self_value = self.gget(col,root=self.mpiroot)
@@ -364,9 +366,10 @@ class BaseCatalog(ScatteredBaseClass):
                 raise ValueError('{} extension {} is not a readable binary table'.format(msg,ext))
             size = ff.get_nrows()
             start = mpicomm.rank * size // mpicomm.size
-            stop = (mpicomm.rank  + 1) * size // mpicomm.size
+            stop = (mpicomm.rank + 1) * size // mpicomm.size
             new = ff.read(ext=ext,columns=columns,rows=range(start,stop))
             header = ff.read_header()
+            header.clean()
             attrs = dict(header)
             attrs['fitshdr'] = header
             new = cls.from_array(new,mpiroot=mpiroot,mpistate=mpi.CurrentMPIState.SCATTERED,mpicomm=mpicomm,attrs=attrs)
@@ -383,20 +386,20 @@ class BaseCatalog(ScatteredBaseClass):
         if self.is_mpi_root():
             fitsio.write(filename,array,header=self.attrs.get('fitshdr',None),clobber=True)
 
-    def to_nbodykit(self, columns=None):
+    @classmethod
+    def from_nbodykit(cls, catalog, columns=None):
+        if columns is None: columns = catalog.columns
+        data = {col: catalog[col].compute() for col in columns}
+        return cls(data,mpicomm=catalog.comm,mpistate='scattered',mpiroot=0,attrs=catalog.attrs)
 
-        from nbodykit.base.catalog import CatalogSource
+    def to_nbodykit(self, columns=None):
         if columns is None: columns = self.columns()
         if not self.is_mpi_scattered():
-            self = self.copy().mpi_scatter()
-        new = object.__new__(CatalogSource)
-        new._size = self.size # local size
-        CatalogSource.__init__(new,comm=self.mpicomm)
-        for key in columns:
-            new[key] = new.make_column(self[key])
-        new.attrs.update(self.attrs)
-
-        return new
+            self = self.copy()
+            self.mpi_scatter()
+        source = {col:self[col] for col in columns}
+        from nbodykit.lab import ArrayCatalog
+        return ArrayCatalog(source,**self.attrs)
 
     @vectorize_columns
     def sum(self, column):
@@ -452,6 +455,7 @@ class BaseCatalog(ScatteredBaseClass):
         return eval(literal,dglobals,{})
 
     def to_stats(self, columns=None, quantities=None, sigfigs=2, tablefmt='latex_raw', filename=None):
+        import tabulate
         #if columns is None: columns = self.columns(exclude='metrics.*')
         if columns is None: columns = self.columns()
         data = []

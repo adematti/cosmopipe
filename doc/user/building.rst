@@ -77,6 +77,23 @@ In interactive mode::
 
   shifter --volume absolutepath:/homedir/ --image={dockerimage} /bin/bash
 
+Following `JupyterHub with shifter`_, JupyterHub can use your shifter image as kernel. Simply create a file: ``~/.local/share/jupyter/kernels/cosmopipe-shifter/kernel.json``
+with the following content::
+
+  {
+    "argv": [
+        "shifter",
+        "--image={dockerimage}",
+        "/opt/conda/bin/python",
+        "-m",
+        "ipykernel_launcher",
+        "-f",
+        "{connection_file}"
+    ],
+    "display_name": "my-shifter-kernel",
+    "language": "python"
+  }
+
 .. note::
 
   For further information on shifter, see `shifter docs`_.
@@ -89,3 +106,5 @@ References
 .. _`pypescript`: https://github.com/adematti/pypescript
 
 .. _`shifter docs`: https://shifter.readthedocs.io
+
+.. _`JupyterHub with shifter`: https://docs.nersc.gov/services/jupyter/#shifter-kernels-on-jupyter

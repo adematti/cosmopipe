@@ -18,6 +18,9 @@ long description: >
 
 
 options:
+  BoxSize:
+    type: [float, list]
+    description: box size, i.e. physical extent in :math:`\mathrm{Mpc}/h` of the cartesian box along each axis, if not provided in the catalog attributes
   mode:
     type: string
     default: '2d'
@@ -30,10 +33,10 @@ options:
                   if 'angular', compute pairs as a function of angle on the sky, :math:`\theta`
   pimax:
     type: float
-    default: 80
+    default: 80.
     description: maximum line-of-sight separation (in `\mathrm{Mpc}/h`), in case ``mode`` is 'rppi' or 'rp'
   edges:
-    type: [list, dict, array_1d]
+    type: [dict, list, float_array]
     default: {min: 1e-12, max: 200, nbins: 50}
     description: >
                 the separation bin edges along the first coordinate dimension;
@@ -47,7 +50,7 @@ options:
     description: :math:`\mu`-wedges to infer from multipole measurements
   ells:
     type: [list, tuple]
-    default: (0,2,4)
+    default: [0,2,4]
     description: a list of integer multipole numbers :math:`\ell` to compute
   show_progress:
     type: bool
@@ -65,7 +68,7 @@ options:
     default: None
     description: position column (in :math:`\mathrm{Mpc}/h`) in the input catalog(s).
                 If not provided, cartesian positions are computed from z, ra, dec and the input fiducial cosmology
-  load_data:
+  data_load:
     type: [string, list, tuple]
     default: data
     description: either (section, name) in data_block where to find the data catalog(s) or, if containing / (or \), a path to a catalog on disk

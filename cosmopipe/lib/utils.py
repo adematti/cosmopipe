@@ -13,6 +13,23 @@ from pypescript.utils import setup_logging, mkdir, savefile, snake_to_pascal_cas
 from pypescript.utils import BaseClass as _BaseClass
 
 
+def dict_nonedefault(d1, **d2):
+    for key,value in d2.items():
+        if d1.get(key,None) is None:
+            d1[key] = value
+    return d1
+
+
+def customspace(min=0., max=1., step=None, nbins=None, scale='linear'):
+    if nbins is None:
+        nbins = np.rint((max - min)/step).astype(int)
+    toret = np.linspace(min,max,nbins+1)
+    if scale in ['log','log10']:
+        toret = 10**toret
+    return toret
+
+
+
 class BaseClass(_BaseClass):
 
     def save_auto(self, *args, **kwargs):
@@ -66,6 +83,9 @@ class MappingArray(BaseClass):
 
     def __setitem__(self, name, item):
         self.array[name] = self.keys.index(item)
+
+    def __contains__(self, item):
+        return self.keys.index(item) in self.array
 
     @property
     def shape(self):

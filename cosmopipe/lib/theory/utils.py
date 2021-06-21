@@ -1,7 +1,8 @@
 import numpy as np
+from scipy import special
 
 
-def match1d(id1,id2):
+def match1d(id1, id2):
     """
     Match id2 to id1.
 
@@ -40,3 +41,13 @@ def match1d(id1,id2):
     ind1 = np.flatnonzero(sortright2-sortleft2 > 0)
 
     return sort1[ind1], sort2[ind2]
+
+
+def legendre_product_integral(ells, range=None):
+    poly = 1
+    for ell in ells:
+        poly *= special.legendre(ell)
+    integ = poly.integ()
+    if range is None:
+        range = (-1,1)
+    return integ(range[-1]) - integ(range[0])

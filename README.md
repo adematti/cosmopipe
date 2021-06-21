@@ -1,10 +1,10 @@
 # cosmopipe
 
-**cosmopipe** is a framework based on **pypescript** to extract cosmological constraints from clustering data.
+**cosmopipe** is a framework based on **pypescript** to extract cosmological constraints from galaxy redshift surveys.
 
 ## Documentation
 
-Documentation is hosted on Read the Docs, [pypescript docs](https://cosmopipe.readthedocs.io/).
+Documentation is hosted on Read the Docs, [cosmopipe docs](https://cosmopipe.readthedocs.io/).
 
 ## Credits
 

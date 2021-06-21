@@ -32,25 +32,20 @@ options:
     type: bool
     default: True
     description: whether to use interlacing to reduce aliasing when painting the particles on the mesh
-  dk:
-    type: float
-    default: 0.01
-    description: the spacing in wavenumber (:math:`h/\mathrm{Mpc}`) to use; if not provided; the fundamental mode :math:`2 \pi / \mathrm{BoxSize}` of the box is used
-  kmin:
-    type: float
-    default: 0
-    description: the edge of the first wavenumber bin
-  kmax:
-    type: float
-    default: None
-    description: the edge of the last wavenumber bin. By default, set to the Nyquist frequency :math:`\pi \mathrm{Nmesh} / \mathrm{BoxSize}`
+  edges:
+    type: dict
+    default: {}
+    description: >
+                "dictionary options for k-edges: min: the edge of the first wavenumber bin (default: 0);
+                max: the edge of the last wavenumber bin (default: Nyquist frequency :math:`\pi \mathrm{Nmesh} / \mathrm{BoxSize});
+                step, the spacing in wavenumber (:math:`h/\mathrm{Mpc}`) (default: the fundamental mode :math:`2 \pi / \mathrm{BoxSize}` of the box)"
   muwedges:
     type: int
     default: 3
     description: :math:`\mu`-wedges to infer from multipole measurements
   ells:
     type: [list, tuple]
-    default: (0,2,4)
+    default: [0,2,4]
     description: a list of integer multipole numbers :math:`\ell` to compute
   los:
     type: [string, list, tuple]
@@ -61,15 +56,11 @@ options:
     default: None
     description: position column (in :math:`\mathrm{Mpc}/h`) in the input catalog(s).
                 If not provided, cartesian positions are computed from z, ra, dec and the input fiducial cosmology
-  load_data:
+  data_load:
     type: [string, list, tuple]
     default: data
     description: either (section, name) (or name only; default section is 'catalog') in data_block where to find the data catalog(s) or, if containing / (or \), a path to a catalog on disk
                   A tuple of list of two strings can be provided for cross-correlations.
-  load_randoms:
-    type: [string, list, tuple]
-    default: randoms
-    description: same as ``load_data``, for the randoms catalog(s)
   save:
     type: string
     default: None

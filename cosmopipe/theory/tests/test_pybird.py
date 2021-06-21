@@ -41,5 +41,4 @@ def test_pybird():
 if __name__ == '__main__':
 
     setup_logging()
-    #test_pybird()
-    test_doc()
+    test_pybird()

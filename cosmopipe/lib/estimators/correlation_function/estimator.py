@@ -40,6 +40,7 @@ class BaseEstimator(BaseClass):
         self.D1D2 = D1D2
         self.R1R2 = R1R2
         self.D1R2 = D1R2
+        self.D2R1 = D2R1
         if D2R1 is None:
             self.D2R1 = self.D1R2
         if not isinstance(edges,(tuple,list)):
@@ -76,7 +77,7 @@ class BaseEstimator(BaseClass):
 
 class NaturalEstimator(BaseEstimator):
 
-    def set_corr():
+    def set_corr(self):
         nonzero = self.R1R2.wnpairs > 0
         # init
         self.corr = np.empty(self.D1D2.shape)
@@ -92,7 +93,7 @@ class NaturalEstimator(BaseEstimator):
 
 class LandySzalayEstimator(BaseEstimator):
 
-    def set_corr():
+    def set_corr(self):
         nonzero = self.R1R2.wnpairs > 0
         # init
         self.corr = np.empty(self.D1D2.shape)
@@ -111,8 +112,8 @@ class LandySzalayEstimator(BaseEstimator):
 def project_to_multipoles(estimator, ells=(0,2,4)):
     from scipy import special
     toret = []
-    dmu = np.diff(estimator.edges[1])
+    dmu = np.diff(estimator.edges[1],axis=-1)
     for ell in ells:
-        legendre = (2*ell + 1) * special.legendre(ell)(self.sep[1])
+        legendre = (2*ell + 1) * special.legendre(ell)(estimator.sep[1])
         toret.append(np.sum(estimator.corr*legendre*dmu,axis=-1)/np.sum(dmu))
-    return np.mean(self.sep[0],axis=-1), np.array(toret).T
+    return np.mean(estimator.sep[0],axis=-1), np.array(toret).T

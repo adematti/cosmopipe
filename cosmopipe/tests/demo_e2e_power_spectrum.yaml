@@ -1,0 +1,127 @@
+data_dir: _data
+samples_dir: _samples
+plots_dir: _plots
+catalog_dir: _catalog
+
+main:
+  #$execute: [fiducial, survey_estimator, data_plotting]
+  #$execute: [fiducial, box_estimator, data_plotting]
+  $execute: [fiducial, survey_estimator, data_plotting, data, params, primordial, model, mockcov, minuit, plotting, postprocessing]
+  #$execute: [data, params, primordial, model, mockcov, compare]
+  #$execute: [fiducial, box_estimator, data_plotting]
+  #$execute: [data_plotting]
+
+compare:
+  $module_name: pypescript
+  $module_class: BasePipeline
+  $modules: [minuit, plotting]
+
+postprocessing:
+  $module_name: cosmopipe.pipelines.postprocessing
+  $module_class: ProfilesPostprocessing
+  #$execute: ${like.$modules}
+  #$modules: [data_model_plotting]
+  $modules: e'${like.$modules} + ["data_model_plotting"]'
+
+minuit:
+  $module_name: cosmopipe.samplers.profiler.minuit
+  $module_class: MinuitProfiler
+  $modules: [like]
+  migrad:
+    n_iterations: 10
+
+params:
+  $module_name: cosmopipe.parameters.parameterisation
+  common_parameters:
+    ${cosmological_parameters.yaml:}:
+    ${linear_parameters.yaml:}:
+    survey_geometry:
+      zeff:
+        value: 1.0
+        fixed: True
+
+fiducial:
+  $module_name: cosmopipe.theory.fiducial
+  engine: class
+
+primordial:
+  $module_name: cosmopipe.theory.primordial
+  engine: eisenstein_hu
+  compute: pk_m
+
+survey_estimator:
+  $module_name: cosmopipe.estimators.power_spectrum.nbodykit_survey
+  Nmesh: 128
+  BoxSize: 4000.
+  edges:
+    step: 0.01
+  nbar: NZ
+  data_load: f'${catalog_dir}/lognormal_data.fits'
+  randoms_load: f'${catalog_dir}/lognormal_randoms.fits'
+  save: f'${data_dir}/lognormal_power_spectrum.txt'
+
+box_estimator:
+  $module_name: cosmopipe.estimators.power_spectrum.nbodykit_box
+  Nmesh: 128
+  BoxSize: 1380.
+  edges:
+    step: 0.01
+  position: 'Position + VelocityOffset[:,[0]]*[1,0,0]'
+  data_load: f'${catalog_dir}/lognormal_box.fits'
+  save: f'${data_dir}/lognormal_power_spectrum.txt'
+
+data_plotting:
+  $module_name: cosmopipe.data.plotting
+  $module_class: DataVectorPlotting
+  data_load: ${survey_estimator.save}
+  style: pk
+  kwplt: {'alpha': 0.3}
+  filename: f'${plots_dir}/power_spectrum.png'
+
+mockcov:
+  $module_name: cosmopipe.theory.gaussian_covariance
+  volume: e'1380.**3'
+  data_load: True
+  #xlim: ${data.xlim}
+
+data:
+  $module_name: cosmopipe.data.data_vector
+  #data_load: ${survey_estimator.save}
+  #data_load: ${box_estimator.save}
+  xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
+  #xlim: [[0.,0.],[0.,0.],[0.,0.],[0.02, 0.3],[0.02, 0.3],[0.02, 0.3]]
+  #xlim: {'mu_0_1/3':[0.02, 0.3],'mu_1/3_2/3':[0.02, 0.3],'mu_2/3_1':[0.02, 0.3]}
+  mapping_header:
+    shotnoise: '.*?shotnoise = (.*)'
+    kedges: '.*?kedges = (.*)'
+
+plotting:
+  $module_name: cosmopipe.samplers.plotting
+  $module_class: ProfilesPlotting
+  save_stats: f'${plots_dir}/stats_linear.tex'
+  toplot:
+    - plot_aligned_stacked:
+        truths: value
+        filename: f'${plots_dir}/aligned_stacked_linear.png'
+
+like:
+  $module_name: cosmopipe.likelihood.likelihood
+  $module_class: GaussianLikelihood
+  $modules: [model, projection]
+
+model:
+  $module_name: cosmopipe.theory.linear_model
+  FoG: gaussian
+
+projection:
+  $module_name: cosmopipe.theory.projection
+  $module_class: DataVectorProjection
+
+data_model_plotting:
+  $module_name: cosmopipe.theory.plotting
+  data_load: True
+  covariance_load: True
+  xmodel:
+    nbins: 100
+  style: pk
+  filename: f'${plots_dir}/e2e_power_spectrum_data_model.png'

@@ -1,0 +1,25 @@
+name: GaussianLikelihoodFromSamples
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Gaussian likelihood estimated from samples
+
+long description: >
+                  :class:`GaussianLikelihoodFromSamples` extends :class:`GaussianLikelihood`,
+                  with data vector and covariance matrix from previously computed samples.
+
+setup input:
+  samples_load:
+    type: list
+    default: None
+    description: list of (section, name) in data_block where to find the sample(s) (defaults to standard location) or, if containing / (or \), a path to samples on disk
+  parameters:
+    type: list
+    default: None
+    description: list of parameters from provided samples to use as data vector
+
+execute output:
+  likelihood.loglkl:
+    type: float
+    description: log-likelihood

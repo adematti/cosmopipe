@@ -40,7 +40,6 @@ mockcov:
   shotnoise: 1e3
   volume: 1e10
   projs: [ell_0, ell_2, ell_4]
-  use_data_xlim: mockdata
   xlim: $&{mockdata.xlim}
 
 mockdata:

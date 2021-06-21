@@ -1,14 +1,15 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 SHELL ["/bin/bash", "-c"]
+
+RUN apt -y update && apt install -y apt-utils && echo yes
 
 RUN \
     apt-get update && \
     apt-get install --yes \
-        build-essential \
+        build-essential  \
         gfortran \
         python3-dev \
-        wget \
         vim \
         git \
         libgsl-dev \
@@ -17,12 +18,16 @@ RUN \
         libcfitsio-bin \
         curl \
         patch \
-        ca-certificates && \
+        ca-certificates \
+        wget && \
     apt-get clean all
 
 ARG mpich=3.3
 ARG mpich_prefix=mpich-$mpich
 
+
+# mpi4py / mpicc can't handle -ax=knl
+ENV CFLAGS -O3 -g -fPIC -std=gnu99 -pthread
 RUN \
     wget https://www.mpich.org/static/downloads/$mpich/$mpich_prefix.tar.gz && \
     tar xvzf $mpich_prefix.tar.gz                                           && \
@@ -33,21 +38,9 @@ RUN \
     make clean                                                              && \
     cd ..                                                                   && \
     rm -rf $mpich_prefix
+# ENV CFLAGS -O3 -g -fPIC -std=gnu99 -pthread -x=haswell -ax=knl
 
-ARG mpi4py=3.0.3
-ARG mpi4py_prefix=mpi4py-$mpi4py
-
-RUN \
-    wget https://bitbucket.org/mpi4py/mpi4py/downloads/$mpi4py_prefix.tar.gz && \
-    tar xvzf $mpi4py_prefix.tar.gz                                           && \
-    cd $mpi4py_prefix                                                        && \
-    python3 setup.py build                                                   && \
-    python3 setup.py install                                                 && \
-    cd ..                                                                    && \
-    rm -rf $mpi4py_prefix
-
-
-RUN wget -nv https://repo.continuum.io/miniconda/Miniconda3-4.5.1-Linux-x86_64.sh -O miniconda.sh && \
+RUN wget -nv https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
     bash miniconda.sh -b -p /opt/conda
 
 RUN ln -s /opt/conda/bin/conda /bin/conda && \
@@ -58,7 +51,63 @@ RUN ln -s /opt/conda/bin/conda /bin/conda && \
 
 RUN chmod 777 /opt/conda /root
 
-RUN conda install pip numpy pyyaml cython sphinx_rtd_theme
+RUN conda install pip numpy cython
+
+RUN git clone https://github.com/mpi4py/mpi4py.git \
+         && (cd mpi4py \
+         && python3 setup.py build \
+         && python3 setup.py install) \
+         && rm -Rf mpi4py
+
+RUN chmod 777 /opt/conda /root
+
+RUN /sbin/ldconfig
+
+
+
+
+
+FROM ubuntu:20.04
+
+SHELL ["/bin/bash", "-c"]
+
+RUN apt -y update && apt install -y apt-utils && echo yes
+
+RUN DEBIAN_FRONTEND=noninteractive \
+    apt install -y --no-install-recommends \
+    vim \
+    make \
+    gcc \
+    gfortran \
+    libgsl-dev \
+    git \
+    wget \
+    mpich \
+    libmpich-dev \
+    libbz2-dev \
+    libcfitsio-dev \
+    libcfitsio-bin \
+    # # Remove APT files
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN wget -nv --no-check-certificate https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
+    bash miniconda.sh -b -p /opt/conda
+
+RUN ln -s /opt/conda/bin/conda /bin/conda && \
+    conda config --add channels intel && \
+    conda config --set always_yes yes && \
+    conda update conda && \
+    conda init bash
+
+RUN apt update && \
+    apt install -y --no-install-recommends \
+    curl \
+    patch \
+    ca-certificates \
+    # # Remove APT files
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN conda install pip numpy mpi4py pyyaml cython sphinx_rtd_theme
 
 RUN conda install -c bccp nbodykit
 
@@ -90,5 +139,3 @@ ENV MPLBACKEND Agg
 # ENV PYTHONPATH /src/cosmopipe:${PYTHONPATH}
 
 WORKDIR /homedir/
-
-RUN /sbin/ldconfig

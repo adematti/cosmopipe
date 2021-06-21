@@ -19,26 +19,32 @@ class ProjectionName(BaseClass):
             return
         if isinstance(args,str):
             for key,short in self._shorts.items():
-                match = re.match('{}_(.*)'.format(short),args)
+                match = re.match('{}_(.*)$'.format(short),args)
                 if match:
-                    if key == 'multipole':
-                        args = (key, int(match.group(1)))
-                    if key.endswith('wedge'):
-                        tu = match.group(1).split('_')
-                        args = (key, tuple(float(t) for t in tu))
-                break
+                    break
+            if key == 'multipole':
+                args = (key,int(match.group(1)))
+            if key.endswith('wedge'):
+                tu = match.group(1).split('_')
+                args = (key,tuple(eval(t,{},{}) for t in tu))
         self.mode,self.proj = args
 
     @property
     def latex(self):
         base = self._latex[self.mode]
-        return '{} = {}'.format(base,self.proj)
+        if self.mode == self.MULTIPOLE:
+            return '{} = {}'.format(base,self.proj)
+        return '{} = ({:.2f},{:.2f})'.format(base,*self.proj)
 
     def __repr__(self):
         return '{}({}_{})'.format(self.__class__.__name__,self._shorts[self.mode],self.proj)
 
     def __str__(self):
-        return '{}_{}'.format(self._shorts[self.mode],self.proj)
+        if self.mode == self.MULTIPOLE:
+            proj = self.proj
+        else:
+            proj = '_'.join([str(p) for p in self.proj])
+        return '{}_{}'.format(self._shorts[self.mode],proj)
 
     def __eq__(self, other):
         return self.mode == other.mode and self.proj == other.proj

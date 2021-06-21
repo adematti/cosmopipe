@@ -22,7 +22,7 @@ options:
     type: float
     default: 0.3
     description: Matter density parameters
-  others: Valid parameters for cosmoprimo.Cosmology
+  $others: Valid parameters for cosmoprimo.Cosmology
 
 execute output:
   fiducial_cosmology.cosmo:

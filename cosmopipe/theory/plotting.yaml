@@ -1,0 +1,29 @@
+name: ModelPlotting
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Plot model (v.s. data)
+
+options:
+  covariance_load:
+    type: [bool, string]
+    default: False
+    description: if ``True`` or (section, name), loads a covariance matrix from corresponding data_block entry
+  data_load:
+    type: [bool, string]
+    default: False
+    description: if ``True`` or (section, name), loads a data_vector from corresponding data_block entry
+  xmodel:
+    type: [dict, list, float_array]
+    default: None
+    description: >
+                an array, a list of arrays (for the different projections), a dictionary or a list of dictionary,
+                to override the ``x``-axis sampling of the model (e.g. to get smooth model curves).
+                If a dictionary is provided, should contain 'min', 'max', 'nbins' or 'step' (optionally 'scale': 'lin' or 'log').
+                If ``None``, the coordinates of the data vector are used.
+  save_model:
+    type: string
+    default: None
+    description: if not ``None``, a path where to save the model data vector
+  $others: options for :class:`~cosmopipe.lib.data.DataPlotStyle`

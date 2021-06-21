@@ -4,7 +4,7 @@ date: 01/06/2021
 author: Arnaud de Mattia
 maintainer: Arnaud de Mattia
 description: Setup fiducial cosmology
-requirements: ['cosmoprimo @ git+https://github.com/adematti/cosmoprimo']
+requirements: ['cosmoprimo[extras] @ git+https://github.com/adematti/cosmoprimo']
 
 long description: >
                   This module sets a fiducial cosmology.
@@ -18,7 +18,7 @@ options:
     type: float
     default: 0.3
     description: Matter density parameters
-  others: Valid parameters for cosmoprimo.Cosmology
+  $others: Valid parameters for cosmoprimo.Cosmology
 
 setup output:
   fiducial_cosmology.cosmo:

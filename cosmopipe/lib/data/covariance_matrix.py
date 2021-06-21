@@ -108,7 +108,7 @@ class CovarianceMatrix(DataVector):
 
     def get_invcov(self, block=True, inv=np.linalg.inv, **kwargs):
         if block:
-            indices = self.get_index(concat=False,**kwargs)
+            indices = self.get_index(concatenate=False,**kwargs)
             cov = [[self._covariance[np.ix_(ind1,ind2)] for ind2 in indices[-1]] for ind1 in indices[0]]
             return utils.blockinv(cov,inv=inv)
         return utils.inv(self.get_cov(**kwargs))
@@ -153,7 +153,9 @@ class CovarianceMatrix(DataVector):
         with open(filename,'r') as file:
             header = cls.read_header_txt(file,mapping_header=mapping_header,comments=comments)
 
-        attrs = {**header,**attrs}
+        for name,value in header.items():
+            if attrs.get(name,None) is None:
+                attrs[name] = value
         col_proj = isinstance(attrs.get('proj',None),bool) and attrs['proj']
         x,cov,mapping = [[],[]],[],[]
         proj,projx = [[],[]],[[],[]]

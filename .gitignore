@@ -12,6 +12,7 @@ doc/_build/
 **/build
 **/_data
 **/_plots
+**/_catalog
 **/_samples
 **/*.so
 **/*.mod

@@ -1,6 +1,7 @@
 from pypescript.libutils import setup
 
 setup(name='cosmopipe',
+      base_dir='cosmopipe',
       author='Arnaud de Mattia et al.',
       maintainer='Arnaud de Mattia',
       url='http://github.com/adematti/cosmopipe',

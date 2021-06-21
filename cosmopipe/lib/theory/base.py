@@ -4,7 +4,7 @@ import numpy as np
 from scipy import interpolate
 
 from cosmopipe.lib.utils import BaseClass
-from cosmopipe.lib.primordial import PowerSpectrumInterpolator1D
+from cosmoprimo import PowerSpectrumInterpolator1D
 from .fog import get_FoG
 
 

@@ -26,7 +26,7 @@ options:
     default: None
     description: if int, number of steps to remove; if float < 1, fraction of chain to remove
   samples_load:
-    type: list
+    type: [string, list]
     default: None
     description: list of (section, name) in data_block where to find the sample(s) (defaults to standard location) or, if containing / (or \), a path to samples on disk
   $others: options for :class:`~cosmopipe.lib.samples.SamplesPlotStyle`
@@ -56,8 +56,8 @@ options:
     type: list
     default: []
     description: list of :class:`~cosmopipe.lib.samples.ProfilesPlotStyle` methods (plot_aligned, plot_aligned_stacked, plot_1d, plot_2d, plot_corner)
-  samples_load:
-    type: list
-    default: None
+  profiles_load:
+    type: [string, list]
+    default: profiles
     description: list of (section, name) in data_block where to find the profiles (defaults to standard location) or, if containing / (or \), a path to profiles on disk
   $others: options for :class:`~cosmopipe.lib.samples.ProfilesPlotStyle`

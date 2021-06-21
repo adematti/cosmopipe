@@ -1,5 +1,54 @@
+import logging
+
 import numpy as np
 from scipy import interpolate
+
+from cosmopipe.lib.utils import ScatteredBaseClass
+from cosmopipe.lib import mpi
+
+
+def vector_projection(vector, direction):
+    r"""
+    Vector components of given vectors in a given direction.
+    .. math::
+        \mathbf{v}_\mathbf{d} &= (\mathbf{v} \cdot \hat{\mathbf{d}}) \hat{\mathbf{d}} \\
+        \hat{\mathbf{d}} &= \frac{\mathbf{d}}{\|\mathbf{d}\|}
+
+    Parameters
+    ----------
+    vector : array_like, (..., D)
+        array of vectors to be projected
+    direction : array_like, (D,)
+        projection direction. It does not have to be normalized
+    Returns
+    -------
+    projection : array_like, (..., D)
+        vector components of the given vectors in the given direction
+    """
+    direction = np.asarray(direction, dtype='f8')
+    direction = direction / (direction ** 2).sum(axis=-1)[:, None] ** 0.5
+    projection = (vector * direction).sum(axis=-1)
+    projection = projection[:, None] * direction
+
+    return projection
+
+
+class DistanceToRedshift(object):
+
+    def __init__(self, distance, zmax=100., nz=2048):
+        self.distance = distance
+        self.zmax = zmax
+        self.nz = nz
+        self.compute()
+
+    def compute(self):
+        zgrid = np.logspace(-8,np.log10(self.zmax),self.nz)
+        self.zgrid = np.concatenate([[0.], zgrid])
+        self.rgrid = self.distance(self.zgrid)
+        self.interp = interpolate.Akima1DInterpolator(self.rgrid,self.zgrid,axis=0)
+
+    def __call__(self, distance):
+        return self.interp(distance)
 
 
 class RedshiftDensityInterpolator(ScatteredBaseClass):
@@ -35,7 +84,7 @@ class RedshiftDensityInterpolator(ScatteredBaseClass):
             dz = sigma * (24. * np.sqrt(np.pi) / gsize) ** (1. / 3)
             zrange = zrange(redshifts)
             nbins = np.ceil((maxval - minval) * 1. / dx)
-            nbins = max(1, Nbins)
+            nbins = max(1, nbins)
             edges = minval + dx * np.arange(nbins + 1)
 
         if np.ndim(bins) == 0:
@@ -59,64 +108,64 @@ class RedshiftDensityInterpolator(ScatteredBaseClass):
 
 
 def distance(position):
-	return np.sqrt((position**2).sum(axis=-1))
+    return np.sqrt((position**2).sum(axis=-1))
 
 
 def cartesian_to_sky(position, wrap=True, degree=True):
-	"""Transform cartesian coordinates into distance, RA, Dec.
+    """Transform cartesian coordinates into distance, RA, Dec.
 
-	Parameters
-	----------
-	position : array of shape (N,3)
-		position in cartesian coordinates.
-	wrap : bool, optional
-		whether to wrap ra into [0,2*pi]
-	degree : bool, optional
-		whether RA, Dec are in degree (True) or radian (False).
+    Parameters
+    ----------
+    position : array of shape (N,3)
+        position in cartesian coordinates.
+    wrap : bool, optional
+        whether to wrap ra into [0,2*pi]
+    degree : bool, optional
+        whether RA, Dec are in degree (True) or radian (False).
 
-	Returns
-	-------
-	dist : array
-		distance.
-	ra : array
-		RA.
-	dec : array
-		Dec.
-	"""
-	dist = distance(position)
-	ra = np.arctan2(position[:,1],position[:,0])
-	if wrap: ra %= 2.*np.pi
-	dec = np.arcsin(position[:,2]/dist)
+    Returns
+    -------
+    dist : array
+        distance.
+    ra : array
+        RA.
+    dec : array
+        Dec.
+    """
+    dist = distance(position)
+    ra = np.arctan2(position[:,1],position[:,0])
+    if wrap: ra %= 2.*np.pi
+    dec = np.arcsin(position[:,2]/dist)
     conversion = np.pi/180. if degree else 1.
-	return dist, ra/conversion, dec/conversion
+    return dist, ra/conversion, dec/conversion
 
 
 def sky_to_cartesian(dist, ra, dec, degree=True, dtype=None):
-	"""Transform distance, RA, Dec into cartesian coordinates.
+    """Transform distance, RA, Dec into cartesian coordinates.
 
-	Parameters
-	----------
-	dist : array
-		distance.
-	ra : array
-		RA.
-	dec : array
-		Dec.
-	degree : bool
-		whether RA, Dec are in degree (True) or radian (False).
-	dtype : dtype, optional
-		return array dtype.
+    Parameters
+    ----------
+    dist : array
+        distance.
+    ra : array
+        RA.
+    dec : array
+        Dec.
+    degree : bool
+        whether RA, Dec are in degree (True) or radian (False).
+    dtype : dtype, optional
+        return array dtype.
 
-	Returns
-	-------
-	position : array
-		position in cartesian coordinates; of shape (len(dist),3).
-	"""
-	conversion = 1.
-	if degree: conversion = np.pi/180.
-	position = [None]*3
-	cos_dec = np.cos(dec*conversion)
-	position[0] = cos_dec*np.cos(ra*conversion)
-	position[1] = cos_dec*np.sin(ra*conversion)
-	position[2] = np.sin(dec*conversion)
-	return (dist*np.asarray(position,dtype=dtype)).T
+    Returns
+    -------
+    position : array
+        position in cartesian coordinates; of shape (len(dist),3).
+    """
+    conversion = 1.
+    if degree: conversion = np.pi/180.
+    position = [None]*3
+    cos_dec = np.cos(dec*conversion)
+    position[0] = cos_dec*np.cos(ra*conversion)
+    position[1] = cos_dec*np.sin(ra*conversion)
+    position[2] = np.sin(dec*conversion)
+    return (dist*np.asarray(position,dtype=dtype)).T

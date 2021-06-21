@@ -4,8 +4,14 @@ import numpy as np
 from pypescript import BaseModule, ConfigError
 from nbodykit.lab import SurveyData2PCF
 
-from cosmopipe.lib.catalog import Catalog, utils
-from .estimator import PairCount, LandySzalayEstimator
+from cosmopipe import section_names
+from cosmopipe.lib import syntax
+from cosmopipe.lib.catalog import Catalog
+from cosmopipe.lib.data import DataVector
+from cosmopipe.estimators import utils
+from cosmopipe.lib.estimators.correlation_function import PairCount, LandySzalayEstimator
+
+from .nbodykit_box import BoxCorrelationFunction
 
 
 class SurveyCorrelationFunction(BoxCorrelationFunction):
@@ -22,6 +28,8 @@ class SurveyCorrelationFunction(BoxCorrelationFunction):
         self.R1R2_load = self.options.get('R1R2_load',False)
         if isinstance(self.R1R2_load,bool) and self.R1R2_load:
             self.R1R2_load = 'correlation_estimator'
+        self.save = self.options.get('save',None)
+        self.save_estimator = self.options.get('save_estimator',None)
 
     def get_R1R2(self):
         R1R2 = None
@@ -34,34 +42,39 @@ class SurveyCorrelationFunction(BoxCorrelationFunction):
         input_randoms = syntax.load_auto(self.randoms_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
         if len(input_data) != len(input_randoms):
             raise ValueError('Number of input data and randoms catalogs is different ({:d} v.s. {:d})'.format(len(input_data),len(input_randoms)))
+        cosmo = self.data_block.get(section_names.fiducial_cosmology,'cosmo',None)
         list_data,list_randoms = [],[]
         for data,randoms in zip(input_data,input_randoms):
             if self.mode == 'angular':
-                data,randoms = prepare_survey_angular_catalogs(data,randoms,**{name: self.catalog_options5[name] for name in ['ra','dec','weight_comp'])
+                data,randoms = utils.prepare_survey_angular_catalogs(data,randoms,cosmo=cosmo,**{name: self.catalog_options[name] for name in ['ra','dec','weight_comp']})
+            else:
+                data,randoms = utils.prepare_survey_catalogs(data,randoms,cosmo=cosmo,**self.catalog_options)
             list_data.append(data.to_nbodykit())
             list_randoms.append(randoms.to_nbodykit())
 
         class FakeCosmo(object):
 
-            def comoving_distance(z):
-                return np.ones_like(z)
+            def comoving_distance(self, z):
+                return z
 
         cross = len(list_data) > 1
-        result = SurveyData2PCF(self.mode,list_data[0],list_randoms[0],self.edges,cosmo=FakeCosmo(),
+        result = SurveyData2PCF(self.nbodykit_mode,list_data[0],list_randoms[0],self.edges,cosmo=FakeCosmo(),
                                 data2=list_data[1] if cross else None,randoms2=list_randoms[1] if cross else None,
                                 R1R2=self.get_R1R2(),ra='ra',dec='dec',redshift='distance',weight='weight',
                                 **self.correlation_options)
         args = []
         for name in ['D1D2','R1R2','D1R2','D2R1']:
             pc = getattr(result,name)
-            args.append(PairCount(wnpairs=pc['wnpairs'],total_wnpairs=pc['total_wnpairs']))
-        edges = [result.edges[dim] for dim in result.dims]
-        default_sep = np.meshgrid([(e[1:] + e[:-1])/2. for e in edges],indexing='ij')
+            args.append(PairCount(wnpairs=pc['wnpairs'],total_wnpairs=pc.attrs['total_wnpairs']))
+        edges = [result.corr.edges[dim] for dim in result.corr.dims]
+        default_sep = np.meshgrid(*[(e[1:] + e[:-1])/2. for e in edges],indexing='ij')
         sep = []
-        for idim,dim in enumerate(result.dims):
-            s = result.R1R2['{}avg'.format(dim)]
-            if np.isnan(s).all(): s = default_sep[idim]
+        for idim,dim in enumerate(result.corr.dims):
+            if '{}avg'.format(dim) in result.R1R2 and not np.isnan(result.R1R2['{}avg'.format(dim)]).all():
+                s = result.R1R2['{}avg'.format(dim)]
+            else: s = default_sep[idim]
             sep.append(s)
+        result.attrs.pop('edges')
         estimator = LandySzalayEstimator(*args,edges=edges,sep=sep,**result.attrs)
         if self.save_estimator: estimator.save(self.save_estimator)
         data_vector = self.build_data_vector(estimator)

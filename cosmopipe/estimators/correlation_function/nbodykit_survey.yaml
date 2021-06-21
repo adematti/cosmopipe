@@ -28,11 +28,11 @@ options:
                   if 'angular', compute pairs as a function of angle on the sky, :math:`\theta`
   pimax:
     type: float
-    default: 80
+    default: 80.
     description: maximum line-of-sight separation (in `\mathrm{Mpc}/h`), in case ``mode`` is 'rppi' or 'rp'
   edges:
-    type: [list, dict, array_1d]
-    default: {min: 1e-12, max: 200, nbins: 50}
+    type: [dict, list, float_array]
+    default: {min: 1e-12, max: 200, nbins: 5}
     description: >
                 the separation bin edges along the first coordinate dimension;
                 depending on ``mode``, the options are :math:`r`, :math:`r_{p}`, or
@@ -45,7 +45,7 @@ options:
     description: :math:`\mu`-wedges to infer from multipole measurements
   ells:
     type: [list, tuple]
-    default: (0,2,4)
+    default: [0,2,4]
     description: a list of integer multipole numbers :math:`\ell` to compute
   show_progress:
     type: bool
@@ -91,18 +91,18 @@ options:
     description: if ``mode`` is not 'angular', column of FKP weights in the input catalog(s); if ``None``, defaults to :math:`1/(1 + \overline{n} P_{0})`
   P0_fkp:
     type: float
-    default: 0
+    default: 0.
     description: reference power for FKP weights
-  load_data:
+  data_load:
     type: [string, list, tuple]
     default: data
     description: either (section, name) in data_block where to find the data catalog(s) or, if containing / (or \), a path to a catalog on disk.
                   A tuple of list of two strings can be provided for cross-correlations.
-  load_randoms:
+  randoms_load:
     type: [string, list, tuple]
     default: randoms
     description: same as ``load_data``, for the randoms catalog(s)
-  load_R1R2:
+  R1R2_load:
     type: [bool, string]
     default: None
     description: if not ``None``, (section, name) (or ``True`` to default (section,name)) or path to pre-computed estimator from which R1R2 pair counts will be used

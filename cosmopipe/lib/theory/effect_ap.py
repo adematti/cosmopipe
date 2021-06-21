@@ -27,7 +27,7 @@ class EffectAP(BaseClass):
 
     def pk_mu(self, k, mu=0., grid=True, **kwargs):
         kap, muap = self.kmu_scaling(k,mu,grid=grid)
-        return 1./self.qiso**3*self.input_pk_mu(k=kap,mu=muap,grid=False,**kwargs)
+        return 1./self.qiso**3*self.input_pk_mu(kap,mu=muap,grid=False,**kwargs)
 
 
 class IsotropicScaling(BaseClass):
@@ -48,4 +48,4 @@ class IsotropicScaling(BaseClass):
         return k/self.qiso
 
     def pk(self, k, **kwargs):
-        return 1/self.qiso**3*self.input_pk(k=self.k_scaling(k),**kwargs)
+        return 1/self.qiso**3*self.input_pk(self.k_scaling(k),**kwargs)

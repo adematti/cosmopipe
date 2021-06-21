@@ -1,6 +1,7 @@
 import numpy as np
 
-from cosmopipe.lib.primordial import Cosmology
+from cosmoprimo import Cosmology
+
 from cosmopipe.lib.theory import LinearModel
 from cosmopipe.lib import setup_logging
 

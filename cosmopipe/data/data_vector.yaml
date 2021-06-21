@@ -8,12 +8,13 @@ description: Load a data vector
 
 options:
   xlim:
-    type: dict
+    type: [dict, list]
     default: None
     description: dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)})
                 or list of tuples corresponding to the data projections
   data_load:
     type: string
+    default: data_vector
     description: either (section, name) in data_block where to find the data catalog(s) or, if containing / (or \), a path to a catalog on disk.
                 If path ends with .npy, none of the arguments below apply.
   xdim:
@@ -36,9 +37,9 @@ options:
     type: int
     default: None
     description: read max_rows lines of content after skiprows lines. The default is to read all the lines
-  col_proj:
+  proj:
     type: bool
-    default: False
+    default: None
     description: is a projection column provided (e.g. list of multipoles ells?).
                 It is assumed to be the first column (column order can be changed with ``usecols``).
   mapping_header:
@@ -53,7 +54,7 @@ options:
   type:
     type: string
     default: None
-    choices: [pk, xi]
+    choices: [None, pk, xi]
     description: data vector type
 
 setup output:

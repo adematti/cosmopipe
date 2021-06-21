@@ -32,7 +32,10 @@ class DataVector(BaseClass):
         y2dim = np.ndim(y[0]) != 0
         if y2dim:
             y2dim = len(y)
-            self._x = np.tile(x.T,y2dim).T
+            if np.ndim(x[0]) != 0:
+                self._x = np.concatenate(x,axis=0)
+            else:
+                self._x = np.tile(x,y2dim)
             self._y = np.concatenate(y,axis=0)
         else:
             self._x = np.asarray(x)
@@ -67,7 +70,7 @@ class DataVector(BaseClass):
                 mapping_proj = get_mapping_proj(mapping_proj)
             self._proj = MappingArray(proj,mapping=mapping_proj)
 
-    def get_index(self, concat=True, **kwargs):
+    def get_index(self, concatenate=True, **kwargs):
 
         def _get_one_index(xlim=None, proj=None):
             mask = np.ones(self.size,dtype='?')
@@ -83,7 +86,7 @@ class DataVector(BaseClass):
             return index
 
         if not kwargs:
-            if concat:
+            if concatenate:
                 return _get_one_index()
             return [_get_one_index()]
 
@@ -97,7 +100,7 @@ class DataVector(BaseClass):
         for i in range(n):
             index.append(_get_one_index(**{key:val[i] for key,val in kwargs.items()}))
 
-        if concat:
+        if concatenate:
             return np.concatenate(index)
         return index
 
@@ -157,20 +160,34 @@ class DataVector(BaseClass):
     def kwview(self):
         return self._kwargs_view
 
-    def get_x(self, **kwargs):
+    def get_x(self, concatenate=True, **kwargs):
         """Return x-coordinate of the data vector."""
-        index = self.get_index(**kwargs)
-        return self._x[index]
+        index = self.get_index(concatenate=concatenate,**kwargs)
+        if concatenate:
+            return self._x[index]
+        return [self._x[idx] for idx in index]
 
-    def get_y(self, **kwargs):
+    def get_y(self, concatenate=True, **kwargs):
         """Return y-coordinate of the data vector."""
-        index = self.get_index(**kwargs)
-        return self._y[index]
+        index = self.get_index(concatenate=concatenate,**kwargs)
+        if concatenate:
+            return self._y[index]
+        return [self._y[idx] for idx in index]
 
-    def get_proj(self, **kwargs):
-        """Return projection."""
+    def get_projs(self, **kwargs):
+        projs = self.projs
+        if projs is None:
+            return projs
         index = self.get_index(**kwargs)
-        return self._proj[index].asarray()
+        _proj = self._proj[index]
+        return [p for p in projs if p in _proj]
+
+    def get_proj(self, concatenate=True, **kwargs):
+        """Return projection."""
+        index = self.get_index(concatenate=concatenate,**kwargs)
+        if concatenate:
+            return self._proj[index].asarray()
+        return [self._proj[idx].asarray() for idx in index]
 
     @property
     def ndim(self):
@@ -236,7 +253,9 @@ class DataVector(BaseClass):
         with open(filename,'r') as file:
             header = cls.read_header_txt(file,mapping_header=mapping_header,comments=comments)
 
-        attrs = {**header,**attrs}
+        for name,value in header.items():
+            if attrs.get(name,None) is None:
+                attrs[name] = value
         col_proj = isinstance(attrs.get('proj',None),bool) and attrs['proj']
         x,y,proj = [],[],[]
 

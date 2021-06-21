@@ -28,7 +28,7 @@ Welcome to cosmopipe's documentation!
 Introduction
 ************
 
-**cosmopipe** is a framework to extract cosmological constraints from clustering data.
+**cosmopipe** is a framework based on **pypescript** to extract cosmological constraints from galaxy redshift surveys.
 This is **not** a cosmological inference code, such a `Cobaya`_, `MontePython`_, `CosmoMC`_ at al.,
 which are designed to sample pre-coded or user-provided likelihoods.
 Rather, **cosmopipe** provides coherent interfaces (called *modules*) to different codes (e.g. power spectrum estimator,

@@ -1,13 +1,13 @@
 galaxy_bias:
   b1:
-    value: 1.6
+    value: 2.
     fixed: false
     prior:
       dist: uniform
-      limits: [1.0, 2.0]
+      limits: [1.0, 3.0]
     ref:
       dist: uniform
-      limits: [1.5, 1.7]
+      limits: [1.5, 2.5]
     proposal: 0.01
     latex: b_{1}
   As:
@@ -15,7 +15,7 @@ galaxy_bias:
     fixed: false
     prior:
       dist: uniform
-      limits: [-1, 1]
+      limits: [-2, 2]
     ref:
       dist: uniform
       limits: [-0.1, 0.1]
@@ -26,7 +26,7 @@ galaxy_bias:
     fixed: false
     prior:
       dist: uniform
-      limits: [1, 6]
+      limits: [1, 20]
     ref:
       dist: uniform
       limits: [3.8, 4.2]

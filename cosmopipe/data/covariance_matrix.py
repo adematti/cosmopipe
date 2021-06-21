@@ -3,6 +3,7 @@ import os
 from pypescript import SectionBlock, syntax
 
 from cosmopipe import section_names
+from cosmopipe.lib import syntax
 from cosmopipe.lib.data import CovarianceMatrix
 
 
@@ -12,14 +13,13 @@ def setup(name, config_block, data_block):
     data = options.get('data',None) or {}
     if os.sep in covariance_load:
         if os.path.splitext(covariance_load)[-1]:
-            kwargs = {'xdim':options.get('xdim',None),'comments':options.get_string('comments','#'),'usecols':options.get_list('usecols',None)}
-            kwargs.update({'skip_rows':options.get_int('skip_rows',0),'max_rows':options.get_int('max_rows',None)})
-            kwargs.update({'proj':options.get_bool('col_proj',False),'mapping_header':options.get('mapping_header',None),'mapping_proj':options.get('mapping_proj',None)})
-            t = options.get_string('type',None)
-            if t is not None: kwargs['type'] = t
+            kwargs = {'xdim':None,'comments':'#','usecols':None,'skip_rows':0,'max_rows':None,'proj':False,'mapping_header':None,'mapping_proj':None,'type':None}
+            for name,value in kwargs.items():
+                kwargs[name] = options.get(name,value)
+            if kwargs['type'] is None: del kwargs['type']
             if data:
                 from .data_vector import get_data_from_options
-                kwargs['data'] = get_data_from_options(self.options['data'])
+                kwargs['data'] = get_data_from_options(self.options['data'],data_block=data_block)
             cov = CovarianceMatrix.load_txt(covariance_load,**kwargs)
         else:
             cov = CovarianceMatrix.load(covariance_load)

@@ -2,19 +2,9 @@ data_dir: _data
 plots_dir: _plots
 
 main:
-  $execute: [params, primordial, model, mockcov, mockdata, compare]
-
-compare:
-  $module_name: pypescript
-  $module_class: BasePipeline
-  $modules: [minuit, plotting]
-
-minuit:
-  $module_name: cosmopipe.samplers.profiler.minuit
-  $module_class: MinuitProfiler
-  $modules: [like]
-  migrad:
-    n_iterations: 10
+  #$execute: [params, primordial, model, model_projection, model_plotting]
+  #$execute: [params, primordial, model, mockcov, mockdata, data_projection, data_model_plotting]
+  $execute: [params, primordial, model, mockcov, mockdata, minuit, postprocessing]
 
 params:
   $module_name: cosmopipe.parameters.parameterisation
@@ -25,6 +15,20 @@ params:
       zeff:
         value: 1.0
         fixed: True
+
+postprocessing:
+  $module_name: cosmopipe.pipelines.postprocessing
+  $module_class: ProfilesPostprocessing
+  #$execute: ${like.$modules}
+  #$modules: [data_model_plotting]
+  $modules: e'${like.$modules} + ["data_model_plotting"]'
+
+minuit:
+  $module_name: cosmopipe.samplers.profiler.minuit
+  $module_class: MinuitProfiler
+  $modules: [like]
+  migrad:
+    n_iterations: 10
 
 primordial:
   $module_name: cosmopipe.theory.primordial
@@ -45,7 +49,7 @@ mockcov:
 
 mockdata:
   $module_name: cosmopipe.data.mock_data_vector
-  mean: True
+  mean: False
   seed: 42
   xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
   save: f'${data_dir}/data.txt'
@@ -59,15 +63,36 @@ plotting:
         truths: value
         filename: f'${plots_dir}/aligned_stacked_linear.png'
 
+model_plotting:
+  $module_name: cosmopipe.theory.plotting
+  style: pk
+  filename: f'${plots_dir}/linear_model.png'
+
+data_model_plotting:
+  $module_name: cosmopipe.theory.plotting
+  data_load: True
+  covariance_load: True
+  xmodel:
+    nbins: 100
+  style: pk
+  filename: f'${plots_dir}/linear_data_model.png'
+
 like:
   $module_name: cosmopipe.likelihood.likelihood
   $module_class: GaussianLikelihood
-  $modules: [model, projection]
+  $modules: [model, data_projection]
 
 model:
   $module_name: cosmopipe.theory.linear_model
   FoG: gaussian
 
-projection:
+data_projection:
   $module_name: cosmopipe.theory.projection
-  $module_class: DataVectorProjection
+
+model_projection:
+  $module_name: cosmopipe.theory.projection
+  x:
+    min: 0.01
+    max: 0.2
+    nbins: 100
+  projs: [ell_0, ell_2, ell_4]

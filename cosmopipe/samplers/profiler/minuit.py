@@ -26,7 +26,7 @@ class MinuitProfiler(BasePipeline):
                 if getattr(self,'{}_params'.format(torun)):
                     self.torun.append(torun)
         self.n_iterations = self.migrad_params.pop('n_iterations',None)
-        self.max_tries = self.options.get('max_tries',10000)
+        self.max_tries = self.options.get('max_tries',1000)
         self.save = self.options.get('save',False)
         self.seed = self.options.get('seed',None)
 

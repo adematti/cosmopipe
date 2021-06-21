@@ -1,68 +1,70 @@
+from cosmopipe.lib.catalog import utils
+
+
 def prepare_survey_angular_catalogs(data, randoms, ra='RA', dec='DEC', weight_comp=None):
 
     origin_catalogs = {'data':data,'randoms':randoms}
     catalogs = {name:catalog.copy(columns=[]) for name,catalog in origin_catalogs.items()}
 
-    def from_origin(column):
+    def from_origin(origin_column, column):
         for name,catalog in catalogs.items():
-            catalog[name] = origin_catalogs.eval(self.catalog_options[name])
+            catalog[column] = origin_catalogs[name].eval(origin_column)
 
     if weight_comp is None:
         for name,catalog in catalogs.items():
             catalog['weight_comp'] = origin_catalogs[name].ones()
     else:
-        from_origin('weight_comp')
+        from_origin(weight_comp,'weight_comp')
 
-    from_origin('ra')
-    from_origin('dec')
+    from_origin(ra,'ra')
+    from_origin(dec,'dec')
 
     return catalogs['data'],catalogs['randoms']
 
 
-def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z', weight_comp=None, nbar='NZ', weight_fkp=None, P0_fkp=0.):
+def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z', position=None, weight_comp=None, nbar='NZ', weight_fkp=None, P0_fkp=0.):
 
     origin_catalogs = {'data':data,'randoms':randoms}
 
     catalogs = {}
-    catalogs['data'],catalogs['randoms'] = prepare_survey_angular_catalogs(data,randoms,ra=ra,dec=dec,weight_comp=weiht_comp)
+    catalogs['data'],catalogs['randoms'] = prepare_survey_angular_catalogs(data,randoms,ra=ra,dec=dec,weight_comp=weight_comp)
 
-    def from_origin(column):
+    def from_origin(origin_column, column):
         for name,catalog in catalogs.items():
-            catalog[name] = origin_catalogs.eval(self.catalog_options[name])
+            catalog[column] = origin_catalogs[name].eval(origin_column)
 
     if z is not None:
-        from_origin('z')
+        from_origin(z,'z')
 
-    if self.catalog_options['position'] is None:
-        cosmo = self.data_block[section_names.fiducial_cosmology,'cosmo']
+    if position is None:
         for name,catalog in catalogs.items():
-            catalog['distance'] = cosmo.comoving_radial_distance(catalog['z'])
-            catalog['position'] = utils.sky_to_cartesian(distance,catalog['ra'],catalog['dec'],degree=True)
+            catalog['distance'] = cosmo.get_background().comoving_radial_distance(catalog['z'])
+            catalog['position'] = utils.sky_to_cartesian(catalog['distance'],catalog['ra'],catalog['dec'],degree=True)
     else:
-        from_origin('position')
+        from_origin(position,'position')
         catalog['distance'] = utils.distance(catalog['position'])
 
     if isinstance(nbar,dict):
         if 'z' in randoms:
             z = randoms['z']
-            cosmo = self.data_block[section_names.fiducial_cosmology,'cosmo']
+            radial_distance = cosmo.get_background().comoving_radial_distance
         else:
             z = randoms['distance']
-            cosmo = None
-        nbar = utils.RedshiftDensityInterpolator(redshifts,weights=randoms['weight_comp'],cosmo=cosmo,**nbar,**randoms.mpi_attrs)
+            radial_distance = None
+        nbar = utils.RedshiftDensityInterpolator(redshifts,weights=randoms['weight_comp'],radial_distance=radial_distance,**nbar,**randoms.mpi_attrs)
         for name,catalog in catalogs.items():
             if 'z' in randoms:
                 catalog['nbar'] = nbar(catalog['z'])
             else:
                 catalog['nbar'] = nbar(catalog['distance'])
     else:
-        from_origin('nbar')
+        from_origin(nbar,'nbar')
 
     if weight_fkp is None:
         for name,catalog in catalogs.items():
             catalog['weight_fkp'] = 1./(1. + catalog['nbar']*P0_fkp)
     else:
-        from_origin('weight_fkp')
+        from_origin(weight_fkp,'weight_fkp')
 
     for name,catalog in catalogs.items():
         catalog['weight'] = catalog['weight_comp']*catalog['weight_fkp']

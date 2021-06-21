@@ -19,12 +19,14 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
         self.xlabel = None
         self.ylabel = None
         self.color = None
-        self.linestyle = '-'
+        self.linestyles = '-'
         self.xscale = 'linear'
         self.yscale = 'linear'
         self.labelsize = 17
         self.ticksize = 15
+        self.errorbar = 'fill'
         self.filename = None
+        self.grid = True
         self.kwplt = {}
         self.update(**kwargs)
 
@@ -39,7 +41,7 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
         ax.set_yscale(self.yscale)
         ax.tick_params(labelsize=self.ticksize)
 
-    def get_kwplt(self, proj, projs=None):
+    def get_color(self, proj, projs=None):
         if projs is None:
             projs = self.projs
             index = self.projs.index(proj)
@@ -54,16 +56,7 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
             color = self.color[proj]
         else:
             color = self.color[index]
-        if isinstance(self.linestyle,str):
-            linestyle = self.linestyle
-        elif isinstance(self.linestyle,dict):
-            linestyle = self.linestyle[proj]
-        else:
-            linestyle = self.linestyle[index]
-        return {**{'color':color,'linestyle':linestyle},**self.kwplt}
-
-    def get_color(self, *args, **kwargs):
-        return self.get_kwplt(*args,**kwargs)['color']
+        return color
 
     @staticmethod
     def get_label(proj):
@@ -73,7 +66,7 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
 
     def get_projs(self, data_vectors=None):
         data_vectors = self.get_list('data_vectors',value=data_vectors)
-        return self.projs or data_vectors[0].projs
+        return self.projs or data_vectors[0].get_projs()
 
     @staticmethod
     def get_x(data, *args, **kwargs):
@@ -95,25 +88,34 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
     def get_covstd(covariance, *args, **kwargs):
         return covariance.get_std(*args,**kwargs)
 
-    def plot(self, data_vectors=None, covariance=None, ax=None, filename=None):
+    def plot(self, data_vectors=None, covariance=None, error_mean=None, ax=None, filename=None):
         if ax is None: ax = plt.gca()
         self.set_ax_attrs(ax)
         data_vectors = self.get_list('data_vectors',data_vectors)
+        linestyles = self.get_list('linestyles',default=['-']*len(data_vectors))
         add_legend = self.get_projs(data_vectors)
         projs = add_legend or [None]
         covariance = self.get('covariance',covariance)
         if covariance is not None:
             for iproj,proj in enumerate(projs):
                 x = self.get_covx(covariance,proj=proj)
-                y = self.get_covy(covariance,proj=proj)
+                if error_mean is not None:
+                    xdata = self.get_x(data_vectors[error_mean],proj=proj)
+                    ydata = self.get_y(data_vectors[error_mean],proj=proj)
+                    y = np.interp(x,xdata,ydata)
+                else:
+                    y = self.get_covy(covariance,proj=proj)
                 std = self.get_covstd(covariance,proj=proj)
-                ax.fill_between(x,y-std,y+std,alpha=0.5,color=self.get_color(iproj,projs=projs))
+                if self.errorbar == 'fill': ax.fill_between(x,y-std,y+std,alpha=0.5,facecolor=self.get_color(iproj,projs=projs),linewidth=0.0)
+                else: ax.errorbar(x,y,std,fmt='none',color=self.get_color(iproj,projs=projs))
         for idata,data_vector in enumerate(data_vectors):
             for iproj,proj in enumerate(projs):
                 label = self.get_label(proj) if idata == 0 else None
-                ax.plot(self.get_x(data_vector,proj=proj),self.get_y(data_vector,proj=proj),label=label,**self.get_kwplt(iproj,projs=projs))
+                ax.plot(self.get_x(data_vector,proj=proj),self.get_y(data_vector,proj=proj),label=label,linestyle=linestyles[idata],color=self.get_color(iproj,projs=projs),**self.kwplt)
         if add_legend:
             ax.legend(fontsize=self.labelsize)
+        if self.grid:
+            ax.grid(self.grid)
         filename = filename or self.filename
         if filename: self.savefig(filename)
         return ax

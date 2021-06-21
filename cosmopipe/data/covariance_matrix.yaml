@@ -8,7 +8,7 @@ description: Load a covariance matrix
 
 options:
   xlim:
-    type: dict
+    type: [dict, list]
     default: None
     description: dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)})
                 or list of tuples corresponding to the data projections
@@ -36,7 +36,7 @@ options:
     type: int
     default: None
     description: read max_rows lines of content after skiprows lines. The default is to read all the lines
-  col_proj:
+  proj:
     type: bool
     default: False
     description: is a projection column provided (e.g. list of multipoles ells?).
@@ -53,7 +53,7 @@ options:
   type:
     type: string
     default: None
-    choices: [pk, xi]
+    choices: [None, pk, xi]
     description: data vector type
   data:
     type: dict

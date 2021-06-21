@@ -7,9 +7,9 @@ from cosmopipe import section_names
 from cosmopipe.lib import mpi
 
 
-class OneSampler(BasePipeline):
+class EvaluateSampler(BasePipeline):
 
-    logger = logging.getLogger('OneSampler')
+    logger = logging.getLogger('EvaluateSampler')
 
     def setup(self):
         self.max_tries = self.options.get('max_tries',1000)
