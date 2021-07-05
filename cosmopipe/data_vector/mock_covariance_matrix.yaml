@@ -1,0 +1,33 @@
+name: MockCovarianceMatrix
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Build covariance matrix from mock observations
+
+options:
+  ${data_vector.yaml:options}:
+  xlim:
+    type: [dict, list]
+    default: None
+    description: dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)})
+                or list of tuples corresponding to the data projections
+  data_load:
+    type: list
+    description: either (section, name) in data_block where to find the data vectors or, if containing / (or \), a path to a catalog on disk.
+                If path ends with .npy, none of the arguments below apply.
+
+setup output:
+  covariance.covariance_matrix:
+    type: cosmopipe.lib.data.CovarianceMatrix
+    description: Covariance matrix
+  covariance.cov:
+    type: float_array
+    description: array view of the covariance matrix
+  covariance.invcov:
+    type: float_array
+    description: array view of the inverse covariance matrix
+  covariance.nobs:
+    type: int
+    default: None
+    description: number of observations (mocks) used to compute the covariance matrix (if from mocks)

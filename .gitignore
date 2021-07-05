@@ -17,6 +17,8 @@ doc/_build/
 **/*.so
 **/*.mod
 **/*.npz
+**/bak
+**/old
 
 # Unit test / coverage reports
 **/.coverage

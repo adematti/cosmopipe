@@ -1,4 +1,5 @@
+from .base import ProjectionBase, ProjectionBaseCollection, ModelCollection
 from .linear import LinearModel
-from .projection import DataVectorProjection
-from .effect_ap import EffectAP, IsotropicScaling
-from .gaussian_covariance import GaussianPkCovarianceMatrix
+from .projection import ModelProjection, ModelCollectionProjection
+from .effect_ap import AnisotropicScaling, IsotropicScaling
+from .gaussian_covariance import GaussianCovarianceMatrix

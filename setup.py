@@ -6,5 +6,6 @@ setup(name='cosmopipe',
       maintainer='Arnaud de Mattia',
       url='http://github.com/adematti/cosmopipe',
       description='Cosmological library for pypescript',
+      pype_module_names='install_modules.txt',
       license='GPLv3',
       install_requires=['matplotlib','scipy','tabulate'])

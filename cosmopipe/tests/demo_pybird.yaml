@@ -26,24 +26,23 @@ params:
         fixed: True
 
 primordial:
-  $module_name: cosmopipe.theory.primordial
+  $module_name: cosmopipe.theory.primordial.primordial
   engine: eisenstein_hu
   compute: pk_m
 
 mockcov:
-  $module_name: cosmopipe.theory.gaussian_covariance
-  $module_class: GaussianPkCovariance
+  $module_name: cosmopipe.theory.galaxy_clustering.gaussian_covariance
+  $module_class: GaussianCovariance
   edges:
     min: 0.02
     max: 0.3
     step: 0.01
-  shotnoise: 1e3
   volume: 1e10
-  projs: [ell_0, ell_2, ell_4]
+  projs: e'[{'space':'power','mode':'multipole','proj':ell} for ell in [0,2,4]]'
   xlim: $&{mockdata.xlim}
 
 mockdata:
-  $module_name: cosmopipe.data.mock_data_vector
+  $module_name: cosmopipe.data_vector.mock_data_vector
   mean: True
   seed: 42
   xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
@@ -64,8 +63,9 @@ like:
   $modules: [model, projection]
 
 model:
-  $module_name: cosmopipe.theory.pybird
+  $module_name: cosmopipe.theory.galaxy_clustering.pybird
+  data_shotnoise: 1e3
 
 projection:
-  $module_name: cosmopipe.theory.projection
-  $module_class: DataVectorProjection
+  $module_name: cosmopipe.theory.projections.projection
+  $module_class: ModelProjection

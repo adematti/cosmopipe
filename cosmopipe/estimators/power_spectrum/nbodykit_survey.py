@@ -7,7 +7,7 @@ from nbodykit.lab import FKPCatalog, ConvolvedFFTPower
 from cosmopipe import section_names
 from cosmopipe.lib import syntax
 from cosmopipe.lib.catalog import Catalog
-from cosmopipe.lib.data import DataVector
+from cosmopipe.lib.data_vector import DataVector, ProjectionName, BinnedProjection
 from cosmopipe.estimators import utils
 
 
@@ -38,6 +38,9 @@ class SurveyPowerSpectrum(BaseModule):
             self.catalog_options[name] = self.options.get(name,value)
         self.data_load = self.options.get('data_load','data')
         self.randoms_load = self.options.get('randoms_load','randoms')
+        self.projattrs = self.options.get('projattrs',{})
+        if isinstance(self.projattrs,str):
+            self.projattrs = {'name':self.projattrs}
         self.save = self.options.get('save',None)
 
     def execute(self):
@@ -54,23 +57,28 @@ class SurveyPowerSpectrum(BaseModule):
 
         result = ConvolvedFFTPower(list_mesh[0],poles=self.ells,second=list_mesh[1] if len(list_mesh) > 1 else None,**self.power_options)
         attrs = result.attrs.copy()
-        attrs['edges'] = result.edges.tolist()
         poles = result.poles
-        y,mapping_proj = [],[]
-        for ell in self.ells:
+        ells = attrs['poles']
+        data_vector = DataVector()
+        for ell in ells:
+            x = poles['k']
             if ell == 0:
-                y.append(poles['power_{:d}'.format(ell)].real - attrs['shotnoise'])
+                y = poles['power_{:d}'.format(ell)].real - attrs['shotnoise']
             else:
-                y.append(poles['power_{:d}'.format(ell)].real)
-            mapping_proj.append('ell_{:d}'.format(ell))
+                y = poles['power_{:d}'.format(ell)].real
+            proj = ProjectionName(space=ProjectionName.POWER,mode=ProjectionName.MULTIPOLE,proj=ell,**self.projattrs)
+            dataproj = BinnedProjection(data={'k':x,'power':y,'nmodes':poles['modes']},x='k',y='power',weights='nmodes',edges={'k':result.poles.edges['k']},proj=proj,attrs=attrs)
+            data_vector.set(dataproj)
         if self.muwedges is not None:
             pkmu = result.to_pkmu(self.muwedges,self.ells[-1])
             for imu,(low,up) in enumerate(zip(self.muwedges[:-1],self.muwedges[1:])):
-                y.append(pkmu['power'].real[:,imu] - attrs['shotnoise'])
-                mapping_proj.append(('muwedge',(low,up)))
-        data_vector = DataVector(x=poles['k'],y=y,mapping_proj=mapping_proj,**attrs)
+                x = pkmu['k'][:,imu]
+                y = pkmu['power'].real[:,imu] - attrs['shotnoise']
+                proj = ProjectionName(space=ProjectionName.POWER,mode=ProjectionName.MUWEDGE,proj=(low,up),**self.projattrs)
+                dataproj = BinnedProjection(data={'k':x,'power':y,'nmodes':poles['modes']},x='k',y='power',weights='nmodes',edges={'k':result.poles.edges['k']},proj=proj,attrs=attrs)
+                data_vector.set(dataproj)
         if self.save: data_vector.save_auto(self.save)
-        self.data_block[section_names.data,'data_vector'] = data_vector
+        self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + data_vector
 
     def cleanup(self):
         pass

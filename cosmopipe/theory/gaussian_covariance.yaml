@@ -1,9 +1,0 @@
-name: GaussianPkCovariance
-version: 0.0.1
-date: 01/06/2021
-author: Arnaud de Mattia
-maintainer: Arnaud de Mattia
-description: Compute a Gaussian covariance matrix for the power spectrum.
-
-long description: >
-                  This module computes a Gaussian covariance matrix.

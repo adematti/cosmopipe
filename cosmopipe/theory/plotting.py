@@ -2,7 +2,7 @@ import numpy as np
 from pypescript import syntax
 
 from cosmopipe import section_names
-from cosmopipe.lib.data import DataVector, DataPlotStyle
+from cosmopipe.lib.data_vector import DataVector, DataPlotStyle
 from cosmopipe.lib.theory import projection
 from cosmopipe.lib import syntax, utils
 
@@ -45,9 +45,10 @@ class ModelPlotting(object):
                     x.append(utils.customspace(**kwargs))
                 else:
                     x.append(xmodel)
-            self.projection = projection.DataVectorProjection(x=x,projs=projs,
-                            model_base=self.projection.model_base,integration=self.projection.integration_options)
-        data_vectors = [self.projection.to_data_vector(self.data_block[section_names.model,'y_callable'])]
+            data = DataVector(x=x,proj=projs)
+            self.projection = projection.ModelCollectionProjection(data,
+                            model_bases=self.projection.model_bases,integration=self.projection.integration_options)
+        data_vectors = [self.projection.to_data_vector(self.data_block[section_names.model,'collection'])]
         if data_vector is not None:
             data_vectors.append(data_vector)
         if self.covariance_load:

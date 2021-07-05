@@ -3,74 +3,87 @@ import re
 import numpy as np
 
 from cosmopipe.lib.utils import BaseClass
+from cosmopipe.lib.data_vector import DataVector, ProjectionName
+
+from .base import ProjectionBase, ProjectionBaseCollection
 from .integration import MultipoleIntegration, MuWedgeIntegration, MultipoleToMultipole, MultipoleToMuWedge
 from . import utils
 
-from cosmopipe.lib.data import DataVector, ProjectionName
+
+class ModelCollectionProjection(BaseClass):
+
+    def __init__(self, data, projs=None, model_bases=None, integration=None):
+
+        self.model_bases = ProjectionBaseCollection(model_bases)
+        self.data = data
+        self.projs = [ProjectionName(proj) for proj in projs] if projs is not None else data.get_projs()
+
+        if integration is None:
+            integration = {projname:None for projname in self.projs}
+        self.integration_options = integration
+
+        model_bases = {}
+        for iproj,proj in enumerate(self.projs):
+            base = self.model_bases.get_by_proj(proj)
+            if base not in model_bases:
+                model_bases[base] = []
+            model_bases[base].append(iproj)
+
+        self.model_projections = []
+        self.projection_mapping = [None]*len(self.projs)
+        nprojs = 0
+        for model_base,projection_indices in model_bases.items():
+            projs = [self.projs[ii] for ii in projection_indices]
+            #data = self.data.copy().view(new=False,proj=projs)
+            #print(self.data.get_projs(),data.get_projs(),projs)
+            model_projection = ModelProjection(self.data,projs=projs,model_base=model_base,integration={proj:self.integration_options[proj] for proj in projs})
+            self.model_projections.append(model_projection)
+            for ii,jj in enumerate(projection_indices): self.projection_mapping[jj] = nprojs + ii
+            nprojs += len(projs)
+
+    def __call__(self, models, concatenate=True):
+        tmp = []
+        for model_projection in self.model_projections:
+            tmp += model_projection(models.get(model_projection.model_base),concatenate=False)
+        toret = [tmp[ii] for ii in self.projection_mapping]
+        if concatenate:
+            return np.concatenate(toret)
+        return toret
+
+    def to_data_vector(self, fun, **kwargs):
+        from cosmopipe.lib.data_vector import DataVector
+        y = self(fun,concatenate=True,**kwargs)
+        data = self.data.deepcopy()
+        data.set_y(y)
+        return data
 
 
-class ProjectionBase(BaseClass):
+class ModelProjection(BaseClass):
 
-    MULTIPOLE = 'multipole'
-    MUWEDGE = 'muwedge'
-
-    def __init__(self, *args):
-        if isinstance(args[0],self.__class__):
-            self.__dict__.update(args[0].__dict__)
-            return
-        if len(args) == 1:
-            if np.isscalar(args[0]):
-                self.mode,self.projs = args[0],None
-            else:
-                self.mode,self.projs = args[0]
-        else:
-            self.mode,self.projs = args
-
-    def __repr__(self):
-        return '{}({},{})'.format(self.__class__.__name__,self.mode,self.projs)
-
-    def __getstate__(self):
-        return {'mode':self.mode,'projs':self.projs}
-
-    def __setstate__(self, state):
-        self.mode = state['mode']
-        self.projs = state['projs']
-
-
-class DataVectorProjection(BaseClass):
-
-    def __init__(self, x, projs=None, model_base='muwedge', integration=None):
-        self.model_base = ProjectionBase(model_base)
-        if projs is None:
-            projs = x.get_projs()
-        self.projs = [ProjectionName(projname) for projname in projs]
-        if isinstance(x,DataVector):
-            self.x = [x.get_x(proj=proj) for proj in projs]
-        else:
-            self.x = x
-            if np.ndim(self.x[0]) == 0:
-                self.x = [self.x]*len(self.projs)
-            elif len(self.x) != len(self.projs):
-                raise ValueError('x and proj shapes cannot be matched.')
+    def __init__(self, data, projs=None, model_base=None, integration=None):
+        self.model_base = ProjectionBase(model_base or {})
+        self.data = data
+        self.projs = [ProjectionName(proj) for proj in projs] if projs is not None else data.get_projs()
 
         if integration is None:
             integration = {projname:None for projname in self.projs}
         self.integration_options = integration
 
         self.integration_engines = {}
-        for x,projname in zip(self.x,self.projs):
-            self.set_data_projection(x,projname,integration=self.integration_options[projname])
+        self.shotnoise = {}
+        for projname in self.projs:
+            self.set_model_projection(data,projname,integration=self.integration_options[projname])
 
         self.evalmesh = [[mesh.copy() for mesh in self.integration_engines[self.projs[0]].evalmesh]]
-        for projname,proj in self.integration_engines.items():
-            proj.indexmesh = None
+        for projname,integ in self.integration_engines.items():
+            integ.indexmesh = None
             for imesh,mesh in enumerate(self.evalmesh):
-                if all(np.all(m1 == m2) for m1,m2 in zip(mesh[1:],proj.evalmesh[1:])):
-                    mesh[0] = np.concatenate([mesh[0],proj.evalmesh[0]])
-                    proj.indexmesh = imesh
-            if proj.indexmesh is None:
-                proj.indexmesh = len(self.evalmesh)
-                self.evalmesh.append(proj.evalmesh)
+                if all(np.all(m1 == m2) for m1,m2 in zip(mesh[1:],integ.evalmesh[1:])):
+                    mesh[0] = np.concatenate([mesh[0],integ.evalmesh[0]])
+                    integ.indexmesh = imesh
+            if integ.indexmesh is None:
+                integ.indexmesh = len(self.evalmesh)
+                self.evalmesh.append(integ.evalmesh)
 
         for mesh in self.evalmesh:
             uniques,indices = np.unique(mesh[0],return_index=True)
@@ -80,17 +93,22 @@ class DataVectorProjection(BaseClass):
                 mask[indices] = True
                 mesh[0] = mesh[0][mask]
 
-        for projname,proj in self.integration_engines.items():
-            cmesh = self.evalmesh[proj.indexmesh][0]
-            proj.maskmesh = None
-            if not np.all(cmesh == proj.evalmesh[0]):
-                proj.maskmesh = utils.match1d(proj.evalmesh[0],cmesh)[0]
-                assert len(proj.maskmesh) == len(proj.evalmesh[0])
+        for projname,integ in self.integration_engines.items():
+            cmesh = self.evalmesh[integ.indexmesh][0]
+            integ.maskmesh = None
+            if not np.all(cmesh == integ.evalmesh[0]):
+                integ.maskmesh = utils.match1d(integ.evalmesh[0],cmesh)[0]
+                assert len(integ.maskmesh) == len(integ.evalmesh[0])
 
-    def set_data_projection(self, x, projname, integration=None):
+    def set_model_projection(self, data, projname, integration=None):
         integration = integration or {}
         #proj = ProjectionName(projname)
+        x = data.get_x(proj=projname)
         error = ValueError('Unknown projection {} -> {}'.format(self.model_base.mode,projname.mode))
+        self.shotnoise[projname] = 0.
+        if self.model_base.space == ProjectionBase.POWER:
+            if projname.mode == ProjectionName.MUWEDGE or (projname.mode == ProjectionName.MULTIPOLE and projname.proj == 0):
+                self.shotnoise[projname] = self.model_base.get('shotnoise',0.)
         if projname.mode == ProjectionName.MULTIPOLE:
             if self.model_base.mode == ProjectionBase.MUWEDGE:
                 self.integration_engines[projname] = MultipoleIntegration({**integration,'ells':(projname.proj,)})
@@ -112,19 +130,21 @@ class DataVectorProjection(BaseClass):
         else:
             raise error
 
-    def __call__(self, fun, concatenate=True, **kwargs):
+    def __call__(self, fun, concatenate=True, remove_shotnoise=True, **kwargs):
         evals = [fun(*mesh,**kwargs) for mesh in self.evalmesh]
         toret = []
         for projname in self.projs:
-            proj = self.integration_engines[projname]
-            mesh = evals[proj.indexmesh]
-            projected = proj(mesh[proj.maskmesh,...] if proj.maskmesh is not None else mesh)
+            integ = self.integration_engines[projname]
+            mesh = evals[integ.indexmesh]
+            projected = integ(mesh[integ.maskmesh,...] if integ.maskmesh is not None else mesh) - self.shotnoise[projname] * remove_shotnoise
             toret.append(projected.flatten())
         if concatenate:
             return np.concatenate(toret)
         return toret
 
     def to_data_vector(self, fun, **kwargs):
-        from cosmopipe.lib.data import DataVector
-        y = self(fun,concatenate=False,**kwargs)
-        return DataVector(x=self.x,y=y,mapping_proj=self.projs)
+        from cosmopipe.lib.data_vector import DataVector
+        y = self(fun,concatenate=True,**kwargs)
+        data = self.data.copy(copy_proj=True)
+        data.set_y(y)
+        return data

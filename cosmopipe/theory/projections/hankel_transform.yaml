@@ -1,0 +1,27 @@
+name: HankelTransform
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Hankel transform theory model
+
+long description: >
+                  Turn power spectra into correlation functions and vice-versa
+
+options:
+  integration:
+    type: [list, dict]
+    default: None
+    description: if input model in :math:`(x,\mu)` space, options to go to multipoles
+  ells:
+    type: list
+    default: [0,2,4]
+    description: if input model in :math:`(x,\mu)` space, poles to project on
+  nx:
+    type: int
+    default: 1024
+    description: number of log-spaced points
+  q:
+    type: float
+    default: 1.5
+    description: power-law tilt(s) to regularise integration

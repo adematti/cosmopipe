@@ -82,6 +82,8 @@ class ParamBlock(BaseClass):
             del self[self._index_name(name)]
 
     def set(self, param):
+        if not isinstance(param,Parameter):
+            raise TypeError('{} is not a Parameter instance.'.format(param))
         if param in self:
             self[param.name] = param
         else:

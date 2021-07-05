@@ -39,7 +39,7 @@ class BaseMuWedgeIntegration(BaseClass):
         self.mu = mu
         if np.ndim(self.mu) == 0:
             if np.ndim(muwedges) == 0:
-                muwedges = [(imu*1./muedges,(imu+1)*1./muwedges) for imu in range(muwedges)]
+                muwedges = [(imu*1./muwedges,(imu+1)*1./muwedges) for imu in range(muwedges)]
             self.mu = [np.linspace(*muwedge,mu//len(muwedges)) for muwedge in muwedges]
         self.set_mu_weights()
 
@@ -56,12 +56,12 @@ class TrapzMuWedgeIntegration(BaseMuWedgeIntegration):
 
 class MultipoleExpansion(BaseClass):
 
-    def __init__(self, input_fun=None, ells=(0,2,4)):
+    def __init__(self, input_model=None, ells=(0,2,4)):
         self.legendre = [special.legendre(ell) for ell in ells]
-        self.input_fun = input_fun
+        self.input_model = input_model
 
     def __call__(self, x, mu, grid=True, **kwargs):
-        y = self.input_fun(x)
+        y = self.input_model(x)
         x,mu = utils.enforce_shape(x,mu,grid=grid)
         toret = 0
         for y_,leg in zip(y,self.legendre): toret += y_*leg(mu)

@@ -1,0 +1,31 @@
+name: AnisotropicScaling
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Rescale power spectrum
+
+long description: >
+                  Rescale power spectrum by the ratio between
+                  the current cosmology and a fiducial one.
+
+setup input:
+  model.collection:
+    type: ModelCollection
+    description: Collection of theory models
+
+execute input:
+  effect_ap.qpar:
+    type: float
+    description: Scaling parallel to the line-of-sight
+  effect_ap.qper:
+    type: float
+    description: Scaling perpendicular to the line-of-sight
+  model.collection:
+    type: ModelCollection
+    description: Collection of theory models
+
+execute output:
+  model.collection:
+    type: ModelCollection
+    description: Collection of theory models

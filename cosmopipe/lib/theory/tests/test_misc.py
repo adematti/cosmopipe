@@ -11,11 +11,11 @@ def test_interp():
     kint = k[:-1]+0.0042
 
     num = int(1e5)
-    with MemoryMonitor(other='numpy_interp') as mem:
+    with MemoryMonitor(msg='numpy_interp') as mem:
         for i in range(num):
             np.interp(kint,k,pk)
 
-    with MemoryMonitor(other='scipy_interp') as mem: # 20x slower
+    with MemoryMonitor(msg='scipy_interp') as mem: # 20x slower
         for i in range(num):
             interpolate.interp1d(k,pk,kind='linear',axis=-1,copy=False,bounds_error=True,assume_sorted=True)(kint)
 
@@ -23,11 +23,11 @@ def test_interp():
 def test_legendre():
     mu = np.linspace(0,1,100)
     num = int(1e5)
-    with MemoryMonitor(other='full') as mem:
+    with MemoryMonitor(msg='full') as mem:
         for i in range(num):
             special.legendre(2)(mu)
     leg = special.legendre(2)
-    with MemoryMonitor(other='init') as mem:
+    with MemoryMonitor(msg='init') as mem:
         for i in range(num):
             leg(mu)
 

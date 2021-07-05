@@ -7,7 +7,7 @@ from nbodykit.lab import SurveyData2PCF
 from cosmopipe import section_names
 from cosmopipe.lib import syntax
 from cosmopipe.lib.catalog import Catalog
-from cosmopipe.lib.data import DataVector
+from cosmopipe.lib.data_vector import DataVector, ProjectionName
 from cosmopipe.estimators import utils
 from cosmopipe.lib.estimators.correlation_function import PairCount, LandySzalayEstimator
 
@@ -29,7 +29,6 @@ class SurveyCorrelationFunction(BoxCorrelationFunction):
         if isinstance(self.R1R2_load,bool) and self.R1R2_load:
             self.R1R2_load = 'correlation_estimator'
         self.save = self.options.get('save',None)
-        self.save_estimator = self.options.get('save_estimator',None)
 
     def get_R1R2(self):
         R1R2 = None
@@ -66,21 +65,19 @@ class SurveyCorrelationFunction(BoxCorrelationFunction):
         for name in ['D1D2','R1R2','D1R2','D2R1']:
             pc = getattr(result,name)
             args.append(PairCount(wnpairs=pc['wnpairs'],total_wnpairs=pc.attrs['total_wnpairs']))
-        edges = [result.corr.edges[dim] for dim in result.corr.dims]
-        default_sep = np.meshgrid(*[(e[1:] + e[:-1])/2. for e in edges],indexing='ij')
-        sep = []
+        edges = {dim:result.corr.edges[dim] for dim in result.corr.dims}
+        default_sep = np.meshgrid(*[(edges[dim][1:] + edges[dim][:-1])/2. for dim in result.corr.dims],indexing='ij')
+        sep = {}
         for idim,dim in enumerate(result.corr.dims):
             if '{}avg'.format(dim) in result.R1R2 and not np.isnan(result.R1R2['{}avg'.format(dim)]).all():
                 s = result.R1R2['{}avg'.format(dim)]
             else: s = default_sep[idim]
-            sep.append(s)
+            sep[dim] = s
         result.attrs.pop('edges')
-        estimator = LandySzalayEstimator(*args,edges=edges,sep=sep,**result.attrs)
-        if self.save_estimator: estimator.save(self.save_estimator)
+        estimator = LandySzalayEstimator(*args,data=sep,x=tuple(result.corr.dims),edges=edges,attrs=result.attrs)
         data_vector = self.build_data_vector(estimator)
         if self.save: data_vector.save_auto(self.save)
-        self.data_block[section_names.data,'data_vector'] = data_vector
-        self.data_block[section_names.data,'correlation_estimator'] = estimator
+        self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + data_vector
 
     def cleanup(self):
         pass

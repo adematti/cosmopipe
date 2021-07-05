@@ -5,115 +5,138 @@ from scipy import special
 import Corrfunc
 
 from cosmopipe.lib import utils
-from cosmopipe.lib.utils import BaseClass
+from cosmopipe.lib.data_vector import BinnedStatistic, BinnedProjection, ProjectionName
 
 
-class PairCount(BaseClass):
+class PairCount(BinnedStatistic):
 
     def __init__(self, wnpairs, total_wnpairs=1.):
-        self.wnpairs = wnpairs
-        self.total_wnpairs = total_wnpairs
+        super(PairCount,self).__init__({'wnpairs':wnpairs},attrs={'total_wnpairs':total_wnpairs})
 
     def set_total_wnpairs(self, w1, w2=None):
         if w2 is not None:
-            self.total_wnpairs = np.sum(w1)*np.sum(w2)
+            self.attrs['total_wnpairs'] = np.sum(w1)*np.sum(w2)
         else:
-            self.total_wnpairs = np.sum(w1)**2 - np.sum(w1**2)
-
-    def __getstate__(self):
-        state = {'wnpairs':self.wnpairs,'total_wnpairs':self.total_wnpairs}
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
+            self.attrs['total_wnpairs'] = np.sum(w1)**2 - np.sum(w1**2)
 
     def normalized(self):
-        return self.wnpairs/self.total_wnpairs
-
-    @property
-    def shape(self):
-        return self.wnpairs.shape
+        return self.data['wnpairs']/self.attrs['total_wnpairs']
 
 
-class BaseEstimator(BaseClass):
+class CorrelationFunctionEstimator(BinnedProjection):
 
-    def __init__(self, D1D2, R1R2, D1R2=None, D2R1=None, edges=None, sep=None, **attrs):
-        self.D1D2 = D1D2
-        self.R1R2 = R1R2
-        self.D1R2 = D1R2
-        self.D2R1 = D2R1
+    def __init__(self, D1D2, R1R2, D1R2=None, D2R1=None, data=None, edges=None, attrs=None, **kwargs):
+        data = (data or {}).copy()
+        attrs = attrs or {}
         if D2R1 is None:
-            self.D2R1 = self.D1R2
-        if not isinstance(edges,(tuple,list)):
-            self.edges = (edges,)
-        else:
-            self.edges = tuple(edges)
-        if not isinstance(sep,(tuple,list)):
-            self.sep = (sep,)
-        else:
-            self.sep = tuple(sep)
-        self.attrs = attrs
+            D2R1 = D1R2
+        for key,value in zip(['D1D2','R1R2','D1R2','D2R1'],[D1D2,R1R2,D1R2,D2R1]):
+            if isinstance(value,np.ndarray):
+                data[key] = value
+                attrs.setdefault('{}_total_wnpairs'.format(key),1.)
+            elif value is not None:
+                data[key] = value['wnpairs']
+                attrs['{}_total_wnpairs'.format(key)] = value.attrs['total_wnpairs']
+        data.setdefault('D2R1',data.get('D1R2',None))
+        data = {name:value for name,value in data.items() if value is not None}
+        attrs['columns_to_sum'] = [name for name in ['D1D2','R1R2','D1R2','D2R1'] if data.get(name,None) is not None]
+        attrs['weights'] = 'R1R2'
+        attrs['x'] = list(edges.keys())
+        attrs['y'] = 'corr'
+        super(CorrelationFunctionEstimator,self).__init__(data,attrs=attrs,edges=edges,**kwargs)
         self.set_corr()
 
-    def __getstate__(self):
-        state = {}
-        for key in ['D1D2','D1R2','D2R1','R1R2']:
-            if hasattr(self,key): state[key] = getattr(self,key).__getstate__()
-        for key in ['edges','sep','corr','attrs']:
-            if hasattr(self,key): state[key] = getattr(self,key)
-        return state
+    def total_wnpairs(self, key):
+        return self.attrs['{}_total_wnpairs'.format(key)]
 
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        for key in ['D1D2','D1R2','D2R1','R1R2']:
-            if hasattr(self,key): state[key] = PairCount.from_state(getattr(self,key))
+    def normalized(self, key):
+        return self[key]/self.attrs['{}_total_wnpairs'.format(key)]
 
-    def rebin(self, new_edges):
-        self.edges = new_edges
-        new_edges = tuple(np.interp(ne,e,np.arange(len(e))) for e,ne in zip(self.edges,new_edges)) # fraction of index numbers
-        weights = utils.rebin_ndarray(self.R1R2.wnpairs,new_edges,interpolation='linear')
-        self.sep = tuple(utils.rebin_ndarray(sep*self.R1R2.wnpairs,new_edges,interpolation='linear')/weights for sep in self.sep)
-        self.corr = utils.rebin_ndarray(self.corr*self.R1R2.wnpairs,new_edges,interpolation='linear')/weights
+    def project_to_wp(self):
+        new = self.copy()
+        dpi = np.diff(self.edges['pi'])
+        new.data = {}
+        x = new.attrs['x'] = self.attrs['x'][0]
+        new.edges = {x:self.edges[x]}
+        new.set_x(self[x].mean(axis=-1))
+        new.set_y(2*(self['corr']*dpi).sum(axis=-1))
+        return new
+
+    def project_to_muwedges(self, muwedges):
+        toret = []
+        if np.ndim(muwedges) == 0:
+            muwedges = [(imu*1./muwedges,(imu+1)*1./muwedges) for imu in range(muwedges)]
+        isscalar = np.ndim(muwedges[0]) == 0
+        if isscalar: muwedges = [muwedges]
+        for muwedge in muwedges:
+            new = self.copy()
+            new.proj = self.proj.copy()
+            new.proj.mode = ProjectionName.MUWEDGE
+            new.proj.proj = tuple(muwedge)
+            new.set_new_edges(muwedge,dims='mu')
+            new.squeeze(dims='mu')
+            toret.append(new)
+        if isscalar:
+            toret = toret[0]
+        return toret
+
+    def project_to_multipoles(self, ells=(0,2,4)):
+        from scipy import special
+        toret = []
+        isscalar = np.ndim(ells) == 0
+        if isscalar: ells = [ells]
+        for ell in ells:
+            new = self.copy()
+            new.data = {}
+            x = self.attrs['x'][0]
+            new.attrs['x'] = (x,)
+            new.edges = {x:self.edges[x]}
+            new.proj = self.proj.copy()
+            new.proj.mode = ProjectionName.MULTIPOLE
+            new.proj.proj = ell
+            edges = self.edges['mu']
+            dmu = np.diff(edges,axis=-1)
+            poly = special.legendre(ell)(edges)
+            legendre = (2*ell + 1) * (poly[1:] + poly[:-1])/2. * dmu
+            new.set_x(np.mean(self[x],axis=-1))
+            new.set_y(np.sum(self['corr']*legendre,axis=-1)/np.sum(dmu))
+            toret.append(new)
+        if isscalar:
+            toret = toret[0]
+        return toret
 
 
-class NaturalEstimator(BaseEstimator):
+class NaturalEstimator(CorrelationFunctionEstimator):
 
     def set_corr(self):
-        nonzero = self.R1R2.wnpairs > 0
+        nonzero = self['R1R2'] != 0
         # init
-        self.corr = np.empty(self.D1D2.shape)
-        self.corr[...] = np.nan
+        corr = np.empty(self.shape)
+        corr[...] = np.nan
 
         # the Landy - Szalay estimator
         # (DD - DR - RD + RR) / RR
-        DD = self.D1D2.normalized()[nonzero]
-        RR = self.R1R2.normalized()[nonzero]
-        corr = DD/RR - 1
-        self.corr[nonzero] = corr[:]
+        DD = self.normalized('D1D2')[nonzero]
+        RR = self.normalized('R1R2')[nonzero]
+        tmp = DD/RR - 1
+        corr[nonzero] = tmp[:]
+        self['corr'] = corr
 
 
-class LandySzalayEstimator(BaseEstimator):
+class LandySzalayEstimator(CorrelationFunctionEstimator):
 
     def set_corr(self):
-        nonzero = self.R1R2.wnpairs > 0
+        nonzero = self['R1R2'] != 0
         # init
-        self.corr = np.empty(self.D1D2.shape)
-        self.corr[...] = np.nan
+        corr = np.empty(self.shape)
+        corr[...] = np.nan
 
         # the Landy - Szalay estimator
         # (DD - DR - RD + RR) / RR
-        DD = self.D1D2.normalized()[nonzero]
-        DR = self.D1R2.normalized()[nonzero]
-        RD = self.D2R1.normalized()[nonzero]
-        RR = self.R1R2.normalized()[nonzero]
-        corr = (DD - DR - RD)/RR + 1
-        self.corr[nonzero] = corr[:]
-
-
-def project_to_multipoles(estimator, ells=(0,2,4)):
-    from scipy import special
-    toret = []
-    dmu = np.diff(estimator.edges[1],axis=-1)
-    for ell in ells:
-        legendre = (2*ell + 1) * special.legendre(ell)(estimator.sep[1])
-        toret.append(np.sum(estimator.corr*legendre*dmu,axis=-1)/np.sum(dmu))
-    return np.mean(estimator.sep[0],axis=-1), np.array(toret).T
+        DD = self.normalized('D1D2')[nonzero]
+        DR = self.normalized('D1R2')[nonzero]
+        RD = self.normalized('D2R1')[nonzero]
+        RR = self.normalized('R1R2')[nonzero]
+        tmp = (DD - DR - RD)/RR + 1
+        corr[nonzero] = tmp[:]
+        self['corr'] = corr

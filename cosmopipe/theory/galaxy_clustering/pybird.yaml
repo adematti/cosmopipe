@@ -1,0 +1,112 @@
+name: PyBird
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: 'PyBird: Python code for Biased tracers in redshift space'
+url: https://github.com/pierrexyz/pybird/tree/dev/pybird_dev
+licence: MIT
+bibtex: [arXiv:2003.07956]
+requirements: ['pybird @ git+https://github.com/adematti/pybird.git@dev']
+
+long_description: >
+                  PyBird is designed for evaluating the multipoles of the power spectrum of biased tracers in redshift space.
+                  The main technology used by the code is the FFTLog, used to evaluate the one-loop power spectrum and the IR resummation,
+                  see Sec. 4.1 in arXiv:2003.07956 for details.
+
+options:
+  output:
+    type: list
+    default: [power]
+    description: Compute power spectrum ([power]), correlation function ([correlation]), or both ([power,correlation])
+  data_shotnoise:
+    type: [float, string, dict]
+    default: None
+    description: the data shotnoise, or a projection specifier of the data_vector where to find a 'shotnoise' argument
+  model_attrs:
+    type: dict
+    default: {}
+    description: additional model attributes, e.g. name (string)
+  kmax:
+    type: float
+    default: 0.25
+    description: Maximum wavenumber in [h/Mpc] for power spectrum evaluation
+  km:
+    type: float
+    default: 1.0
+    description: Inverse galaxy spatial extension scale in [h/Mpc]
+  with_resum:
+    type: string
+    default: opti
+    description: 'opti: Resumming only with the BAO peak. True: Resummation on the full correlation function. False: no resummation'
+  with_stoch:
+    type: bool
+    default: False
+    description: With stochastic terms
+  with_nnlo_higher_derivative:
+    type: bool
+    default: False
+    description: With next-to-next-to-leading estimate :math:`k^{2} P_{1-\mathrm{loop}}(k)`
+  with_nnlo_higher_derivative:
+    type: bool
+    default: False
+    description: With next-to-next-to-leading estimate :math:`k^{2} P_{1-\mathrm{loop}}(k)`
+  with_nnlo_counterterm:
+    type: bool
+    default: False
+    description: With next-to-next-to-leading counterterm :math:`k^{4} P_{11}(k)`
+
+setup input:
+  primordial_perturbations.pk_callable:
+    type: callable
+    description: Power spectrum
+  survey_geometry.zeff:
+    type: float
+    description: Effective redshift
+  primordial_cosmology.cosmo:
+    type: cosmoprimo.Cosmology
+    description: Current cosmology
+  data.shotnoise:
+    type: float
+    description: Data shot noise
+
+execute input:
+  galaxy_bias.b1:
+    type: float
+    description: Linear eulerian bias
+  galaxy_bias.b2:
+    type: float
+    description: Second order bias
+  galaxy_bias.b3:
+    type: float
+    description: Third order bias
+  galaxy_bias.b4:
+  galaxy_bias.cct:
+  galaxy_bias.cr1:
+  galaxy_bias.cr2:
+  galaxy_bias.ce0:
+  galaxy_bias.ce1:
+  galaxy_bias.ce2:
+  galaxy_bias.bnnlo0:
+  galaxy_bias.bnnlo2:
+  galaxy_bias.bnnlo4:
+  galaxy_bias.cnnlo0:
+  galaxy_bias.cnnlo2:
+  galaxy_bias.cnnlo4:
+  galaxy_bias.fsig:
+    type: float
+    description: Normalisation of velocity power spectrum
+  effect_ap.qpar:
+    type: float
+    description: Scaling parallel to the line-of-sight
+  effect_ap.qper:
+    type: float
+    description: Scaling perpendicular to the line-of-sight
+  primordial_perturbations.pk_callable:
+    type: callable
+    description: Power spectrum
+
+execute output:
+  galaxy_power.pk_mu_callable:
+    type: callable
+    description: Linear galaxy power spectrum

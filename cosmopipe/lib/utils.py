@@ -11,6 +11,8 @@ from numpy.linalg import LinAlgError
 
 from pypescript.utils import setup_logging, mkdir, savefile, snake_to_pascal_case, ScatteredBaseClass, TaskManager, MemoryMonitor
 from pypescript.utils import BaseClass as _BaseClass
+from pypescript.utils import ScatteredBaseClass as _ScatteredBaseClass
+from pypescript import mpi
 
 
 def dict_nonedefault(d1, **d2):
@@ -30,6 +32,31 @@ def customspace(min=0., max=1., step=None, nbins=None, scale='linear'):
 
 
 
+class ScatteredBaseClass(_ScatteredBaseClass):
+
+    @classmethod
+    @mpi.CurrentMPIComm.enable
+    def load(cls, filename, mpiroot=0, mpistate=mpi.CurrentMPIState.GATHERED, mpicomm=None):
+        """Load class from disk."""
+        cls.log_info('Loading {}.'.format(filename),rank=0)
+        new = cls.__new__(cls)
+        new.mpicomm = mpicomm
+        new.mpiroot = mpiroot
+        if new.is_mpi_root():
+            state = np.load(filename,allow_pickle=True)[()]
+            if '__class__' in state:
+                clsname = state['__class__']
+                if isinstance(clsname,str):
+                    if hasattr(cls,'_registry'):
+                        cls = cls._registry[clsname]
+                else:
+                    cls = clsname
+            new = cls.from_state(state,mpiroot=mpiroot,mpicomm=mpicomm)
+        new.mpistate = mpi.CurrentMPIState.GATHERED
+        new = new.mpi_to_state(mpistate)
+        return new
+
+
 class BaseClass(_BaseClass):
 
     def save_auto(self, *args, **kwargs):
@@ -37,6 +64,27 @@ class BaseClass(_BaseClass):
 
     def load_auto(self, *args, **kwargs):
         return self.load(*args,**kwargs)
+
+    @classmethod
+    @mpi.CurrentMPIComm.enable
+    def load(cls, filename, mpiroot=0, mpicomm=None):
+        """Load class from disk."""
+        cls.log_info('Loading {}.'.format(filename))
+        new = cls.__new__(cls)
+        new.mpicomm = mpicomm
+        new.mpiroot = mpiroot
+        if new.is_mpi_root():
+            state = np.load(filename,allow_pickle=True)[()]
+        state = new.mpicomm.bcast(state if new.is_mpi_root() else None,root=new.mpiroot)
+        if '__class__' in state:
+            clsname = state['__class__']
+            if isinstance(clsname,str):
+                if hasattr(cls,'_registry'):
+                    cls = cls._registry[clsname]
+            else:
+                cls = clsname
+        new = cls.from_state(state,mpiroot=mpiroot,mpicomm=mpicomm)
+        return new
 
 
 class MappingArray(BaseClass):
@@ -95,8 +143,24 @@ class MappingArray(BaseClass):
     def size(self):
         return self.array.size
 
-    def asarray(self):
+    def __array__(self):
         return np.array([self.keys[a] for a in self.array.flat]).reshape(self.shape)
+
+    asarray = __array__
+
+    @classmethod
+    def concatenate(cls, *arrays):
+        array = [arrays[0]]
+        keys = arrays[0].keys.copy()
+        for ma in arrays[1:]:
+            a = ma.array.copy()
+            for ikey,key in enumerate(ma.keys):
+                if key not in keys:
+                    keys.append(key)
+                    a[a==ikey] = len(keys)
+            array.append(a)
+        array = np.concatenate(a)
+        return cls(array,keys)
 
     def __getstate__(self):
         state = super(MappingArray,self).__getstate__()
