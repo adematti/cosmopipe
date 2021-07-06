@@ -5,8 +5,8 @@ catalog_dir: _catalog
 
 main:
   #$execute: [fiducial, power_box_estimator, correlation_survey_estimator, power_plotting, correlation_plotting]
-  $execute: [fiducial, power_box_estimator, correlation_survey_estimator, data, params, primordial, model, mockcov, minuit, plotting, postprocessing]
-  #$execute: [power, correlation, params, primordial, model, mockcov, compare]
+  $execute: [params, fiducial, power_box_estimator, correlation_survey_estimator, data, primordial, model, mockcov, minuit, plotting, postprocessing]
+  #$execute: [params, power, correlation, primordial, model, mockcov, minuit, plotting, postprocessing]
   #$execute: [fiducial, power_box_estimator, power_plotting]
   #$execute: [power_plotting, correlation_plotting]
 
@@ -148,7 +148,6 @@ data_power_plotting:
     nbins: 100
   style: power
   filename: f'${plots_dir}/e2e_power_spectrum_data_model.png'
-
 
 data_correlation_plotting:
   $module_name: cosmopipe.theory.plotting

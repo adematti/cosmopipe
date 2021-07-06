@@ -17,6 +17,7 @@ class DataVectorPlotting(object):
         self.style = DataPlotStyle(**syntax.remove_keywords(self.options))
 
     def execute(self):
+        self.style.mpicomm = self.mpicomm
         data = syntax.load_auto(self.data_load,data_block=self.data_block,default_section=section_names.data,loader=DataVector.load_auto)
         if self.covariance_load:
             self.style.plot(data,covariance=self.data_block[self.covariance_load])
@@ -35,6 +36,7 @@ class CovarianceMatrixPlotting(object):
         self.style = DataPlotStyle(self.style,**self.options)
 
     def execute(self):
+        self.style.mpicomm = self.mpicomm
         covariance = self.data_block[self.covariance_load]
         self.style.plot(covariance)
 

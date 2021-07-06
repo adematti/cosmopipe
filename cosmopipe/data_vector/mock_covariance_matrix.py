@@ -1,7 +1,7 @@
 import numpy as np
 
 from cosmopipe import section_names
-from cosmopipe.lib.data import MockCovarianceMatrix
+from cosmopipe.lib import data_vector
 
 from .data_vector import get_data_from_options, get_kwview
 
@@ -16,7 +16,10 @@ class MockCovarianceMatrix(object):
             list_data.append(data)
         proj,xlim = get_kwview(list_data[0],xlim=self.options.get('xlim',None))
 
-        cov = MockCovarianceMatrix.from_data(list_data)
+        cov = data_vector.MockCovarianceMatrix.from_data(list_data)
+        self.save = self.options.get('save',None)
+        if self.save: cov.save_auto(self.save)
+
         self.data_block[section_names.covariance,'covariance_matrix'] = cov
         self.data_block[section_names.covariance,'cov'] = cov.get_cov()
         self.data_block[section_names.covariance,'invcov'] = cov.get_invcov()

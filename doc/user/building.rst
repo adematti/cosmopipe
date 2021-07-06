@@ -89,7 +89,6 @@ which allows you to work as usual (type ``exit`` to exit).
 
 At NERSC
 ^^^^^^^^
-
 First pull::
 
   shifterimg -v pull {dockerimage}

@@ -1,13 +1,14 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 SHELL ["/bin/bash", "-c"]
 
-RUN \
+RUN DEBIAN_FRONTEND=noninteractive \
     apt-get update && \
-    apt-get install --yes \
+    apt-get install --yes --no-install-recommends \
         build-essential \
         gfortran \
         python3-dev \
+        python3-pip \
         wget \
         vim \
         git \
@@ -46,33 +47,28 @@ RUN \
     cd ..                                                                    && \
     rm -rf $mpi4py_prefix
 
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
-RUN wget -nv https://repo.continuum.io/miniconda/Miniconda3-4.5.1-Linux-x86_64.sh -O miniconda.sh && \
-    bash miniconda.sh -b -p /opt/conda
-
-RUN ln -s /opt/conda/bin/conda /bin/conda && \
-    conda config --add channels intel && \
-    conda config --set always_yes yes && \
-    conda update conda && \
-    conda init bash
-
-RUN chmod 777 /opt/conda /root
-
-RUN conda install pip numpy pyyaml cython sphinx_rtd_theme
-
-RUN conda install -c bccp nbodykit
-
-RUN ln -s /opt/conda/bin/pip /bin/pip
+RUN pip install numpy pyyaml cython sphinx_rtd_theme
 
 ARG COSMOPIPE_VER=unknown
 
 RUN for x in \
   git+https://github.com/adematti/pypescript \
-  git+https://github.com/adematti/cosmopipe \
   ; do pip install $x; done \
   && rm -Rf /root/.cache/pip
 
 WORKDIR /src/
+
+#ENV COSMOSIS_SRC_DIR=
+
+ENV MPLBACKEND Agg
+
+COPY . /src/cosmopipe
+RUN cd cosmopipe && \
+    python -m pip install .
+
+# ENV PYTHONPATH /src/cosmopipe:${PYTHONPATH}
 
 RUN git clone http://bitbucket.org/joezuntz/cosmosis \
   && cd cosmosis \
@@ -82,14 +78,6 @@ RUN git clone http://bitbucket.org/joezuntz/cosmosis \
 #RUN cd cosmosis \
 #  && source config/setup-cosmosis \
 #  && make
-
-#ENV COSMOSIS_SRC_DIR=
-
-ENV MPLBACKEND Agg
-
-# COPY . /src/cosmopipe
-
-# ENV PYTHONPATH /src/cosmopipe:${PYTHONPATH}
 
 WORKDIR /homedir/
 

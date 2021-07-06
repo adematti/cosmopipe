@@ -1,0 +1,35 @@
+name: SamplesPostprocessing
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Run postprocessing on likelihood samples
+long description: Set parameters at the mean of the samples, then run modules as a pipeline.
+                  Useful e.g. to plot fitted model v.s. data.
+
+options:
+  burnin:
+    type: [int, float]
+    default: None
+    description: if int, number of steps to remove; if float < 1, fraction of chain to remove
+  samples_load:
+    type: section
+    default: None
+    description: (section, name) in data_block where to find the samples (defaults to standard location) or, if containing / (or \), a path to samples on disk
+
+---
+
+name: ProfilesPostprocessing
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Run postprocessing on likelihood profiles
+long description: Set parameters at the best fit of the likelihood profiles, then run modules as a pipeline.
+                  Useful e.g. to plot fitted model v.s. data.
+
+options:
+  profiles_load:
+    type: [string, list]
+    default: profiles
+    description: list of (section, name) in data_block where to find the profiles (defaults to standard location) or, if containing / (or \), a path to profiles on disk

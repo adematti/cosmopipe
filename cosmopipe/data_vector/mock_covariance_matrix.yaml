@@ -16,6 +16,10 @@ options:
     type: list
     description: either (section, name) in data_block where to find the data vectors or, if containing / (or \), a path to a catalog on disk.
                 If path ends with .npy, none of the arguments below apply.
+  save:
+    type: string
+    default: None
+    description: if not ``None``, path where to save the covariance matrix measurement
 
 setup output:
   covariance.covariance_matrix:

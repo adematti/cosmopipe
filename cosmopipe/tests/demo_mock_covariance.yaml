@@ -1,0 +1,46 @@
+data_dir: _data
+samples_dir: _samples
+plots_dir: _plots
+catalog_dir: _catalog
+num_mocks: 10
+
+main:
+  $execute: [params, fiducial, mpi, cov]
+  #$execute: [cov]
+
+mpi:
+  $module_name: pypescript
+  $module_class: MPIPipeline
+  $nprocs_per_task: 1
+  $execute: [survey_estimator]
+  $configblock_iter:
+    survey_estimator.data_load: e'["{}/lognormal_data_{:d}.fits".format(${catalog_dir},i+1) for i in range(${num_mocks})]'
+    survey_estimator.save: e'["{}/lognormal_power_spectrum_{:d}.txt".format(${data_dir},i+1) for i in range(${num_mocks})]'
+  $datablock_key_iter:
+    data.data_vector: e'["data_vector_{:d}".format(i+1) for i in range(${num_mocks})]'
+
+params:
+  $module_name: cosmopipe.parameters.parameterisation
+  common_parameters:
+    ${cosmological_parameters.yaml:}:
+
+fiducial:
+  $module_name: cosmopipe.theory.primordial.fiducial
+  engine: class
+
+survey_estimator:
+  $module_name: cosmopipe.estimators.power_spectrum.nbodykit_survey
+  Nmesh: 128
+  BoxSize: 4000.
+  edges:
+    step: 0.01
+  nbar: NZ
+  data_load: f'${catalog_dir}/lognormal_data.fits'
+  randoms_load: f'${catalog_dir}/lognormal_randoms.fits'
+  save: f'${data_dir}/lognormal_power_spectrum.txt'
+
+cov:
+  $module_name: cosmopipe.data_vector.mock_covariance_matrix
+  #data_load: ${mpi.$configblock_iter.survey_estimator.save}
+  data_load: ${mpi.$datablock_key_iter.data.data_vector}
+  save: f'${data_dir}/covariance.txt'

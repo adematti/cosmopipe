@@ -18,6 +18,7 @@ class SamplesPlotting(object):
         self.style = SamplesPlotStyle(**syntax.remove_keywords(self.options))
 
     def execute(self):
+        self.style.mpicomm = self.mpicomm
         chains = syntax.load_auto(self.samples_load,data_block=self.data_block,default_section=section_names.likelihood,loader=Samples.load_auto)
         if self.burnin is not None:
             chains = [samples.remove_burnin(self.burnin) for samples in chains]
@@ -46,6 +47,7 @@ class ProfilesPlotting(object):
         self.style = ProfilesPlotStyle(**self.options)
 
     def execute(self):
+        self.style.mpicomm = self.mpicomm
         self.style.profiles = profiles = syntax.load_auto(self.profiles_load,data_block=self.data_block,default_section=section_names.likelihood,loader=Profiles.load_auto)
         if self.save_stats:
             for prof,filename in zip(profiles,self.save_stats):

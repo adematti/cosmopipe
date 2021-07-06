@@ -26,6 +26,7 @@ class ModelPlotting(object):
         self.save_model = self.options.get('save_model',None)
 
     def execute(self):
+        self.style.mpicomm = self.mpicomm
         self.projection = self.data_block[section_names.model,'projection']
         data_vector = None
         if self.data_load:

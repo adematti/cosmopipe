@@ -37,7 +37,7 @@ class BasePlotStyle(utils.BaseClass):
         for key,val in kwargs.items():
             setattr(self,key,val)
 
-    def savefig(self, filename, fig=None, root=0):
+    def savefig(self, filename, fig=None):
         if self.is_mpi_root():
             savefig(filename,fig=fig,**self.kwfig)
 
