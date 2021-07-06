@@ -64,6 +64,8 @@ RUN conda install -c bccp nbodykit
 
 RUN ln -s /opt/conda/bin/pip /bin/pip
 
+ARG COSMOPIPE_VER=unknown
+
 RUN for x in \
   git+https://github.com/adematti/pypescript \
   git+https://github.com/adematti/cosmopipe \

@@ -16,7 +16,7 @@ import sys
 lib_dir = os.path.abspath(os.path.join('..','cosmopipe'))
 sys.path.insert(0,lib_dir)
 
-from _version import __version__
+from _version import __version__, __docker_image__
 
 # -- General configuration ------------------------------------------------
 
@@ -87,6 +87,7 @@ def _replace(app, docname, source):
 
 
 ultimate_replacements = {
+    '{dockerimage}': __docker_image__,
     '{gitrepo}': git_repo
 }
 

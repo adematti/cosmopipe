@@ -13,7 +13,6 @@ First create a conda environment::
   conda create -n cosmopipe
   conda activate cosmopipe
 
-
 Then install some modules required for the installation of **cosmopipe** (and dependencies)::
 
   conda install numpy mpi4py pyyaml cython
@@ -24,44 +23,46 @@ and eventually **cosmopipe**::
 
   pip install git+https://github.com/adematti/cosmopipe
 
+.. note::
+
+  At NERSC, you may have to unload desiconda module first if you encounter trouble in the installation of **pypescript**
+
 
 .. note::
 
-  At NERSC, you may have to unload desiconda module first
-
-
-.. note::
-
+  When **cosmopipe** builds, it fetches all the modules to be installed, list their dependencies
+  which **pip** then takes care to install.
   The list of modules (and hence the packages they rely on) to install is given by :root:`install_modules.txt`,
   using Unix filename pattern matching.
   If you want to change it, clone the **cosmopipe** github repository, modify this list, and pip install **cosmopipe**::
 
     git clone https://github.com/adematti/cosmopipe
+    cd cosmopipe
     vi install_modules.txt # write changes; module one wants to exclude start with "!"
     python -m pip install .
 
-.. example::
+.. note::
 
   If you do not need to use modules for estimation of power spectra or correlation functions, you can add in install_modules.txt::
 
-    !cosmopipe.estimators.*
+    !estimators.*
 
   and ignore installation of nbodykit (conda install -c bccp nbodykit).
 
 
-NERSC
------
+At NERSC
+--------
 
-At NERSC, if you want to use **cosmopipe** on Cori nodes,
- **mpi4py** should *not* be installed using conda-provided prebuilt distribution, see _`parallel python`.
+At NERSC, if you want to use **cosmopipe** on Cori nodes, **mpi4py** should *not* be installed using conda-provided prebuilt distribution, see `parallel python`_.
 
-Current solution is to clone NERSC's **nbodykit** environment:
+Current solution is to clone NERSC's **nbodykit** environment::
 
   source /global/common/software/m3035/conda-activate.sh 3.7
   conda create -n cosmopipe --clone bcast-bccp-3.7
   salloc -C haswell -t 00:20:00 --qos interactive -L SCRATCH,project
   MPICC="cc -shared" pip install git+https://github.com/adematti/pypescript
   pip install git+https://github.com/adematti/cosmopipe
+
 
 Docker
 ------

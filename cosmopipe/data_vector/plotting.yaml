@@ -5,7 +5,6 @@ author: Arnaud de Mattia
 maintainer: Arnaud de Mattia
 description: Plot data vector(s)
 
-
 options:
   covariance_load:
     type: [bool, string]
@@ -25,7 +24,6 @@ date: 01/06/2021
 author: Arnaud de Mattia
 maintainer: Arnaud de Mattia
 description: Plot covariance matrices
-
 
 options:
   covariance_load:
