@@ -31,7 +31,7 @@ class GaussianCovariance(object):
                 data_load = 'data_vector'
             data_vector = self.data_block[syntax.split_sections(data_load,default_section=section_names.data)]
             data = data_vector.copy(copy_proj=True)
-            data.data = [data.get(proj) for proj in data_vector.get_projs()]
+            #data.data = [data.get(proj) for proj in data_vector.get_projs()]
             if projs is not None:
                 data.view(proj=projs)
             if edges is not None:
@@ -39,7 +39,7 @@ class GaussianCovariance(object):
                     dataproj = data.get(proj)
                     dataproj.edges[dataproj.attrs['x']] = edges
             self.kwview = data.kwview
-            data = data.noview() # required for now, because covariance matrix without view should have data vectors without view
+            #data = data.noview() # required for now, because covariance matrix without view should have data vectors without view
         else:
             if x is None:
                 x = [(edge[:-1] + edge[1:])/2. for edge in edges]

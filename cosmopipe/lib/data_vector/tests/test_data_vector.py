@@ -61,6 +61,9 @@ def test_multipole_data_vector():
     filename = os.path.join(data_dir,'data.npy')
     data.save(filename)
     data2 = DataVector.load(filename)
+    assert np.all(data2.get_y(proj='ell_0') == data.get_y(proj='ell_0'))
+    data.noview()
+    data2.noview()
     assert np.all(data2.get_y(proj='ell_2') == data.get_y(proj='ell_2'))
     assert data.attrs['shotnoise'] == shotnoise
     filename = os.path.join(data_dir,'data.txt')
@@ -92,6 +95,15 @@ def test_multipole_covariance_matrix():
 
     proj = ['ell_0','ell_2','ell_4']
     list_data,cov_ref = make_data_covariance(ndata=60,proj=proj)
+
+    cov_ref = MockCovarianceMatrix.from_data(list_data)
+    kwview = {'proj':'ell_0','xlim':(0.,0.1)}
+    cov_ref.view(**kwview)
+    cov = MockCovarianceMatrix.from_data([data.copy().view(**kwview) for data in list_data])
+    #print(cov_ref.get_x(**{'proj':('ell_0',)*2,'xlim':((0.,0.1),)*2}),cov_ref.get_x())
+    assert np.allclose(cov.get_cov(),cov_ref.get_cov())
+    cov_ref.noview()
+
     cov = CovarianceMatrix.load_txt(covariance_fn)
     assert np.allclose(cov.get_cov(),cov_ref.get_cov())
     cov2 = CovarianceMatrix.load_txt(covariance_fn,data=list_data[0])
@@ -177,19 +189,17 @@ def test_set_y():
     assert data.size == size
     data.view(proj=[ProjectionName('muwedge',(0.,1./3.))],xlim=[(0.1,0.2)])
     data.extend(data)
-    print(data.kwview)
+    #print(data.kwview)
 
 
 
 if __name__ == '__main__':
 
     setup_logging()
-    """
     test_misc()
     test_multipole_data_vector()
-    test_multipole_covariance_matrix()
-    test_mock_data_vector()
-    test_plotting()
     test_muwedge_data_vector()
-    """
+    test_mock_data_vector()
     test_set_y()
+    test_plotting()
+    test_multipole_covariance_matrix()

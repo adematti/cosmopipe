@@ -215,16 +215,16 @@ class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
 
     @staticmethod
     def get_mat(covariance):
-        return covariance.get_cov()
+        return covariance.copy().noview().get_cov()
 
     def plot(self, covariance=None, filename=None):
         covariance = self.get('covariance',covariance)
         mat = self.get_mat(covariance)
         norm = self.norm or Normalize(vmin=mat.min(),vmax=mat.max())
         styles = self.get_styles(covariance)
-        for ix,s in enumerate(styles): s.projs = s.get_projs(data_vector=covariance.x[ix])
-        x = [[x.get_x(proj=proj) for proj in s.projs] for s,x in zip(styles,covariance.x)]
-        mat = [[mat[np.ix_(*covariance.get_index(proj=(proj1,proj2)))] for proj1 in styles[0].projs] for proj2 in styles[1].projs]
+        for ix,style in enumerate(styles): style.projs = style.get_projs(data_vector=covariance.x[ix])
+        x = [[covariance.get_x(proj=proj)[axis] for proj in style.projs] for style,axis in zip(styles,[0,1])]
+        mat = [[mat[np.ix_(*covariance.get_index(first={'proj':proj1},second={'proj':proj2}))] for proj1 in styles[0].projs] for proj2 in styles[1].projs]
         nrows = len(x[1])
         ncols = len(x[0])
         width_ratios = list(map(len,x[1]))
@@ -269,7 +269,7 @@ class CorrelationMatrixPlotStyle(CovarianceMatrixPlotStyle):
 
     @staticmethod
     def get_mat(covariance):
-        return covariance.get_corrcoef()
+        return covariance.copy().noview().get_corrcoef()
 
 
 def MatrixPlotStyle(style=None, **kwargs):

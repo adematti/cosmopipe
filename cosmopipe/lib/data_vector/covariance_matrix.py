@@ -7,24 +7,19 @@ import numpy as np
 from cosmopipe.lib.utils import BaseClass, savefile
 from cosmopipe.lib import utils
 from .data_vector import DataVector
+from .data_vector import _format_index_kwargs as _format_single_index_kwargs
+from .data_vector import _reduce_index_kwargs as _reduce_single_index_kwargs
 from .binned_statistic import BinnedProjection, _title_template
 
 
 NDIM = 2
 
 
-def _format_index_kwargs(kwargs, axis=None):
-    if axis is None:
-        axis = range(NDIM)
-    if np.ndim(axis) == 0:
-        axis = [axis]
-    toret = [{} for axis in range(NDIM)]
-    for key,value in kwargs.items():
-        if not isinstance(value,tuple):
-            value = (value,)*len(axis)
-        for iax,val in zip(axis,value):
-            toret[iax][key] = val
-    return toret
+def _format_index_kwargs(first=None, second=None,  **kwargs):
+    first = first or kwargs
+    second = second or first
+    return [first,second]
+
 
 
 class CovarianceMatrix(BaseClass):
@@ -33,7 +28,7 @@ class CovarianceMatrix(BaseClass):
 
     _default_mapping_header = {'kwargs_view':'.*?kwview = (.*)$'}
 
-    def __init__(self, covariance, x, x2=None, attrs=None):
+    def __init__(self, covariance, first, second=None, attrs=None):
 
         if isinstance(covariance,self.__class__):
             self.__dict__.update(covariance.__dict__)
@@ -42,14 +37,49 @@ class CovarianceMatrix(BaseClass):
         self.attrs = attrs or {}
         self._cov = covariance
         # copy to avoid issues related to changes in _x but not in _cov
-        self._x = [DataVector(x).copy()]*NDIM
-        if x2 is not None: self._x[1] = DataVector(x2).copy()
+        self._x = [DataVector(first).copy()]*NDIM
+        if second is not None: self._x[1] = DataVector(second).copy()
+        self._kwargs_view = None
 
-    def get_index(self, concatenate=True, **kwargs):
-        kwargs = _format_index_kwargs(kwargs)
+    def get_index(self, *args, concatenate=True, **kwargs):
+        kwargs = _format_index_kwargs(*args,**kwargs)
+        index_view_proj = None
+        if self._kwargs_view is not None:
+            index_view_proj = [None for axis in range(NDIM)]
+            for axis in range(NDIM):
+                index_x = self._x[axis].get_index(index_in_view=True,**self._kwargs_view[axis])
+                index_proj = {}
+                for proj,index_ in index_x:
+                    if proj not in index_proj:
+                        index_proj[proj] = []
+                    index_proj[proj].append(index_)
+                for proj,index_ in index_proj.items():
+                    index_proj[proj] = np.concatenate(index_)
+                index_view_proj[axis] = index_proj
+
         index = [None for axis in range(NDIM)]
         for axis in range(NDIM):
-            index[axis] = self._x[axis].get_index(**{key:value for key,value in kwargs[axis].items()},glob=True,concatenate=concatenate)
+            noview = self._x[axis].get_index(index_in_view=True)
+            start, starts = 0, {}
+            for proj,index_ in noview:
+                starts[proj] = start
+                start += index_.size
+            index_x = self._x[axis].get_index(index_in_view=True,**kwargs[axis])
+            isscalar = not isinstance(index_x,list)
+            if isscalar: index_x = [index_x]
+            index_inview = []
+            for proj,index_ in index_x:
+                if index_view_proj is not None:
+                    if proj in index_view_proj[axis]:
+                        index_ = index_[np.isin(index_,index_view_proj[axis][proj])]
+                        index_inview.append((proj,index_,starts[proj]))
+                else:
+                    index_inview.append((proj,index_,starts[proj]))
+            if concatenate:
+                index_inview = np.concatenate([index[1] + index[2] for index in index_inview])
+            elif isscalar:
+                index_inview = index_inview[0]
+            index[axis] = index_inview
         return index
 
     def __copy__(self):
@@ -57,18 +87,22 @@ class CovarianceMatrix(BaseClass):
         for name in ['attrs']:
             setattr(new,name,getattr(new,name).copy())
         new._x = [x.copy() for x in self._x]
+        if self._kwargs_view is not None:
+            new._kwargs_view = self._kwargs_view.copy()
         return new
 
-    def view(self, **kwargs):
-        kwargs = _format_index_kwargs(kwargs)
-        for axis,x in enumerate(self._x):
-            x.view(**kwargs[axis])
+    def view(self, *args, **kwargs):
+        list_kwargs = _format_index_kwargs(*args, **kwargs)
+        self._kwargs_view = [_reduce_single_index_kwargs(_format_single_index_kwargs(kwargs),projs=x.projs) for x,kwargs in zip(self.x,list_kwargs)]
         return self
 
     def noview(self):
-        for x in self._x:
-            x.noview()
+        self._kwargs_view = None
         return self
+
+    @property
+    def kwview(self):
+        return self._kwargs_view or [{} for axis in range(NDIM)]
 
     def __getitem__(self, mask):
         new = self.copy()
@@ -91,15 +125,31 @@ class CovarianceMatrix(BaseClass):
     def shape(self):
         return tuple(x.size for x in self._x)
 
-    def get_x(self, **kwargs):
+    def get_x(self, concatenate=False, *args, **kwargs):
         """Return x-coordinates of the data vector."""
-        kwargs = _format_index_kwargs(kwargs)
-        return tuple(x.get_x(**kw) for x,kw in zip(self._x,kwargs))
+        indices = self.get_index(*args,concatenate=False,**kwargs)
+        toret = []
+        for x,index in zip(self._x,indices):
+            isscalar = not isinstance(index,list)
+            if isscalar: index = [index]
+            x = [x.get_x(proj=proj)[index_] for proj,index_,_ in index]
+            if concatenate: x = np.concatenate(x)
+            elif isscalar: x = x[0]
+            toret.append(x)
+        return tuple(toret)
 
-    def get_y(self, **kwargs):
+    def get_y(self, concatenate=True, *args, **kwargs):
         """Return mean data vector."""
-        kwargs = _format_index_kwargs(kwargs)
-        return tuple(x.get_y(**kw) for x,kw in zip(self._x,kwargs))
+        indices = self.get_index(*args,concatenate=False,**kwargs)
+        toret = []
+        for x,index in zip(self._x,indices):
+            isscalar = not isinstance(index,list)
+            if isscalar: index = [index]
+            x = [x.get_y(proj=proj)[index_] for proj,index_,_ in index]
+            if concatenate: x = np.concatenate(x)
+            elif isscalar: x = x[0]
+            toret.append(x)
+        return tuple(toret)
 
     def set_new_edges(self, proj, *args, **kwargs):
         if not isinstance(proj,tuple):
@@ -119,32 +169,35 @@ class CovarianceMatrix(BaseClass):
             matrices.append(x_._matrix_rebin(proj,*args,flatten=True,**kwargs))
         self._cov = matrices[0].dot(cov).dot(matrices[1].T)
 
-    def get_std(self, **kwargs):
-        return np.diag(self.get_cov(**kwargs))**0.5
+    def get_std(self, *args, **kwargs):
+        return np.diag(self.get_cov(*args,**kwargs))**0.5
 
-    def get_cov(self, **kwargs):
-        return self._cov[np.ix_(*self.get_index(**kwargs))]
+    def get_cov(self, *args, **kwargs):
+        return self._cov[np.ix_(*self.get_index(*args,**kwargs))]
 
-    def get_invcov(self, block=True, inv=np.linalg.inv, **kwargs):
+    def get_invcov(self, *args, block=True, inv=np.linalg.inv, **kwargs):
         if block:
-            indices = self.get_index(concatenate=False,**kwargs)
-            cov = [[self._cov[np.ix_(ind1,ind2)] for ind2 in indices[-1]] for ind1 in indices[0]]
+            indices = self.get_index(concatenate=False,*args,**kwargs)
+            indices = [[index] if not isinstance(index,list) else index for index in indices]
+            cov = [[self._cov[np.ix_(ind1[1] + ind1[2],ind2[1] + ind2[2])] for ind2 in indices[-1]] for ind1 in indices[0]]
             return utils.blockinv(cov,inv=inv)
-        return utils.inv(self.get_cov(**kwargs))
+        return utils.inv(self.get_cov(*args,**kwargs))
 
-    def get_corrcoef(self, **kwargs):
-        return utils.cov_to_corrcoef(self.get_cov(**kwargs))
+    def get_corrcoef(self, *args, **kwargs):
+        return utils.cov_to_corrcoef(self.get_cov(*args,**kwargs))
 
     def __getstate__(self):
         state = {}
         for key in ['_cov','attrs']:
             state[key] = getattr(self,key)
         state['_x'] = [x.__getstate__() for x in self._x]
+        state['_kwargs_view'] = [_getstate_index_kwargs(**kwargs) for kwargs in self._kwargs_view] if self._kwargs_view is not None else None
         return state
 
-    def __setstate__(self,state):
+    def __setstate__(self, state):
         super(CovarianceMatrix,self).__setstate__(state)
         self._x = [DataVector.from_state(x) for x in self._x]
+        self._kwargs_view = [_setstate_index_kwargs(**kwargs) for kwargs in state['_kwargs_view']] if state['_kwargs_view'] is not None else None
 
     @classmethod
     def load_auto(cls, filename, *args, **kwargs):
@@ -275,21 +328,11 @@ class CovarianceMatrix(BaseClass):
             else:
                 x = tuple(BinnedProjection({col:data_[col] for col in columns_},**kwargs) for data_,columns_ in zip(list_data,columns))
 
-        return cls(cov,x=x[0],x2=x[1],attrs=attrs)
+        return cls(cov,first=x[0],second=x[1],attrs=attrs)
 
     @classmethod
     def get_title_label(cls):
         return _title_template.format(cls.__name__)
-
-    def get_header_txt(self, comments='#', ignore_json_errors=True):
-        header = ['{}{}'.format(comments,self.get_title_label())]
-        for key,value in self.attrs.items():
-            try:
-                header.append('{}{} = {}'.format(comments,key,json.dumps(value)))
-            except TypeError:
-                if not ignore_json_errors:
-                    raise
-        return header
 
     @savefile
     def save_txt(self, filename, comments='#', fmt='.18e', ignore_json_errors=True):
@@ -317,6 +360,7 @@ class CovarianceMatrix(BaseClass):
 
 
 CovarianceMatrix.read_header_txt = DataVector.read_header_txt
+CovarianceMatrix.get_header_txt = DataVector.get_header_txt
 
 
 class MockCovarianceMatrix(CovarianceMatrix):
@@ -335,12 +379,13 @@ class MockCovarianceMatrix(CovarianceMatrix):
                 for col in dataproj.columns:
                     list_dataproj[proj][col].append(dataproj[col])
             list_y.append(data.get_y())
+        data = data.copy(copy_proj=True)
         for proj in list_dataproj:
             dataprojmean = data.get(proj)
             dataprojmean.data = {col: np.mean(list_dataproj[proj][col],axis=0) for col in list_dataproj[proj]}
             data.set(dataprojmean)
         covariance = np.cov(np.array(list_y).T,ddof=1)
-        return cls(covariance=covariance,x=data,attrs={'nobs':len(list_y)})
+        return cls(covariance=covariance,first=data,attrs={'nobs':len(list_y)})
 
     @classmethod
     def from_files(cls, reader, *filenames, **kwargs):

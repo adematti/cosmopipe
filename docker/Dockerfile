@@ -49,7 +49,7 @@ RUN \
 
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
-RUN pip install numpy pyyaml cython sphinx_rtd_theme
+RUN pip install numpy pyyaml cython fitsio sphinx_rtd_theme
 
 ARG COSMOPIPE_VER=unknown
 
