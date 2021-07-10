@@ -59,7 +59,7 @@ class Velocileptors(object):
             opts[par] = self.data_block.get(section_names.galaxy_bias,par,self.optional_params[par])
         fsig = self.data_block.get(section_names.galaxy_rsd,'fsig',self.growth_rate*self.sigma8)
         f = fsig/self.sigma8
-
+  
         self.model.eval = self.get_model_callable(pars,f,**opts,**self.optional_kw)
         self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
 
@@ -89,6 +89,7 @@ class EPTMoments(Velocileptors):
                 self.required_params = ['b1', 'b2', 'bs', 'b3', 'alpha0', 'alpha2', 'alpha4', 'sn', 'sn2']
             else:
                 self.required_params = ['b1', 'b2', 'bs', 'b3', 'alpha', 'alphav', 'alpha_s0', 'alpha_s2', 'sn', 'sv', 'sigma0']
+
         self.optional_params = dict(counterterm_c3=0.)
         self.optional_kw = dict(beyond_gauss=options['beyond_gauss'],reduced=reduced)
         self.set_model()
@@ -110,6 +111,7 @@ class EPTFull(Velocileptors):
         self.optional_params = dict(bFoG=0.)
         self.optional_kw = dict()
         self.set_model()
+
 
 
 class LPTMoments(Velocileptors):
@@ -277,3 +279,13 @@ class LPTDirect(Velocileptors):
             self.model_power.eval = self.get_power_callable(pars,**opts)
             model_collection.set(self.model_power)
         self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + model_collection
+
+import yaml
+#the point isn't that you'd ever really want to do it exactly this way,
+#but that a default parameter setup could be stored with the velocileptors code
+#here one way or another, so it is not necessary for the user to do anything
+#but minimally modify it
+def get_bias_parameters() :
+    return yaml.safe_load(open("velocileptors_eptfull_parameters.yaml",'r'))
+
+
