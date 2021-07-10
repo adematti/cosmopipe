@@ -18,9 +18,10 @@ def _format_index_kwargs(kwargs):
         if not isinstance(value,(list,np.ndarray)):
             value = [value]
         toret[key] = value
-    n = len(list(toret.values())[0])
-    if not all(len(value) == n for value in toret.values()):
-        raise IndexError('Input parameters {} have different lengths.'.format(kwargs))
+    if toret:
+        n = len(list(toret.values())[0])
+        if not all(len(value) == n for value in toret.values()):
+            raise IndexError('Input parameters {} have different lengths.'.format(kwargs))
     return toret
 
 
@@ -37,6 +38,8 @@ def _reduce_index_kwargs(kwargs, projs=None):
             xlims[proj] = xlim
 
     kwargs = kwargs.copy()
+    if not kwargs: return {'proj':projs,'xlim':[None]*len(projs)}
+
     if 'proj' not in kwargs:
         kwargs['proj'] = [None]*len(kwargs['xlim'])
     if 'xlim' not in kwargs:
@@ -114,7 +117,7 @@ class DataVector(BaseClass):
     def get_title_label(cls):
         return '### {} ###'.format(cls.__name__)
 
-    def get_index(self, glob=False, concatenate=False, permissive=True, **kwargs):
+    def get_index(self, permissive=True, index_in_view=False, **kwargs):
 
         index_view = None
 
@@ -131,33 +134,28 @@ class DataVector(BaseClass):
             for proj,index_ in index_view_proj.items():
                 index_view_proj[proj] = np.concatenate(index_)
 
-        def _global_index(index):
-            if not glob:
-                return index
-            toret = []
-            sizes = [self.get(proj).size for proj in self.projs]
-            for proj,index_ in index:
-                iproj = self.get_proj_index(proj)
-                toret.append(index_ + sum(sizes[:iproj]))
-            if concatenate:
-                toret = np.concatenate(toret)
-            return toret
-
         def _get_one_index(xlim=None, proj=None, permissive=False):
             proj = ProjectionName(proj)
             if permissive:
                 return sum([_get_one_index(xlim=xlim,proj=dataproj.proj,permissive=False) for dataproj in self.get(proj,permissive=permissive)],[])
-            data = self.get(proj)
-            index = data.get_index(xlim=xlim)
+            dataproj = self.get(proj)
+            proj = dataproj.proj
+            index = dataproj.get_index(xlim=xlim)
             if index_view is not None:
                 if proj in index_view_proj:
                     index = index[np.isin(index,index_view_proj[proj])]
+                    if index_in_view:
+                        argsort = np.argsort(index_view_proj[proj])
+                        index_view_sorted = index_view_proj[proj][argsort]
+                        index = argsort[np.searchsorted(index_view_sorted,index)]
+                else:
+                    return []
             return [(proj,index)]
 
         if not kwargs:
-            if index_view is not None:
-                return _global_index(index_view)
-            return _global_index(_get_one_index(permissive=permissive))
+            #if index_view is not None:
+            #    return index_view
+            return _get_one_index(permissive=permissive)
 
         index = []
         isscalar = kwargs.get('proj',None) is not None
@@ -165,12 +163,11 @@ class DataVector(BaseClass):
             if isinstance(value,(list,np.ndarray)):
                 isscalar = False
                 break
+
         kwargs = _format_index_kwargs(kwargs)
         for ii in range(len(list(kwargs.values())[0])):
             index += _get_one_index(**{key:value[ii] for key,value in kwargs.items()},permissive=permissive)
-        if glob:
-            index = _global_index(index)
-        elif isscalar:
+        if isscalar and index:
             index = index[0]
         return index
 
@@ -252,7 +249,12 @@ class DataVector(BaseClass):
             proj = [proj]
         toret = {proj_:np.eye(self.get(proj_).size) for proj_ in self.projs}
         for proj_ in proj:
-            toret[proj_] = self.get(proj_)._matrix_new_edges(*args,flatten=True,**kwargs)
+            dataproj = self.get(proj_)
+            proj_ = dataproj.proj
+            toret[proj_] = dataproj._matrix_new_edges(*args,flatten=True,**kwargs)
+        index = self.get_index()
+        for proj_,index_ in index:
+            toret[proj_] = toret[proj_][np.ix_(index_,index_)]
         if flatten:
             toret = linalg.block_diag(*[toret[proj_] for proj_ in self.projs])
         return toret
@@ -268,7 +270,12 @@ class DataVector(BaseClass):
             proj = [proj]
         toret = {proj_:np.eye(self.get(proj_).size) for proj_ in self.projs}
         for proj_ in proj:
-            toret[proj_] = self.get(proj_)._matrix_rebin(*args,flatten=True,**kwargs)
+            dataproj = self.get(proj_)
+            proj_ = dataproj.proj
+            toret[proj_] = dataproj._matrix_rebin(*args,flatten=True,**kwargs)
+        index = self.get_index()
+        for proj_,index_ in index:
+            toret[proj_] = toret[proj_][np.ix_(index_,index_)]
         if flatten:
             toret = linalg.block_diag(*[toret[proj_] for proj_ in self.projs])
         return toret
@@ -324,18 +331,18 @@ class DataVector(BaseClass):
         for projection in self.data:
             data.append(projection.__getstate__())
         state = {'__class__':self.__class__.__name__,'data':data,'attrs':self.attrs}
-        state['_kwargs_view'] = _getstate_index_kwargs(**self._kwargs_view) if self._kwargs_view is not None else {}
+        state['_kwargs_view'] = _getstate_index_kwargs(**self._kwargs_view) if self._kwargs_view is not None else None
         return state
 
     def __setstate__(self, state):
         if state['__class__'] != self.__class__.__name__:
             binned_projection = BinnedProjection.from_state(state['__class__'])
             self.set(binned_projection)
+            self._kwargs_view = None
         else:
             self.data = [BinnedProjection.from_state(binned_projection) for binned_projection in state['data']]
             self.attrs = state['attrs']
-            if state['_kwargs_view'] is not None:
-                self._kwargs_view = _setstate_index_kwargs(**state['_kwargs_view'])
+            self._kwargs_view = _setstate_index_kwargs(**state['_kwargs_view']) if state['_kwargs_view'] is not None else None
 
     @classmethod
     def concatenate(cls, *others):

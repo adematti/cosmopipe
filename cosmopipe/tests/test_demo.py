@@ -3,7 +3,7 @@ from cosmopipe.lib import setup_logging
 
 
 def test_demo_mock():
-    main(config='demo_xlim.yaml')
+    main(config_block='demo_xlim.yaml')
 
 
 if __name__ == '__main__':

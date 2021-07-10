@@ -175,6 +175,30 @@ def test_pkell_covariance():
     data.plot(filename=filename,style='power')
 
 
+def test_view_covariance():
+
+    pk = Cosmology().get_fourier('eisenstein_hu').pk_interpolator().to_1d()
+    model = LinearModel(klin=pk.k,pklin=pk)
+    kedges = np.linspace(0.01,0.4,41)
+    k = (kedges[:-1] + kedges[1:])/2.
+    proj = [{'space':'power','mode':'multipole','proj':proj} for proj in [0,2,4]]
+    data = DataVector(x=k,proj=proj,edges=[{'x':kedges}]*len(proj))
+    data.view(xlim=(0.01,0.2))
+    models = ModelCollection([model])
+    cov = GaussianCovarianceMatrix(data,model_bases=models.bases,volume=(1e3)**3)
+    cov.compute(models)
+    assert cov.cov.shape == (data.get_x(concatenate=True).size,)*2
+    cov.view(xlim=(0.01,0.1))
+    filename = os.path.join(plot_dir,'covariance_pk.png')
+    cov.plot(filename=filename,style='corr',data_styles='power')
+    filename = os.path.join(plot_dir,'mean.png')
+    cov.x[0].plot(filename=filename,style='power')
+
+    data = MockDataVector(cov)
+    filename = os.path.join(plot_dir,'real.png')
+    data.plot(filename=filename,style='power')
+
+
 if __name__ == '__main__':
 
     setup_logging()
@@ -183,4 +207,5 @@ if __name__ == '__main__':
     #test_xi_covariance()
     #test_pk_xi_covariance()
     #test_pk_covariance()
-    test_pkell_covariance()
+    #test_pkell_covariance()
+    test_view_covariance()

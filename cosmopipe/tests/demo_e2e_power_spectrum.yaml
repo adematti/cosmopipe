@@ -6,8 +6,8 @@ catalog_dir: _catalog
 main:
   #$execute: [fiducial, survey_estimator, data_plotting]
   #$execute: [fiducial, box_estimator, data_plotting]
-  $execute: [fiducial, box_estimator, data_plotting, data, params, primordial, model, mockcov, minuit, plotting, postprocessing]
-  #$execute: [data, params, primordial, model, mockcov, minuit, plotting, postprocessing]
+  #$execute: [fiducial, box_estimator, data_plotting, data, params, primordial, model, mockcov, minuit, plotting, postprocessing]
+  $execute: [data, params, primordial, model, mockcov, minuit, plotting, postprocessing]
   #$execute: [data, params, primordial, model, mockcov, compare]
   #$execute: [fiducial, box_estimator, data_plotting]
   #$execute: [data_plotting]

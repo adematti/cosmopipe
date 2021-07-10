@@ -162,7 +162,7 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
         self._sigmak = {}
         covariance = np.bmat(cov).A
         covariance = (covariance + covariance.T)/2.
-        super(GaussianCovarianceMatrix,self).__init__(covariance,x=mean,attrs=self.attrs)
+        super(GaussianCovarianceMatrix,self).__init__(covariance,first=mean,attrs=self.attrs)
 
 
     def get_pk2(self, pks):
@@ -248,13 +248,13 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
             if empty_interval(edge):
                 return None,None
             x = np.linspace(edge[0],edge[1],self.xnum)
-            x = x[x>self.k[0]]
+            #x = x[x>self.k[0]]
             w = weights_trapz(x)
             dv = np.sum(w*x**2,axis=0)
             return x,w/dv**2
 
         x = tuple([np.linspace(edge[0],edge[1],self.xnum) for edge in edges])
-        x = tuple([x[x>self.k[0]] if proj.space == ProjectionName.POWER else x for x,proj in zip(x,[proj1,proj2])])
+        #x = tuple([x[x>self.k[0]] if proj.space == ProjectionName.POWER else x for x,proj in zip(x,[proj1,proj2])])
         w = tuple(weights_trapz(x_) for x_ in x)
         dv = tuple(np.sum(w_*x_**2,axis=0) for w_,x_ in zip(w,x))
 

@@ -19,7 +19,7 @@ class MockDataVector(DataVector):
         data = covariance.x[0].deepcopy()
         y = data.get_y()
         if not mean:
-            y = rng.multivariate_normal(y,covariance.get_cov())
+            y = rng.multivariate_normal(y,covariance.copy().noview().get_cov())
         data.set_y(y,concatenated=True)
         self.__dict__.update(data.__dict__)
         self.attrs.update(**covariance.attrs)
