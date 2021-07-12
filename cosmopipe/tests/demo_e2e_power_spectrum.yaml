@@ -1,3 +1,4 @@
+#seems to require running test_e2e.py first
 data_dir: _data
 samples_dir: _samples
 plots_dir: _plots
