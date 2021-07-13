@@ -1,0 +1,21 @@
+from cosmopipe.lib.data_vector import ProjectionName
+from cosmopipe.lib.data_vector import DataVector
+
+
+class WindowFunction(DataVector):
+
+    def __call__(self, ell=0, n=0, *args, grid=True):
+        window = self.get({'mode':ProjectionName.MULTIPOLE,'wa_order':0})
+        points = window.get_x_average()
+        values = window.get_y(flatten=False)
+        interp = RegularGridInterpolator(points,values,method='linear',bounds_error=True,fill_value=np.nan)
+        if grid:
+            shape = [a.size for a in args]
+            xy = np.meshgrid(args,indexing='ij') # super memory-consuming, but just not the option in scipy, should be easy to recode
+            xy = np.array([xy_.flatten() for xy_ in xy]).T
+        else:
+            xy = np.array([xy_.flatten() for xy_ in args]).T
+        toret = interp(xy)
+        if grid:
+            toret = toret.reshape(shape)
+        return toret

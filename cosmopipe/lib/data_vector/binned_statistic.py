@@ -72,7 +72,7 @@ class RegisteredBinnedStatistic(type):
     _registry = {}
 
     def __new__(meta, name, bases, class_dict):
-        cls = type.__new__(meta, name, bases, class_dict)
+        cls = super().__new__(meta, name, bases, class_dict)
         meta._registry['.'.join((class_dict['__module__'],name))] = cls
         return cls
 
@@ -83,16 +83,24 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
     """
     logger = logging.getLogger('BinnedStatistic')
 
-    _default_mapping_header = {'shape':'.*?shape = (.*)$','edges':'.*?edges (.*) = (.*)$','columns':'.*?columns = (.*)$'}
+    _default_mapping_header = {'shape':'.*?#shape = (.*)$','dims':'.*?#dims = (.*)$','edges':'.*?#edges (.*) = (.*)$','columns':'.*?#columns = (.*)$'}
 
-    def __init__(self, data=None, edges=None, attrs=None):
+    def __init__(self, data=None, edges=None, dims=None, attrs=None):
         if isinstance(data,self.__class__):
             self.__dict__.update(data.__dict__)
             return
         data = data or {}
         self.data = {col: np.asarray(value) for col,value in data.items()}
         edges = edges or {}
-        self.edges = {dim: np.asarray(edges) for dim,edges in edges.items()}
+        if isinstance(edges,list):
+            dims = dims or list(range(len(edges)))
+            edges = {dim: edge for dim,edge in zip(dims,edges)}
+        if dims is None:
+            dims = list(edges.keys())
+        self.edges = {dim:np.asarray(edges[dim]) for dim in dims if dim in edges}
+        self.dims = dims
+        if dims is None and not self.has_edges():
+            self.dims = list(range(self.ndim))
         self.attrs = attrs or {}
 
     def has_edges(self):
@@ -107,15 +115,9 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
         return len(self.shape)
 
     @property
-    def dims(self):
-        if self.has_edges():
-            return list(self.edges.keys())
-        return list(range(self.ndim))
-
-    @property
     def shape(self):
         if self.has_edges():
-            return tuple(len(edges)-1 for edges in self.edges.values())
+            return tuple(len(self.edges[dim])-1 for dim in self.dims)
         return self.data[self.columns[0]].shape
 
     @property
@@ -129,7 +131,7 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
         new.data = {key: self.data[key][name] for key in self.data}
         if self.ndim == 1:
             name = (name,)
-        new.edges = _mask_edges(self.edges, name)
+        new.edges = _mask_edges(self.edges,name)
         return new
 
     def __setitem__(self, name, item):
@@ -141,7 +143,7 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
 
     def __getstate__(self):
         state = {}
-        for key in ['data','edges','attrs']:
+        for key in ['data','edges','dims','attrs']:
             state[key] = getattr(self,key)
         state['__class__'] = '.'.join((self.__class__.__module__,self.__class__.__name__))
         return state
@@ -223,6 +225,7 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
         for col in self.data:
             self.data[col] = np.squeeze(self.data[col],axis=axes)
         for dim in dims:
+            del self.dims[self.dims.index(dim)]
             if dim in self.edges:
                 del self.edges[dim]
 
@@ -272,22 +275,30 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
             except TypeError:
                 if not ignore_json_errors:
                     raise
-        header.append('{}shape = {}'.format(comments,json.dumps(self.shape)))
+                if isinstance(value,np.ndarray):
+                    value = value.tolist()
+                header.append('{}{} = {}'.format(comments,key,value))
+        header.append('{}#shape = {}'.format(comments,json.dumps(self.shape)))
+        header.append('{}#dims = {}'.format(comments,json.dumps(self.dims)))
         if self.has_edges():
             for dim in self.edges:
-                header.append('{}edges {} = {}'.format(comments,dim,json.dumps(self.edges[dim].tolist())))
-        header.append('{}columns = {}'.format(comments,json.dumps(self.columns)))
+                header.append('{}#edges {} = {}'.format(comments,dim,json.dumps(self.edges[dim].tolist())))
+        header.append('{}#columns = {}'.format(comments,json.dumps(self.columns)))
         return header
 
     @classmethod
-    def read_header_txt(cls, file, comments='#', mapping_header=None, pattern_header=None):
+    def read_header_txt(cls, file, comments='#', mapping_header=None, pattern_header=None, ignore_json_errors=True):
         attrs = {}
         mapping_header = (mapping_header or {}).copy()
         mapping_header = utils.dict_nonedefault(mapping_header,**cls._default_mapping_header)
 
         def decode_value(value, decode):
             if decode is None:
-                value = json.loads(value)
+                try:
+                    value = json.loads(value)
+                except json.decoder.JSONDecodeError:
+                    if not ignore_json_errors:
+                        raise
             elif isinstance(decode,str):
                 value = __builtins__[decode](value)
             else:
@@ -327,7 +338,7 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
         return attrs
 
     @classmethod
-    def load_txt(cls, filename, comments='#', usecols=None, skip_rows=0, max_rows=None, mapping_header=None, pattern_header=None, shape=None, edges=None, columns=None, attrs=None):
+    def load_txt(cls, filename, comments='#', usecols=None, skip_rows=0, max_rows=None, mapping_header=None, pattern_header=None, attrs=None, **kwargs):
 
         if isinstance(filename,str):
             cls.log_info('Loading {}.'.format(filename),rank=0)
@@ -347,13 +358,12 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
 
         header = cls.read_header_txt(file,comments=comments,mapping_header=mapping_header,pattern_header=pattern_header)
         attrs = (attrs or {}).copy()
-        other_attrs = dict(shape=shape,edges=edges,columns=columns)
         for name,value in header.items():
-            if name in other_attrs and other_attrs[name] is None:
-                other_attrs[name] = value
-            if attrs.get(name,None) is None:
+            if name in cls._default_mapping_header and kwargs.get(name,None) is None:
+                kwargs[name] = value
+            elif attrs.get(name,None) is None:
                 attrs[name] = value
-        shape,edges,columns = other_attrs.pop('shape'),other_attrs.pop('edges'),other_attrs.pop('columns')
+        shape, columns = kwargs.pop('shape',None), kwargs.pop('columns',None)
 
         def str_to_float(e):
             return float(e)
@@ -379,13 +389,11 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
             if shape is not None:
                 data[col] = data[col].reshape(shape)
 
-        new = cls.__new__(cls)
-        BinnedStatistic.__init__(new,data=data,edges=edges,attrs=attrs)
-        return new
+        return cls(data=data,attrs=attrs,**kwargs)
 
     def __copy__(self):
         new = super(BinnedStatistic,self).__copy__()
-        for name in ['data','edges','attrs']:
+        for name in ['data','dims','edges','attrs']:
             setattr(new,name,getattr(new,name).copy())
         return new
 
@@ -396,88 +404,131 @@ class BinnedProjection(BinnedStatistic):
     """
     logger = logging.getLogger('BinnedProjection')
 
-    _default_mapping_header = {**BinnedStatistic._default_mapping_header,'proj':'.*?proj = (.*)$','x':'.*?x = (.*)$','y':'.*?y = (.*)$'}
+    _default_mapping_header = {**BinnedStatistic._default_mapping_header,'proj':'.*?#proj = (.*)$','y':'.*?y = (.*)$'}
 
-    def __init__(self, data=None, x=None, y=None, weights=None, proj=None, edges=None, attrs=None):
-        super(BinnedProjection,self).__init__(data=data,edges=edges,attrs=attrs)
+    def __init__(self, data=None, x=None, y=None, dims=None, weights=None, proj=None, edges=None, attrs=None):
+        data = data or {}
         if isinstance(x,str):
-            x = (x,)
+            x = [x,]
         if x is not None and not isinstance(x[0],str):
             #if x is None: x = np.arange(len(y))
-            self.data['x'] = np.asarray(x)
-            x = ('x',)
+            data['x'] = np.asarray(x)
+            dims = x = ['x',]
         if y is not None and not isinstance(y,str):
-            self.data['y'] = np.asarray(y)
+            data['y'] = np.asarray(y)
             y = 'y'
         if weights is not None and not isinstance(weights,str):
-            self.data['weights'] = np.asarray(weights)
+            data['weights'] = np.asarray(weights)
             weights = 'weights'
-        for label,column in zip(['x','y','weights'],[x,y,weights]):
+        super(BinnedProjection,self).__init__(data=data,dims=dims,edges=edges,attrs=attrs)
+        for label,column in zip(['y','weights'],[y,weights]):
             if column is not None:
                 self.attrs[label] = column
+        if x is None:
+            if dims is None and edges is None: # self.dims set if dims or edges provided
+                self.dims = ['x']
+        else:
+            self.dims = list(x)
         self.proj = ProjectionName(proj)
 
-    def get_x(self, xlim=None, mask=Ellipsis):
-        x = np.moveaxis([self[x].flatten() for x in self.attrs['x']],0,-1)
-        x = x[self.get_index(xlim,mask=mask)]
-        if x.shape[1] == 1:
-            return x.flatten()
-        return x[mask]
+    def has_x(self):
+        return all(x in self.data for x in self.dims)
 
-    def get_y(self, xlim=None, mask=Ellipsis):
-        y = self[self.attrs['y']].flatten()
-        return y[self.get_index(xlim,mask=mask)]
+    def has_y(self):
+        return 'y' in self.attrs and self.attrs['y'] in self.data
 
-    def get_edges(self, xlim=None, mask=None):
-        masks = []
-        if xlim is not None:
-            allaxes = list(range(self.ndim))
-            xlim = list(xlim)
-            for ix,xlim_ in enumerate(xlim):
-                if np.ndim(xlim_) == 0:
-                    xlim[ix] = [xlim_]*self.ndim
-            for ix,x in enumerate(self.attrs['x']):
-                x = self[x]
-                axes = allaxes.copy()
-                del axes[ix]
-                mask = (x >= xlim[0][ix]) & (x <= xlim[-1][ix])
-                masks.append(np.any(mask,axis=tuple(axes)))
-        elif mask is not None:
-            allaxes = list(range(self.ndim))
-            smask = np.zeros(self.shape,dtype='?')
-            smask.flat[mask] = True
-            allaxes = list(range(self.ndim))
-            for ix,x in enumerate(self.attrs['x']):
-                axes = allaxes.copy()
-                del axes[ix]
-                masks.append(np.any(smask,axis=tuple(axes)))
-        if masks:
-            toret = _mask_edges(self.edges,masks)
+    def get_x_average(self, xlim=None, mask=Ellipsis, weights=None, from_edges=None):
+        if from_edges is None: from_edges = not self.has_x()
+        masks = self.get_index(xlim=xlim,mask=mask,flatten=False)
+
+        def mid(edges):
+            return (edges[:-1] + edges[1:])/2.
+
+        if from_edges:
+            return [mid(self.edges[dim])[masks[idim]] for idim,dim in enumerate(self.dims)]
+
+        x = self.get_x(flatten=False)
+        allaxes = list(range(self.ndim))
+        toret = []
+        for idim,dim in enumerate(self.dims):
+            axes = allaxes.copy()
+            del axes[idim]
+            toret.append(np.average(x[idim],axis=axes,weights=weights))
+        return toret
+
+    def get_x(self, xlim=None, mask=Ellipsis, flatten=True):
+        x = [self[x] for x in self.dims]
+        if xlim is None and mask is Ellipsis:
+            index = Ellipsis
         else:
-            toret = self.edges
-        return [toret[x] for x in self.attrs['x']]
+            index = self.get_index(xlim,mask=mask,flatten=flatten)
+        if flatten:
+            x = np.moveaxis([x_.flatten()[index] for x_ in x],0,-1)
+            if x.shape[-1] == 1:
+                return x[...,0]
+            return x
+        x = np.moveaxis([x_[index] for x_ in x],0,-1)
+        if x.shape[-1] == 1:
+            return x[...,0]
+        return x
 
-    def set_x(self, x, mask=Ellipsis):
-        self.attrs.setdefault('x',('x',))
-        for ix,x_ in enumerate(self.attrs['x']):
+    def get_y(self, xlim=None, mask=Ellipsis, flatten=True):
+        y = self[self.attrs['y']]
+        if flatten:
+            return y.flatten()[self.get_index(xlim,mask=mask,flatten=flatten)]
+        return y[self.get_index(xlim,mask=mask,flatten=flatten)]
+
+    def get_edges(self, xlim=None, mask=Ellipsis):
+        # mask only in the form (1d, 1d, ...)
+        masks = self.get_index(xlim=xlim,mask=mask,flatten=False)
+        toret = _mask_edges(self.edges,masks)
+        return [toret[dim] for dim in self.dims]
+
+    def set_x(self, x, mask=Ellipsis, flatten=True):
+        for ix,x_ in enumerate(self.dims):
             self.data.setdefault(x_,np.full(self.shape,np.nan))
-            self[x_].flat[mask] = x[...,ix] if x.ndim > 1 else x
+            if flatten:
+                self[x_].flat[mask] = x[...,ix] if x.ndim > 1 else x
+            else:
+                self[x_][mask] = x
 
-    def set_y(self, y, mask=Ellipsis):
+    def set_y(self, y, mask=Ellipsis, flatten=True):
         self.attrs.setdefault('y','y')
         self.data.setdefault(self.attrs['y'],np.full(self.shape,np.nan))
-        self.data[self.attrs['y']].flat[mask] = y
+        y_ = self.attrs['y']
+        if flatten:
+            self[y_].flat[mask] = y
+        else:
+            self[y_][mask] = y
 
-    def get_index(self, xlim=None, mask=Ellipsis):
-        mask_ = np.zeros(self.size,dtype='?')
-        mask_[mask] = True
-        if xlim is not None:
-            x = self.get_x()
-            tmp = (x >= xlim[0]) & (x <= xlim[-1])
-            if tmp.ndim > 1:
-                tmp = np.all(tmp,axis=-1)
-            mask_ &= tmp
-        return np.flatnonzero(mask_)
+    def get_index(self, xlim=None, mask=Ellipsis, flatten=True):
+        if flatten:
+            mask_ = np.zeros(self.size,dtype='?')
+            mask_[mask] = True
+            if xlim is not None:
+                x = self.get_x()
+                tmp = (x >= xlim[0]) & (x <= xlim[-1])
+                if tmp.ndim > 1:
+                    tmp = np.all(tmp,axis=-1)
+                mask_ &= tmp
+            return np.flatnonzero(mask_)
+        toret = []
+        x = self.get_x(flatten=False)
+        allaxes = list(range(self.ndim))
+        if mask is not Ellipsis:
+            if np.ndim(mask) == 1:
+                mask = [mask]*self.ndim
+        for idim,dim in enumerate(self.dims):
+            mask_ = np.zeros(self.shape[idim],dtype='?')
+            mask_[mask[idim]] = True
+            if xlim is not None:
+                tmp = (x[...,idim] >= xlim[0]) & (x[...,idim] <= xlim[-1])
+                axes = allaxes.copy()
+                del axes[idim]
+                tmp = np.all(tmp,axis=tuple(axes))
+                mask_ &= tmp
+            toret.append(np.flatnonzero(mask_))
+        return toret
 
     def squeeze(self, dims=None):
         if dims is None:
@@ -485,11 +536,11 @@ class BinnedProjection(BinnedStatistic):
         if np.ndim(dims) == 0:
             dims = [dims]
         super(BinnedProjection,self).squeeze(dims=dims)
-        x = list(self.attrs['x'])
+        x = list(self.dims)
         for dim in dims:
             if dim in x:
                 del x[x.index(dim)]
-        self.attrs['x'] = tuple(x)
+        self.dims = x
 
     def __getstate__(self):
         state = super(BinnedProjection,self).__getstate__()
@@ -502,20 +553,5 @@ class BinnedProjection(BinnedStatistic):
 
     def get_header_txt(self, comments='#', **kwargs):
         header = super(BinnedProjection,self).get_header_txt(comments=comments,**kwargs)
-        header += ['{}proj = {}'.format(comments,json.dumps(self.proj.__getstate__()))]
+        header += ['{}#proj = {}'.format(comments,json.dumps(self.proj.__getstate__()))]
         return header
-
-    @classmethod
-    def load_txt(cls, filename, x=None, y=None, proj=None, attrs=None, **kwargs):
-        attrs = attrs or {}
-        if x is not None and isinstance(x,str): x = (x,)
-        new = super(BinnedProjection,cls).load_txt(filename,attrs=attrs,**kwargs)
-        for label,column in zip(['x','y'],[x,y]):
-            if column is not None:
-                new.attrs[label] = column
-        attrproj = new.attrs.pop('proj',None)
-        if proj is not None:
-            new.proj = ProjectionName(proj)
-        else:
-            new.proj = ProjectionName(attrproj)
-        return new

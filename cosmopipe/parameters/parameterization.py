@@ -8,10 +8,10 @@ from cosmopipe import section_names
 from cosmopipe.lib.parameter import ParamBlock, ParamError
 
 
-class Parameterisation(object):
+class Parameterization(object):
 
     #_reserved_option_names = ['common_parameters','specific_parameters']
-    logger = logging.getLogger('Parameterisation')
+    logger = logging.getLogger('Parameterization')
 
     def setup(self):
         self.parameters = ParamBlock(syntax.collapse_sections(self.options.get_dict('common_parameters',{}),maxdepth=2))

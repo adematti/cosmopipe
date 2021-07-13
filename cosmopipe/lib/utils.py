@@ -87,93 +87,11 @@ class BaseClass(_BaseClass):
         return new
 
 
-class MappingArray(BaseClass):
-
-    def __init__(self, array, mapping=None, dtype=None):
-
-        if isinstance(array,self.__class__):
-            self.__dict__.update(array.__dict__)
-            return
-
-        if mapping is None:
-            mapping = np.unique(array).tolist()
-            mapping = {m:m for m in mapping}
-
-        self.keys = mapping
-        if dtype is None:
-            nbytes = 2**np.ceil(np.log2(np.ceil((np.log2(len(self.keys)+1) + 1.)/8.)))
-            dtype = 'i{:d}'.format(int(nbytes))
-
-        try:
-            self.array = - np.ones_like(array,dtype=dtype)
-            array = np.array(array)
-            keys = []
-            for key,value in mapping.items():
-                keys.append(value)
-                self.array[array.astype(type(key)) == key] = keys.index(value)
-            self.keys = keys
-        except AttributeError:
-            self.array = np.array(array,dtype=dtype)
-
-    def __eq__(self, other):
-        if other in self.keys:
-            return self.array == self.keys.index(other)
-        return self.array == other
-
-    def __getitem__(self, name):
-        try:
-            return self.keys[self.array[name]]
-        except TypeError:
-            new = self.copy()
-            new.keys = self.keys.copy()
-            new.array = self.array[name]
-            return new
-
-    def __setitem__(self, name, item):
-        self.array[name] = self.keys.index(item)
-
-    def __contains__(self, item):
-        return self.keys.index(item) in self.array
-
-    @property
-    def shape(self):
-        return self.array.shape
-
-    @property
-    def size(self):
-        return self.array.size
-
-    def __array__(self):
-        return np.array([self.keys[a] for a in self.array.flat]).reshape(self.shape)
-
-    asarray = __array__
-
-    @classmethod
-    def concatenate(cls, *arrays):
-        array = [arrays[0]]
-        keys = arrays[0].keys.copy()
-        for ma in arrays[1:]:
-            a = ma.array.copy()
-            for ikey,key in enumerate(ma.keys):
-                if key not in keys:
-                    keys.append(key)
-                    a[a==ikey] = len(keys)
-            array.append(a)
-        array = np.concatenate(a)
-        return cls(array,keys)
-
-    def __getstate__(self):
-        state = super(MappingArray,self).__getstate__()
-        for key in ['array','keys']:
-            state[key] = getattr(self,key)
-        return state
-
-
-def _check_inv(mat, invmat, **kwargs):
+def _check_inv(mat, invmat, rtol=1e-04, atol=1e-05):
     tmp = mat.dot(invmat)
     ref = np.diag(np.ones(tmp.shape[0]))
-    if not np.allclose(tmp,ref,**kwargs):
-        raise LinAlgError('Numerically inacurrate inverse matrix, max absolute diff {:.3f}.'.format(np.max(np.abs(tmp-ref))))
+    if not np.allclose(tmp,ref,rtol=rtol,atol=atol):
+        raise LinAlgError('Numerically inacurrate inverse matrix, max absolute diff {:.6f}.'.format(np.max(np.abs(tmp-ref))))
 
 
 def inv(mat, inv=np.linalg.inv, check=True):

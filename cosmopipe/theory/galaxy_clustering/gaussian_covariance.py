@@ -31,6 +31,7 @@ class GaussianCovariance(object):
                 data_load = 'data_vector'
             data_vector = self.data_block[syntax.split_sections(data_load,default_section=section_names.data)]
             data = data_vector.copy(copy_proj=True)
+            #print('DATA',data.get_y())
             #data.data = [data.get(proj) for proj in data_vector.get_projs()]
             if projs is not None:
                 data.view(proj=projs)
@@ -56,6 +57,8 @@ class GaussianCovariance(object):
         else:
             kwview = self.kwview
         cov = self.covariance.view(**kwview)
+        #print('COV',cov.get_x()[0],'y',cov.get_y()[0])
+        #exit()
         self.data_block[section_names.covariance,'covariance_matrix'] = cov
         self.data_block[section_names.covariance,'cov'] = cov.get_cov()
         self.data_block[section_names.covariance,'invcov'] = cov.get_invcov()

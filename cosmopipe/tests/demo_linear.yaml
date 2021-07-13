@@ -17,7 +17,7 @@ minuit:
     n_iterations: 5
 
 params:
-  $module_name: cosmopipe.parameters.parameterisation
+  $module_name: cosmopipe.parameters.parameterization
   common_parameters:
     ${cosmological_parameters.yaml:}:
     ${linear_parameters.yaml:}:

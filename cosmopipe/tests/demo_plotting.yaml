@@ -8,7 +8,7 @@ main:
   $execute: [params, primordial, model, mockcov, mockdata, minuit, postprocessing]
 
 params:
-  $module_name: cosmopipe.parameters.parameterisation
+  $module_name: cosmopipe.parameters.parameterization
   common_parameters:
     ${cosmological_parameters.yaml:}:
     ${linear_parameters.yaml:}:

@@ -1,6 +1,12 @@
 import math
+from fractions import Fraction
+import logging
 
 import numpy as np
+from scipy import special
+from cosmoprimo import CorrelationToPower
+
+from cosmopipe.lib.utils import BaseClass
 
 
 class CorrelationWindowMatrix(BaseClass):
@@ -10,13 +16,12 @@ class CorrelationWindowMatrix(BaseClass):
     def __init__(self, ells, ellsout=None, window=None, s=None, **kwargs):
         if ellsout is None: ellsout = ells
         self.ells, self.ellsout = ells, ellsout
-        self.s = s
-        tmp = window(s,ell=0,**kwargs)
-        matrix = np.empty(tmp.shape + (len(self.ells),len(self.ellsout)),dtype=tmp.dtype)
+        self.s = np.asarray(s)
+        matrix = np.empty((len(self.ells),len(self.ellsout)) + self.s.shape,dtype=self.s.dtype)
         for illout,ellout in enumerate(self.ellsout):
             for illin,ellin in enumerate(self.ells):
-                ells,coeffs = wigner3j_square(ellout,ellin) #case ellin = (ell,n)
-                matrix[illout][illin] = np.sum([coeff*window(s,ell=ell) for ell,coeff in zip(ells,coeffs)],axis=0)
+                ellsw,coeffs = wigner3j_square(ellout,ellin)
+                matrix[illout][illin] = np.sum([coeff*window(self.s,ell=ell) for ell,coeff in zip(ellsw,coeffs)],axis=0)
         self.matrix = np.transpose(matrix,(2,1,0)) # matrix is now (s,ells,ellsout)
 
     def compute(self, func):
@@ -29,23 +34,33 @@ class CorrelationWindowMatrix(BaseClass):
         return state
 
 
-class PowerWindowMatrix(CorrelationWindowMatrix):
+class PowerWindowMatrix(BaseClass):
 
     logger = logging.getLogger('PowerWindowMatrix')
 
-    def __init__(self, ells, ellsout=None, window=None, kout=None, krange=None, srange=(1e-4,1e4), ns=1024*64, q=0, **kwargs):
+    def __init__(self, ells, ellsout=None, window=None, kout=None, krange=None, srange=(1e-4,1e4), ns=1024*16, q=1.5, **kwargs):
         if krange is not None:
             srange = (1./krange[1],1./krange[0])
         self.kout = kout
         s = np.logspace(np.log10(srange[0]),np.log10(srange[1]),ns)
-        super(CorrelationWindowMatrix,self).__init__(ells=ells,ellsout=ellsout,window=window,s=s,**kwargs)
-        fflog = CorrelationToPower(s,ell=ells,q=q,lowring=False)
-        k, matrix = fflog(np.transpose(self.matrix,(2,1,0))) # now (ellsout,ells,k)
-        self.k = k[0]
-        prefactor = 2./np.pi * ((1j)**np.array(self.ellsout))[:,None] * ((-1j)**np.array(self.ells))[None,:]
-        # now (ellsout, kout, ells, k)
-        matrix = (prefactor * matrix)[:,None,...] * np.array([special.spherical_jn(ell,s[None,:]*self.kout[:,None]) for ellout in ellsout])[:,:,None,:]
-        self.matrix = np.transpose(matrix.real,(1,0,3,2)) # now (kout,ellsout,k,ells)
+        CorrelationWindowMatrix.__init__(self,ells=ells,ellsout=ellsout,window=window,s=s,**kwargs) # matrix is now (s,ells,ellsout)
+        ells = np.array(self.ells)
+        full_matrix = []
+
+        for illout,ellout in enumerate(self.ellsout):
+            matrix = self.matrix[...,illout].T[None,...] * special.spherical_jn(ellout,self.kout[:,None,None]*s) # matrix is now (kout,ells,s)
+            #from hankl import P2xi, xi2P
+            fflog = CorrelationToPower(s,ell=ells,q=q,lowring=False) # prefactor is 4 pi (-i)^ell
+            k, matrix = fflog(matrix) # now (kout,ells,k)
+            matrix = np.transpose(matrix,(0,2,1)) # now (kout,k,ells)
+            self.k = k[0]
+            prefactor = 1./(2.*np.pi**2) * (-1j)**ellout * (-1)**ells # now prefactor 2/pi (-i)^ellout i^ell
+            if ellout % 2 == 1: prefactor *= -1j # we provide the imaginary part of odd power spectra, so let's multiply by (-i)^ellout
+            prefactor[ells % 2 == 1] *= 1j # we take in the imaginary part of odd power spectra, so let's multiply by i^ell
+            matrix = np.real(prefactor * matrix) # everything should be real now
+            full_matrix.append(matrix)
+
+        self.matrix = np.transpose(full_matrix,(1,0,2,3)) # now (kout,ellsout,k,ells)
 
     def compute(self, func):
         # matrix is (kout,ellsout,k,ells), func is (k,ells)
@@ -55,6 +70,25 @@ class PowerWindowMatrix(CorrelationWindowMatrix):
         for key in ['ells','ellsout','k','kout','matrix']:
             state[key] = getattr(self,key)
         return state
+
+
+class PowerWindowWideAngleMatrix(BaseClass):
+
+    logger = logging.getLogger('PowerWindowWideAngleMatrix')
+
+    def __init__(self, data, model_bases=None, n=None, **kwargs):
+        self.model_bases = ProjectionBaseCollection(model_bases)
+        self.data = data
+
+    def compute(self, func):
+        # matrix is (kout,ellsout,k,ells), func is (k,ells)
+        return np.sum(self.matrix*func,axis=(2,3))
+
+    def __getstate__(self, state):
+        for key in ['ells','ellsout','k','kout','matrix']:
+            state[key] = getattr(self,key)
+        return state
+
 
 
 def wigner3j_square(ellout, ellin, prefactor=True, as_string=False):

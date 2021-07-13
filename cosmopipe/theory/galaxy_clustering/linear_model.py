@@ -22,6 +22,7 @@ class LinearModel(object):
         except TypeError:
             self.data_shotnoise = self.data_block[section_names.data,'data_vector'].get(self.data_shotnoise,permissive=True)[0].attrs['shotnoise']
         self.model.base.set(shotnoise=self.data_shotnoise,**self.options.get('model_attrs',{}))
+        self.model.eval = None # just to make sure it is not called without execute
         self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
         self.x = pklin.k
 

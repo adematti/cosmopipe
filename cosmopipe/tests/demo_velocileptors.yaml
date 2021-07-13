@@ -16,10 +16,15 @@ minuit:
   torun: [migrad]
 
 params:
-  $module_name: cosmopipe.parameters.parameterisation
+  $module_name: cosmopipe.parameters.parameterization
   common_parameters:
     ${cosmological_parameters.yaml:}:
-    ${velocileptors_eptfull_parameters.yaml:}:
+    galaxy_bias:
+      ${velocileptors_eptfull_parameters.yaml:galaxy_bias}:
+      b3:
+        value: -0.479
+        fixed: True
+        latex: 'b_{3}'
     survey_geometry:
       zeff:
         value: 1.0

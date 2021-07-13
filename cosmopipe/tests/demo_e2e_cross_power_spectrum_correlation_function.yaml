@@ -5,8 +5,8 @@ catalog_dir: _catalog
 
 main:
   #$execute: [fiducial, power_box_estimator, correlation_survey_estimator, power_plotting, correlation_plotting]
-  $execute: [params, fiducial, power_box_estimator, correlation_survey_estimator, data, primordial, model, mockcov, minuit, plotting, postprocessing]
-  #$execute: [params, power, correlation, primordial, model, mockcov, minuit, plotting, postprocessing]
+  #$execute: [params, fiducial, power_box_estimator, correlation_survey_estimator, data, primordial, model, gaussiancov, minuit, plotting, postprocessing]
+  $execute: [params, fiducial, power, correlation, primordial, model, gaussiancov, minuit, plotting, postprocessing]
   #$execute: [fiducial, power_box_estimator, power_plotting]
   #$execute: [power_plotting, correlation_plotting]
 
@@ -30,7 +30,7 @@ minuit:
     n_iterations: 10
 
 params:
-  $module_name: cosmopipe.parameters.parameterisation
+  $module_name: cosmopipe.parameters.parameterization
   common_parameters:
     ${cosmological_parameters.yaml:}:
     ${linear_parameters.yaml:}:
@@ -93,7 +93,7 @@ correlation_plotting:
   kwplt: {'alpha': 0.3}
   filename: f'${plots_dir}/correlation_function.png'
 
-mockcov:
+gaussiancov:
   $module_name: cosmopipe.theory.galaxy_clustering.gaussian_covariance
   volume: e'1380.**3'
   data_load: True
@@ -136,6 +136,7 @@ projection:
 model:
   $module_name: cosmopipe.theory.galaxy_clustering.linear_model
   FoG: gaussian
+  data_shotnoise: 1e3
 
 hankel:
   $module_name: cosmopipe.theory.projections.hankel_transform

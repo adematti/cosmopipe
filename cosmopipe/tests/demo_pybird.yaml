@@ -16,7 +16,7 @@ minuit:
   torun: [migrad]
 
 params:
-  $module_name: cosmopipe.parameters.parameterisation
+  $module_name: cosmopipe.parameters.parameterization
   common_parameters:
     ${cosmological_parameters.yaml:}:
     ${pybird_parameters.yaml:}:

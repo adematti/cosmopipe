@@ -61,7 +61,7 @@ minuit:
   save: f'${samples_dir}/minuit.npy'
 
 params:
-  $module_name: cosmopipe.parameters.parameterisation
+  $module_name: cosmopipe.parameters.parameterization
   common_parameters:
     ${cosmological_parameters.yaml:}:
     ${linear_parameters.yaml:}:

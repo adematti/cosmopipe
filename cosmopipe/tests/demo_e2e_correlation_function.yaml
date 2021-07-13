@@ -8,7 +8,7 @@ main:
   #$execute: [fiducial, survey_estimator, data_plotting]
   #$execute: [data, data_plotting]
   #$execute: [fiducial, survey_estimator, data_plotting]
-  $execute: [fiducial, box_estimator, data_plotting, data, params, primordial, model, mockcov, compare]
+  $execute: [fiducial, data, data_plotting, data, params, primordial, model, mockcov, compare]
   #$execute: [data, params, primordial, model, hankel, mockcov, compare]
   #$execute: [fiducial, box_estimator, data_plotting]
   #$execute: [data_plotting]
@@ -26,7 +26,7 @@ minuit:
     n_iterations: 10
 
 params:
-  $module_name: cosmopipe.parameters.parameterisation
+  $module_name: cosmopipe.parameters.parameterization
   common_parameters:
     ${cosmological_parameters.yaml:}:
     galaxy_bias:

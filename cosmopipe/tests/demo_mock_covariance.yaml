@@ -20,7 +20,7 @@ mpi:
     data.data_vector: e'["data_vector_{:d}".format(i+1) for i in range(${num_mocks})]'
 
 params:
-  $module_name: cosmopipe.parameters.parameterisation
+  $module_name: cosmopipe.parameters.parameterization
   common_parameters:
     ${cosmological_parameters.yaml:}:
 

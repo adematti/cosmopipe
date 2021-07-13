@@ -23,7 +23,7 @@ class ProjectionName(BaseClass):
     _mode_shorts = {MULTIPOLE:'ell',MUWEDGE:'mu',MUBIN:'mubin',PIWEDGE:'pi',None:'None'}
     _space_shorts = {POWER:'power',CORRELATION:'corr'}
     _latex = {MULTIPOLE:'\ell',MUWEDGE:'\mu',MUBIN:'\mu',PIWEDGE:'\pi'}
-    _attrs = ['name','fields','space','mode','proj']
+    _attrs = ['name','fields','space','mode','proj','wa_order']
 
     def __init__(self, *args, **kwargs):
         for name in self._attrs:
@@ -86,7 +86,6 @@ class ProjectionName(BaseClass):
         if not isscalar:
             label = '({})'.format(label)
         return '{} = {}'.format(base,label)
-
 
     def get_projlabel(self):
         if self.mode is None:

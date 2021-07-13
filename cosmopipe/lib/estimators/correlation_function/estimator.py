@@ -25,11 +25,9 @@ class PairCount(BinnedStatistic):
 
 class CorrelationFunctionEstimator(BinnedProjection):
 
-    def __init__(self, D1D2, R1R2, D1R2=None, D2R1=None, data=None, edges=None, attrs=None, **kwargs):
+    def __init__(self, D1D2=None, R1R2=None, D1R2=None, D2R1=None, data=None, dims=None, edges=None, attrs=None, **kwargs):
         data = (data or {}).copy()
-        attrs = attrs or {}
-        if D2R1 is None:
-            D2R1 = D1R2
+        attrs = (attrs or {}).copy()
         for key,value in zip(['D1D2','R1R2','D1R2','D2R1'],[D1D2,R1R2,D1R2,D2R1]):
             if isinstance(value,np.ndarray):
                 data[key] = value
@@ -38,12 +36,12 @@ class CorrelationFunctionEstimator(BinnedProjection):
                 data[key] = value['wnpairs']
                 attrs['{}_total_wnpairs'.format(key)] = value.attrs['total_wnpairs']
         data.setdefault('D2R1',data.get('D1R2',None))
+        attrs.setdefault('D2R1_total_wnpairs',attrs.get('D1R2_total_wnpairs',None))
         data = {name:value for name,value in data.items() if value is not None}
         attrs['columns_to_sum'] = [name for name in ['D1D2','R1R2','D1R2','D2R1'] if data.get(name,None) is not None]
         attrs['weights'] = 'R1R2'
-        attrs['x'] = list(edges.keys())
         attrs['y'] = 'corr'
-        super(CorrelationFunctionEstimator,self).__init__(data,attrs=attrs,edges=edges,**kwargs)
+        super(CorrelationFunctionEstimator,self).__init__(data,attrs=attrs,dims=dims,edges=edges,**kwargs)
         self.set_corr()
 
     def total_wnpairs(self, key):
@@ -56,7 +54,8 @@ class CorrelationFunctionEstimator(BinnedProjection):
         new = self.copy()
         dpi = np.diff(self.edges['pi'])
         new.data = {}
-        x = new.attrs['x'] = self.attrs['x'][0]
+        new.dims = self.dims[:1]
+        x = new.dims[0]
         new.edges = {x:self.edges[x]}
         new.set_x(self[x].mean(axis=-1))
         new.set_y(2*(self['corr']*dpi).sum(axis=-1))
@@ -69,7 +68,8 @@ class CorrelationFunctionEstimator(BinnedProjection):
         isscalar = np.ndim(muwedges[0]) == 0
         if isscalar: muwedges = [muwedges]
         for muwedge in muwedges:
-            new = self.copy()
+            new = BinnedProjection.__new__(BinnedProjection)
+            new.__dict__.update(self.copy().__dict__)
             new.proj = self.proj.copy()
             new.proj.mode = ProjectionName.MUWEDGE
             new.proj.proj = tuple(muwedge)
@@ -86,10 +86,11 @@ class CorrelationFunctionEstimator(BinnedProjection):
         isscalar = np.ndim(ells) == 0
         if isscalar: ells = [ells]
         for ell in ells:
-            new = self.copy()
+            new = BinnedProjection.__new__(BinnedProjection)
+            new.__dict__.update(self.copy().__dict__)
             new.data = {}
-            x = self.attrs['x'][0]
-            new.attrs['x'] = (x,)
+            new.dims = self.dims[:1]
+            x = new.dims[0]
             new.edges = {x:self.edges[x]}
             new.proj = self.proj.copy()
             new.proj.mode = ProjectionName.MULTIPOLE

@@ -16,7 +16,7 @@ minuit:
   torun: [migrad]
 
 params_power:
-  $module_name: cosmopipe.parameters.parameterisation
+  $module_name: cosmopipe.parameters.parameterization
   common_parameters:
     ${cosmological_parameters.yaml:}:
     ${velocileptors_fourier_streaming_parameters.yaml:}:
@@ -26,7 +26,7 @@ params_power:
         fixed: True
 
 params_correlation:
-  $module_name: cosmopipe.parameters.parameterisation
+  $module_name: cosmopipe.parameters.parameterization
   common_parameters:
     ${cosmological_parameters.yaml:}:
     ${velocileptors_gaussian_streaming_parameters.yaml:}:

@@ -169,6 +169,7 @@ class DataVector(BaseClass):
             index += _get_one_index(**{key:value[ii] for key,value in kwargs.items()},permissive=permissive)
         if isscalar and index:
             index = index[0]
+
         return index
 
     def get_x(self, concatenate=False, **kwargs):
@@ -489,7 +490,8 @@ class DataVector(BaseClass):
                 if columns is None: columns = ['x'] + ['col{:d}'.format(icol) for icol in usecols[1:]]
             data = BinnedProjection.load_txt(file[start:stop],comments=comments,usecols=usecols,mapping_header=mapping_header,columns=columns,**kwargs)
             if not projection_format:
-                data.attrs.setdefault('x',(columns[0],))
+                if data.dims == ['x']: # default value
+                    data.dims = [columns[0]]
                 data.attrs.setdefault('y',columns[1])
             if mapping_proj is not None:
                 #columns = list(mapping_proj.keys())

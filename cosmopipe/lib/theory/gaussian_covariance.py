@@ -91,6 +91,7 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
         self.edges = []
         for proj in self.projs:
             edges = data.get_edges(proj=proj)[0]
+            #print(proj,edges)
             self.edges.append(np.vstack([edges[:-1],edges[1:]]).T)
 
         self.projection = ModelCollectionProjection(data,model_bases=self.model_bases,integration=integration)
