@@ -4,12 +4,15 @@ from cosmoprimo import PowerSpectrumInterpolator2D
 
 from cosmopipe.lib import theory
 from cosmopipe.lib.theory.base import ProjectionBase
+from cosmopipe.lib.modules import ParameterizedModule
+
 from cosmopipe import section_names
 
 
-class IsotropicScaling(object):
+class IsotropicScaling(ParameterizedModule):
 
     def setup(self):
+        self.set_param_block()
         input_model = self.data_block[section_names.primordial_perturbations,'pk_callable']
         self.scaling = theory.IsotropicScaling(model=input_model,
                                                 base=ProjectionBase(space=ProjectionBase.POWER),

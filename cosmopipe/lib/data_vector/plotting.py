@@ -126,7 +126,7 @@ class PowerSpectrumPlotStyle(BaseDataPlotStyle):
     def __init__(self, style=None, **kwargs):
         super(PowerSpectrumPlotStyle,self).__init__(style=style)
         self.xlabel = '$k$ [$h \ \\mathrm{Mpc}^{-1}$]'
-        self.ylabel = '$k P(k)$ [$(\\mathrm{Mpc} \ h)^{-1})^{2}$]'
+        self.ylabel = '$k P(k)$ [$(\\mathrm{Mpc} \ h^{-1})^{2}$]'
         self.update(**kwargs)
 
     def get_projs(self, data_vector=None):

@@ -18,11 +18,18 @@ options:
     type: string
     default: class
     description: Default engine for the cosmology class
-  Omega_m:
-    type: float
-    default: 0.3
-    description: Matter density parameters
-  $others: Valid parameters for cosmoprimo.Cosmology
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+  update_parameters:
+    type: dict
+    default: {}
+    description: update base parameters
+
+parameters:
+  primordial_cosmology:
+    ${fiducial.yaml:parameters.fiducial_cosmology}:
 
 execute output:
   fiducial_cosmology.cosmo:

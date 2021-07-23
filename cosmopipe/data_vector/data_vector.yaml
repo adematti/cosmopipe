@@ -47,13 +47,14 @@ options:
     description: dictionary holding keyword:regex mapping or (regex, type) to provide the type.
                 The corresponding values will be saved in the :attr:`attrs` dictionary
   mapping_proj:
-    type: dict
+    type: [dict, list]
     default: None
-    description: "dictionary holding a mapping from column name to projection specifier (e.g. 'ell_0', ['muwedge', [0.0,0.2]], or with a name, e.g.: 'ELG_ell_0', ['ELG','muwedge',[0.0,0.2]])"
+    description: "dictionary holding a mapping from column name to projection specifier (e.g. 'ell_0', ['muwedge', [0.0,0.2]], or with a name, e.g.: 'ELG_ell_0', ['ELG','muwedge',[0.0,0.2]]).
+                  It can also be a list corresponding to input columns (skipping the first - x)."
   attrs:
     type: dict
     default: {}
-    description: global attributes for DataVector
+    description: global attributes for data vector
 
 
 setup output:

@@ -9,6 +9,33 @@ long description: >
                   Rescale power spectrum by the ratio between
                   the current cosmology and a fiducial one.
 
+options:
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+  update_parameters:
+    type: dict
+    default: {}
+    description: update base parameters
+
+parameters:
+  effect_ap:
+    qpar:
+      value: 1.0
+      fixed: False
+      prior:
+        dist: uniform
+        limits: [0.9, 1.1]
+      latex: 'q_{\parallel}'
+    qperp:
+      value: 1.0
+      fixed: False
+      prior:
+        dist: uniform
+        limits: [0.9, 1.1]
+      latex: 'q_{\perp}'
+
 setup input:
   model.collection:
     type: ModelCollection

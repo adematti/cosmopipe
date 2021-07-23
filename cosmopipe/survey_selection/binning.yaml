@@ -1,0 +1,15 @@
+name: BaseBinning
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Base binning scheme that evaluates model right at the data points
+requirements: []
+
+long description: >
+                  Relevant only within the context of a :class:`SurveyProjection` pipeline.
+
+setup output:
+  survey_selection.effect:
+    type: BaseBinning
+    description: :class:`BaseBinning` instance

@@ -5,7 +5,7 @@ from cosmoprimo import PowerToCorrelation, CorrelationToPower
 
 from cosmopipe.lib.data_vector import DataVector, ProjectionName
 from .base import BaseModel, ProjectionBase
-from .projection import ModelProjection
+from .evaluation import ModelEvaluation
 
 
 class HankelTransform(BaseModel):
@@ -22,8 +22,7 @@ class HankelTransform(BaseModel):
         else:
             self.ells = ells or self.input_base.projs
         projs = [ProjectionName((ProjectionName.MULTIPOLE,ell)) for ell in self.ells]
-        data = DataVector(x=self.x,proj=projs)
-        self.projection = ModelProjection(data,model_base=self.input_base,integration=integration)
+        self.evaluation = ModelEvaluation(self.x,projs=projs,model_base=self.input_base,integration=integration)
         self.base = self.input_base.copy()
         if self.input_base.space == ProjectionBase.POWER:
             self.fftlog = PowerToCorrelation(self.x,ell=self.ells,q=q,lowring=False,xy=1)
@@ -48,6 +47,6 @@ class HankelTransform(BaseModel):
             self.damping[low] *= np.exp(-(cutoff/x[low]-1.)**2)
 
     def eval(self, x, **kwargs):
-        modelell = self.projection(self.input_model,concatenate=False,**kwargs)*self.damping
+        modelell = self.evaluation(self.input_model,concatenate=False,**kwargs)*self.damping
         modelell = self.fftlog(modelell)[-1].T
         return interpolate.interp1d(self.base.x,modelell,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)(x)

@@ -4,11 +4,11 @@ from pybird_dev import pybird
 
 from cosmopipe.lib import utils, theory
 from cosmopipe.lib.theory.base import BaseModel, ProjectionBase, ModelCollection
-
+from cosmopipe.lib.modules import ParameterizedModule
 from cosmopipe import section_names
 
 
-class PyBird(object):
+class PyBird(ParameterizedModule):
 
     def init_pybird(self):
         cache = dict(Nl=len(self.ells),kmax=self.kmax,km=self.km,optiresum=self.with_resum == 'opti',nd=self.nd,with_cf=self.with_correlation)
@@ -29,7 +29,7 @@ class PyBird(object):
                 self.nnlo_counterterm = pybird.NNLO_counterterm(co=self.co)
 
     def set_pklin(self):
-        self.zeff = self.data_block[section_names.survey_geometry,'zeff']
+        self.zeff = self.data_block[section_names.survey_selection,'zeff']
         pklin = self.data_block[section_names.primordial_perturbations,'pk_callable']
         self.sigma8 = pklin.sigma8_z(self.zeff)
         self.klin,self.pklin = pklin.k,pklin(pklin.k,z=self.zeff)
@@ -47,6 +47,7 @@ class PyBird(object):
         self.pknow = pknow_callable(self.co.k)
 
     def setup(self):
+        self.set_param_block()
         self.set_pklin()
         self.ells = [0,2,4]
         self.data_shotnoise = self.options.get('data_shotnoise',None)
@@ -90,11 +91,11 @@ class PyBird(object):
 
         model_collection = ModelCollection()
         if self.with_correlation:
-            self.model_correlation = BaseModel(base=ProjectionBase(x=self.co.s,space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE,projs=self.ells,**self.model_attrs))
+            self.model_correlation = BaseModel(base=ProjectionBase(x=self.co.s,space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs))
             model_collection.set(self.model_correlation)
 
         if self.with_power:
-            self.model_power = BaseModel(base=ProjectionBase(x=self.co.k,space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE,projs=self.ells,**self.model_attrs))
+            self.model_power = BaseModel(base=ProjectionBase(x=self.co.k,space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs))
             model_collection.set(self.model_power)
 
         self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + model_collection

@@ -1,0 +1,60 @@
+name: SyntheticDataVector
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Generate a Gaussian mock data vector provided a covariance matrix
+
+
+options:
+  xlim:
+    type: dict
+    default: None
+    description: dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)})
+                or list of tuples corresponding to the data projections
+  data_load:
+    type: [bool, string]
+    default: False
+    description: if ``True`` or (section, name), starts from a data_vector from corresponding data_block entry
+  projs:
+    type: list
+    default: None
+    description: list of projections (e.g. ['ell_0','mu_1/3_2/3']).
+                If ``None``, the projections of the current data vector are used
+  x:
+    type: [dict, list, float_array]
+    default: None
+    description: >
+                an array, a list of arrays (for the different projections), a dictionary or a list of dictionary,
+                to define the ``x``-axis sampling.
+                If a dictionary is provided, should contain 'min', 'max', 'nbins' or 'step' (optionally 'scale': 'lin' or 'log').
+                If ``None``, the ``x``-coordinates of the data vector are used
+  y:
+    type: [dict, list, float_array]
+    default: None
+    description: >
+                an array, a list of arrays (for the different projections), a dictionary or a list of dictionary,
+                to define the ``y``-axis sampling.
+                If a dictionary is provided, should contain 'min', 'max', 'nbins' or 'step' (optionally 'scale': 'lin' or 'log').
+                If ``None``, the ``y``-coordinates of the data vector are used
+  edges:
+    type: [dict, list, float_array]
+    default: None
+    description: >
+                an array, a list of arrays (for the different projections), a dictionary or a list of dictionary,
+                to define the edges.
+                If a dictionary is provided, should contain 'min', 'max', 'nbins' or 'step' (optionally 'scale': 'lin' or 'log').
+                If ``None``, the edges of the data vector are used
+  save:
+    type: string
+    default: None
+    description: if not ``None``, path to save generated data vector
+
+
+setup output:
+  data.data_vector:
+    type: cosmopipe.lib.data.DataVector
+    description: Data vector
+  data.y:
+    type: float_array
+    description: array view of the y-coordinate of the data vector

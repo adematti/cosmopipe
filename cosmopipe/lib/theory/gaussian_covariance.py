@@ -6,7 +6,7 @@ from scipy import special
 
 from cosmopipe.lib.data_vector import CovarianceMatrix
 from .base import ProjectionName, ProjectionBase, ProjectionBaseCollection, ModelCollection
-from .projection import ModelCollectionProjection
+from .evaluation import ModelEvaluation
 from .hankel_transform import HankelTransform
 
 
@@ -47,11 +47,11 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
 
     logger = logging.getLogger('GaussianCovarianceMatrix')
 
-    def __init__(self, data, model_bases=None, volume=None, xnum=3, munum=100, integration=None, kcutoff=(1e-6,1e1), attrs=None):
+    def __init__(self, data, model_base=None, volume=None, xnum=3, munum=100, integration=None, kcutoff=(1e-6,1e1), attrs=None):
 
         self.projs = data.get_projs()
-        self.model_bases = ProjectionBaseCollection(model_bases)
-        self.power_bases = self.model_bases.select([{'name':proj.name,'space':ProjectionBase.POWER} for proj in self.projs])
+        self.model_bases = ProjectionBaseCollection(model_base)
+        self.power_bases = self.model_bases.select(*[{'name':proj.name,'space':ProjectionBase.POWER} for proj in self.projs])
 
         # if no model provided for correlation, compute from power
         correlation_bases = {}
@@ -60,8 +60,7 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
                 base = self.model_bases.get_by_proj(proj)
             except IndexError:
                 if proj.space == ProjectionBase.CORRELATION:
-                    proj = proj.copy()
-                    proj.space = ProjectionBase.POWER
+                    proj = proj.copy(space=ProjectionBase.POWER)
                     new = self.model_bases.get_by_proj(proj)
                     if new not in correlation_bases:
                         correlation_bases[new] = []
@@ -91,9 +90,10 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
         self.edges = []
         for proj in self.projs:
             edges = data.get_edges(proj=proj)[0]
+            #print(proj,edges)
             self.edges.append(np.vstack([edges[:-1],edges[1:]]).T)
 
-        self.projection = ModelCollectionProjection(data,model_bases=self.model_bases,integration=integration)
+        self.evaluation = ModelEvaluation(data,model_base=self.model_bases,integration=integration)
 
         self.xnum = xnum
         self.munum = munum
@@ -107,11 +107,12 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
 
     def compute(self, models):
 
+        models = ModelCollection(models)
         for extmodel in self.ext_models.models:
             extmodel.input_model = models.get(extmodel.input_base)
 
         models = models + self.ext_models
-        mean = self.projection.to_data_vector(models)
+        mean = self.evaluation.to_data_vector(models)
 
         cov = [[None for proj in self.projs] for proj in self.projs]
         self._sigmak = {}

@@ -4,6 +4,7 @@ from cosmopipe.lib import utils
 from cosmopipe.lib.utils import BaseClass
 
 from .base import ProjectionBase, BaseModel
+from .integration import MultipoleExpansion
 
 
 class AnisotropicScaling(BaseModel):

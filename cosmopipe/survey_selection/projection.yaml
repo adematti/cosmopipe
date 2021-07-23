@@ -1,0 +1,36 @@
+name: SurveyProjection
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Project model onto observed data space
+requirements: []
+
+long description: >
+                  This pipeline takes care of the different survey selection/geometry effects:
+                  (odd) wide-angle, window function, binning...
+                  as a suite of matrix operations.
+                  The end-user should just specify the list of modules for these different effects
+                  through the keyword $modules.
+                  Empty list will result in a simple model evaluation at the data points.
+
+options:
+  integration:
+    type: [list, dict]
+    default: None
+    description: options for integration from :math:`(x,\mu)` model space to projection space (multipoles, wedges...)
+
+setup input:
+  data.data_vector:
+    type: DataVector
+    description: Data vector
+
+execute input:
+  model.collection:
+    type: ModelCollection
+    description: Collection of theory models
+
+execute output:
+  model.y:
+    type: numpy array
+    description: Model vector

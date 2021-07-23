@@ -5,16 +5,14 @@ from pypescript.config import ConfigError
 
 from cosmopipe import section_names
 from cosmopipe.lib import utils
-from cosmopipe.lib.utils import BaseClass
-from cosmopipe.lib.theory.base import ModelCollection
+from cosmopipe.lib.theory.base import ProjectionBase, ModelCollection
 from cosmopipe.lib.theory import hankel_transform
-from cosmopipe.lib.theory.projection import ProjectionBase
 
 
 class HankelTransform(object):
 
     def setup(self):
-        options = {'nx':1024,'q':1.5,'ells':(0,2,4),'integration':None}
+        options = dict(nx=1024,q=1.5,ells=(0,2,4),integration=None)
         for name,value in options.items():
             options[name] = self.options.get(name,value)
         model_names = self.options.get_list('model_names',None)
@@ -22,7 +20,7 @@ class HankelTransform(object):
         if model_names is not None:
             model_attrs['name'] = set(model_names)
         origin_collection = self.data_block[section_names.model,'collection']
-        tmp = origin_collection.select(model_attrs)
+        tmp = origin_collection.select(*model_attrs)
         collection = ModelCollection()
         for base,model in tmp:
             if not isinstance(model,hankel_transform.HankelTransform):

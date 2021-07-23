@@ -53,5 +53,5 @@ def test_landy_szalay_estimator():
 if __name__ == '__main__':
 
     setup_logging()
-    test_natural_estimator()
+    #test_natural_estimator()
     test_landy_szalay_estimator()

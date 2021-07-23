@@ -3,7 +3,7 @@ from pypescript import syntax
 
 from cosmopipe import section_names
 from cosmopipe.lib.data_vector import DataVector, DataPlotStyle
-from cosmopipe.lib.theory import projection
+from cosmopipe.lib.theory import evaluation
 from cosmopipe.lib import syntax, utils
 
 
@@ -27,13 +27,13 @@ class ModelPlotting(object):
 
     def execute(self):
         self.style.mpicomm = self.mpicomm
-        self.projection = self.data_block[section_names.model,'projection']
+        self.projection_collection = self.data_block[section_names.survey_selection,'projection_collection']
         data_vector = None
         if self.data_load:
             data_vector = syntax.load_auto(self.data_load,data_block=self.data_block,default_section=section_names.data,loader=DataVector.load_auto,squeeze=True)
         if self.xmodel is not None:
             x = []
-            xmodels, projs = self.xmodel, self.projection.projs
+            xmodels, projs = self.xmodel, self.projection_collection.projs
             if isinstance(xmodels,dict) or np.ndim(xmodels[0]) == 0:
                 xmodels = [xmodels]*len(projs)
             for xmodel,proj in zip(xmodels,projs):
@@ -47,9 +47,9 @@ class ModelPlotting(object):
                 else:
                     x.append(xmodel)
             data = DataVector(x=x,proj=projs)
-            self.projection = projection.ModelCollectionProjection(data,
-                            model_bases=self.projection.model_bases,integration=self.projection.integration_options)
-        data_vectors = [self.projection.to_data_vector(self.data_block[section_names.model,'collection'])]
+            self.projection_collection = self.projection_collection.copy()
+            self.projection_collection.setup(data=data)
+        data_vectors = [self.projection_collection.to_data_vector(self.data_block[section_names.model,'collection'])]
         if data_vector is not None:
             data_vectors.append(data_vector)
         if self.covariance_load:

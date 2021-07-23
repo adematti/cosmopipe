@@ -3,11 +3,13 @@ from scipy import interpolate
 
 from cosmoprimo import Cosmology, PowerSpectrumBAOFilter
 
-from cosmopipe import section_names
 from cosmopipe.lib.theory.base import BaseModel, ProjectionBase, ModelCollection
+from cosmopipe.lib.parameter import ParamName
+from cosmopipe.lib.modules import ParameterizedModule
+from cosmopipe import section_names
 
 
-class Velocileptors(object):
+class Velocileptors(ParameterizedModule):
 
     def get_theory_options(self):
         options = self._default_options.copy()
@@ -23,11 +25,14 @@ class Velocileptors(object):
         return options
 
     def set_model(self, space=ProjectionBase.POWER, mode=ProjectionBase.MUWEDGE, projs=None):
+        include = [ParamName(section_names.galaxy_bias,name) for name in self.required_params if name not in self.default_required_params]
+        include += [ParamName(section_names.galaxy_bias,name) for name in self.optional_params]
+        self.set_param_block(include=include)
         self.model = BaseModel(base=ProjectionBase(x=self.theory.kv if space == ProjectionBase.POWER else self.theory.rint,space=space,mode=mode,projs=projs,**self.model_attrs))
         self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
 
     def set_pklin(self):
-        self.zeff = self.data_block[section_names.survey_geometry,'zeff']
+        self.zeff = self.data_block[section_names.survey_selection,'zeff']
         pklin = self.data_block[section_names.primordial_perturbations,'pk_callable']
         self.sigma8 = pklin.sigma8_z(self.zeff)
         self.klin,self.pklin = pklin.k,pklin(pklin.k,z=self.zeff)
@@ -41,12 +46,15 @@ class Velocileptors(object):
     def get_model_callable(self, pars, f, **kwargs):
 
         def model_callable(k, mu, grid=True):
-            pkmu = np.array([self.theory.compute_redshift_space_power_at_mu(pars,f,mu_,apar=1.,aperp=1.,**kwargs)[-1] for mu_ in mu]).T
-            pkmu += self.data_shotnoise
-            toret = interpolate.interp1d(self.theory.kv,pkmu,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k)
             if grid:
-                return toret
-            return np.diag(toret)
+                tmp = np.array([self.theory.compute_redshift_space_power_at_mu(pars,f,mu_,apar=1.,aperp=1.,**kwargs)[-1] for mu_ in mu]).T
+                toret = interpolate.interp1d(self.theory.kv,tmp,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k)
+            else:
+                toret = np.empty(k.shape,dtype=k.dtype)
+                for imu,mu_ in enumerate(mu):
+                    tmp = self.theory.compute_redshift_space_power_at_mu(pars,f,mu_,apar=1.,aperp=1.,**kwargs)[-1]
+                    toret[:,imu] = interpolate.interp1d(self.theory.kv,tmp,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k[:,imu])
+            return toret + self.data_shotnoise
 
         return model_callable
 
@@ -54,12 +62,14 @@ class Velocileptors(object):
         pars = []
         for par in self.required_params:
             pars.append(self.data_block.get(section_names.galaxy_bias,par))
+        for par,value in self.default_required_params.items():
+            pars.append(value)
         opts = {}
         for par in self.optional_params:
             opts[par] = self.data_block.get(section_names.galaxy_bias,par,self.optional_params[par])
         fsig = self.data_block.get(section_names.galaxy_rsd,'fsig',self.growth_rate*self.sigma8)
         f = fsig/self.sigma8
-  
+
         self.model.eval = self.get_model_callable(pars,f,**opts,**self.optional_kw)
         self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
 
@@ -90,6 +100,7 @@ class EPTMoments(Velocileptors):
             else:
                 self.required_params = ['b1', 'b2', 'bs', 'b3', 'alpha', 'alphav', 'alpha_s0', 'alpha_s2', 'sn', 'sv', 'sigma0']
 
+        self.default_required_params = {}
         self.optional_params = dict(counterterm_c3=0.)
         self.optional_kw = dict(beyond_gauss=options['beyond_gauss'],reduced=reduced)
         self.set_model()
@@ -108,6 +119,7 @@ class EPTFull(Velocileptors):
         from velocileptors.EPT.ept_fullresum_fftw import REPT
         self.theory = REPT(self.klin,self.pklin,pnw=self.pknow,**options)
         self.required_params = ['b1', 'b2', 'bs', 'b3', 'alpha0', 'alpha2', 'alpha4', 'alpha6', 'sn', 'sn2', 'sn4']
+        self.default_required_params = {}
         self.optional_params = dict(bFoG=0.)
         self.optional_kw = dict()
         self.set_model()
@@ -165,18 +177,6 @@ class LPTFourierStreaming(Velocileptors):
         self.optional_params = dict(counterterm_c3=0)
         self.optional_kw = dict()
         self.set_model()
-
-    def get_model_callable(self, pars, f, **kwargs):
-
-        def model_callable(k, mu, grid=True):
-            pkmu = np.array([self.theory.compute_redshift_space_power_at_mu(pars,f,mu_,**kwargs)[-1] for mu_ in mu]).T
-            pkmu += self.data_shotnoise
-            toret = interpolate.interp1d(self.theory.kv,pkmu,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k)
-            if grid:
-                return toret
-            return np.diag(toret)
-
-        return model_callable
 
 
 class LPTGaussianStreaming(Velocileptors):
@@ -279,13 +279,3 @@ class LPTDirect(Velocileptors):
             self.model_power.eval = self.get_power_callable(pars,**opts)
             model_collection.set(self.model_power)
         self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + model_collection
-
-import yaml
-#the point isn't that you'd ever really want to do it exactly this way,
-#but that a default parameter setup could be stored with the velocileptors code
-#here one way or another, so it is not necessary for the user to do anything
-#but minimally modify it
-def get_bias_parameters() :
-    return yaml.safe_load(open("velocileptors_eptfull_parameters.yaml",'r'))
-
-

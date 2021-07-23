@@ -4,6 +4,8 @@ import numpy as np
 from pypescript import BasePipeline
 
 from cosmopipe import section_names
+from cosmopipe.lib.data_vector import DataVector
+from cosmopipe.lib.theory import ModelCollection
 
 
 class BaseLikelihood(BasePipeline):
@@ -16,10 +18,11 @@ class BaseLikelihood(BasePipeline):
 
     def set_data(self):
         self.data = self.pipe_block[section_names.data,'y']
-        self.data_block[section_names.data] = self.pipe_block[section_names.data]
+        #self.data_block[section_names.data] = self.pipe_block[section_names.data]
 
     def set_model(self):
-        self.model = self.data_block[section_names.model,'y'] = self.pipe_block[section_names.model,'y']
+        #self.model = self.data_block[section_names.model,'y'] = self.pipe_block[section_names.model,'y']
+        self.model = self.pipe_block[section_names.model,'y']
 
     def loglkl(self):
         return 0
@@ -50,6 +53,8 @@ class GaussianLikelihood(BaseLikelihood):
             self.log_info('Covariance matrix with {:d} points built from {:d} observations.'.format(self.data.size,self.nobs),rank=0)
             self.log_info('...resulting in Hartlap factor of {:.4f}.'.format(self.hartlap),rank=0)
             self.precision = self.invcovariance * self.hartlap
+        if np.ndim(self.precision) == 0:
+            self.precision = self.precision * np.eye(self.data.size,dtype=self.data.dtype)
 
     def loglkl(self):
         diff = self.model - self.data
@@ -76,50 +81,49 @@ class JointGaussianLikelihood(GaussianLikelihood):
 
     logger = logging.getLogger('JointGaussianLikelihood')
 
-    def __init__(self, *args, join=None, **kwargs):
-        super(JointGaussianLikelihood,self).__init__(*args, **kwargs)
-        join = join or []
-        join += self.options.get_list('join',default=[])
-        self.join = [self.get_module_from_name(module) if isinstance(module,str) else module for module in join]
-        self.modules = self.join + self.modules
-        self.set_config_block(config_block=self.config_block)
+    @classmethod
+    def _join_values(cls, key, value, other):
+        if value is None:
+            return other.copy()
+        if key == (section_names.data,'data_vector'):
+            return DataVector.concatenate(value,other)
+        if key == (section_names.model,'collection'):
+            return ModelCollection.concatenate(value,other)
+        return np.concatenate([value,other],axis=0)
+
+    @classmethod
+    def _run_todos(cls, todolist, join):
+        for todo in todolist:
+            module = todo.module
+            islike = isinstance(module,BaseLikelihood)
+            for key,value in join.items():
+                if value is not None:
+                    if not islike:
+                        todo.pipeline.pipe_block[key] = value # e.g. feed data vector to covariance matrix
+                    elif key in todo.pipeline.pipe_block and todo.pipeline.pipe_block[key] is value:
+                        del todo.pipeline.pipe_block[key]
+                    #if islike and key[1] == 'data_vector':
+                    #    print(module,todo.pipeline.pipe_block.get(*key,[]))
+            todo()
+            if islike:
+                for key in join:
+                    if key in module.pipe_block:
+                        join[key] = cls._join_values(key,join[key],module.pipe_block[key])
+
 
     def setup(self):
-        join = {}
         self.pipe_block = self.data_block.copy()
-        for module in self.join:
-            module.set_data_block(self.pipe_block)
-            module.setup()
-            for key in self.pipe_block.keys(section=section_names.data):
-                if key not in join: join[key] = []
-                join[key].append(self.pipe_block[key])
-        for key in join:
-            self.data_block[key] = self.pipe_block[key] = np.concatenate(join[key])
-        for todo in self.setup_todos:
-            todo()
+        join = {(section_names.data,'data_vector'):None,(section_names.model,'collection'):None,(section_names.data,'y'):None}
+        self._run_todos(self.setup_todos,join)
         self.set_data()
         self.set_covariance()
 
     def execute(self):
-        join = {}
         self.pipe_block = self.data_block.copy()
-        for module in self.join:
-            module.set_data_block(self.pipe_block)
-            module.execute()
-            for key in self.pipe_block.keys(section=section_names.model):
-                if key not in join: join[key] = []
-                join[key].append(self.pipe_block[key])
-        for key in join:
-            self.data_block[key] = self.pipe_block[key] = np.concatenate(join[key])
-        for todo in self.execute_todos:
-            todo()
+        join = {(section_names.model,'collection'):None,(section_names.model,'y'):None}
+        self._run_todos(self.execute_todos,join)
+        for key,value in join.items():
+            if value is not None:
+                self.pipe_block[key] = value
         self.set_model()
         self.data_block[section_names.likelihood,'loglkl'] = self.loglkl()
-
-    def cleanup(self):
-        self.pipe_block = self.data_block.copy()
-        for module in self.join:
-            module.set_data_block(self.pipe_block)
-            module.cleanup()
-        for todo in self.cleanup_todos:
-            todo()

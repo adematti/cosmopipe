@@ -1,0 +1,67 @@
+# This is a very basic fitting example, based on a one-parameter model defined in basic_model.py, basic_model.yaml.
+# Module-related docs are found in the yaml file corresponding to $module_name (and online)
+
+# We can define some variables, that will be imported elsewhere with the syntax ${}
+plots_dir: _plots
+
+# the pipeline entry point is always [main]; one can choose whatever name for the others
+main:
+  # in this pipeline we run setup and execute functions of modules xdata, fitting defined in the following
+  $execute: [xdata, fitting]
+
+xdata:
+  # we just construct a custom data vector (monopole, x between 0.02 and 0.3, constant y = 1)
+  $module_name: cosmopipe.data_vector.synthetic_data_vector
+  x:
+    min: 0.02
+    max: 0.3
+    nbins: 10
+  y: e'np.ones(${xdata.x.nbins}+1)'
+  projs: ['ell_0']
+  # we don't have theory for the covariance matrix, just set its inverse to 1
+  $[covariance.invcov]: 1.
+
+fitting:
+  # this is the fitting pipeline: minimisation and plot of the fitted parameters
+  $module_name: pypescript
+  $module_class: BasePipeline
+  $modules: [minuit, plotting]
+
+minuit:
+  # maximisation using minuit, that takes in a likelihood
+  $module_name: cosmopipe.samplers.profiler.minuit
+  $module_class: MinuitProfiler
+  $modules: [like]
+  migrad:
+    # we run 5 fits from different initial values, useful for convergence tests
+    # this is done in parallel when running with MPI (mpiexec -np 4 pypescript demo_basic.yaml)
+    n_iterations: 5
+
+plotting:
+  # we plot the measured parameter
+  $module_name: cosmopipe.samplers.plotting
+  $module_class: ProfilesPlotting
+  # save as tex table
+  save_stats: f'${plots_dir}/stats_linear.tex'
+  # save parameter value + error bar plot
+  toplot:
+    - plot_aligned_stacked:
+        truths: value
+        filename: f'${plots_dir}/aligned_stacked_linear.png'
+
+like:
+  # the GaussianLikelihood to be maximized
+  $module_name: cosmopipe.likelihood.likelihood
+  $module_class: GaussianLikelihood
+  # for the likelihood, we need to evaluate the model, and project it onto the data vector
+  $modules: [model, projection]
+  # we propage parameters upstream (to be changed)
+  $[parameters.list]: $[parameters.list]
+
+model:
+  # the basic model defined in this directory
+  $module_name: cosmopipe.tests.basic_model
+
+projection:
+  # we evaluate model at the data points
+  $module_name: cosmopipe.survey_selection.projection

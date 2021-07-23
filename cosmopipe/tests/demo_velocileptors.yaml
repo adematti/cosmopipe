@@ -1,10 +1,13 @@
+# This pipeline is the same as demo_linear.yaml, just using velocileptors theory model instead (and no window effect)
+
 data_dir: _data
 plots_dir: _plots
 
 main:
-  $execute: [params, primordial, model, mockcov, mockdata, compare]
+  $execute: [primordial, model, xdata, mockcov, projection, mockdata, fitting]
+  $[survey_selection.zeff]: 1.0
 
-compare:
+fitting:
   $module_name: pypescript
   $module_class: BasePipeline
   $modules: [minuit, plotting]
@@ -15,35 +18,29 @@ minuit:
   $modules: [like]
   torun: [migrad]
 
-params:
-  $module_name: cosmopipe.parameters.parameterisation
-  common_parameters:
-    ${cosmological_parameters.yaml:}:
-    ${velocileptors_eptfull_parameters.yaml:}:
-    survey_geometry:
-      zeff:
-        value: 1.0
-        fixed: True
-
 primordial:
   $module_name: cosmopipe.theory.primordial.primordial
   engine: eisenstein_hu
   compute: pk_m
 
-mockcov:
-  $module_name: cosmopipe.theory.galaxy_clustering.gaussian_covariance
-  $module_class: GaussianCovariance
+xdata:
+  $module_name: cosmopipe.data_vector.synthetic_data_vector
   edges:
     min: 0.02
     max: 0.3
     step: 0.01
-  volume: 1e10
   projs: e'[{'space':'power','mode':'multipole','proj':ell} for ell in [0,2,4]]'
   xlim: $&{mockdata.xlim}
+
+mockcov:
+  $module_name: cosmopipe.theory.galaxy_clustering.gaussian_covariance
+  $module_class: GaussianCovariance
+  volume: 1e10
 
 mockdata:
   $module_name: cosmopipe.data_vector.mock_data_vector
   mean: True
+  mean_load: True
   seed: 42
   xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
   save: f'${data_dir}/data.txt'
@@ -65,12 +62,11 @@ like:
 model:
   $module_name: cosmopipe.theory.galaxy_clustering.velocileptors
   $module_class: EPTFull
-  #module_class: EPTMoments
+  #$module_class: EPTMoments
   #$module_class: LPTMoments
   reduced: True
   kmax: 0.35
   data_shotnoise: 1e3
 
 projection:
-  $module_name: cosmopipe.theory.projections.projection
-  $module_class: ModelProjection
+  $module_name: cosmopipe.survey_selection.projection

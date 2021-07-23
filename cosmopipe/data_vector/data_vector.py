@@ -5,12 +5,11 @@ from cosmopipe import section_names
 from cosmopipe.lib import syntax, data_vector
 
 
-def get_data_from_options(options, data_block=None):
-    data_load = options['data_load']
+def get_data_from_options(options, data_load, data_block=None, default_section=section_names.data, loader=data_vector.DataVector.load_auto):
     kwargs = dict(comments='#',usecols=None,skip_rows=0,max_rows=None,mapping_header=None,mapping_proj=None,attrs=None)
     for name,value in kwargs.items():
         kwargs[name] = options.get(name,value)
-    data = syntax.load_auto(data_load,data_block=data_block,default_section=section_names.data,loader=data_vector.DataVector.load_auto,squeeze=True,**kwargs)
+    data = syntax.load_auto(data_load,data_block=data_block,default_section=default_section,loader=loader,squeeze=True,**kwargs)
     projs = options.get('projs',{})
     for projname in projs:
         for proj in data.projs:
@@ -47,10 +46,11 @@ def get_kwview(data, xlim=None):
 class DataVector(object):
 
     def setup(self):
-        data = get_data_from_options(self.options,data_block=self.data_block)
+        data = get_data_from_options(self.options,data_load=self.options['data_load'],data_block=self.data_block)
         self.data = data.view(**get_kwview(data,xlim=self.options.get('xlim',None)))
         self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + self.data
         self.data_block[section_names.data,'y'] = self.data_block[section_names.data,'data_vector'].get_y()
+        #print(self.data.get_x())
 
     def execute(self):
         pass

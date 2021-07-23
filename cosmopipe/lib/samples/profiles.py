@@ -128,14 +128,14 @@ class Profiles(BaseClass):
         return hasattr(self,name)
 
     def append(self, name):
-        sntries = self.ntries()
+        self_ntries = self.ntries()
         for name in ['init','metrics','bestfit','parabolic_errors']:
             if hasattr(self,name) and hasattr(other,name):
                 setattr(self,name,np.concatenate([getattr(self,name),getattr(other,name)],axis=0))
             elif hasattr(self,name) ^ hasattr(other,name):
                 raise ValueError('Cannot append two profiles if both do not have {}.'.format(name))
         for name in ['covariance','deltachi2_errors']:
-            if self.argmin() >= sntries:
+            if self.argmin() >= self_ntries:
                 if not hasattr(other,name):
                     raise ValueError('{} not provided for the global bestfit.'.format(name))
                 setattr(self,name,getattr(other,name).copy())
@@ -194,6 +194,7 @@ class Profiles(BaseClass):
             row = []
             if is_latex: row.append(param.get_label())
             else: row.append(str(param.name))
+            row.append(str(param.varied))
             ref_error = self.parabolic_errors[param][argmin]
             for quantity in quantities:
                 if quantity in ['bestfit','parabolic_errors']:
@@ -210,7 +211,8 @@ class Profiles(BaseClass):
         headers = []
         if 'loglkl' in self.metrics:
             chi2min = '{:.2f}'.format(-2.*self.metrics['loglkl'][argmin])
-            headers += [('$\chi^{{2}} = {}$' if is_latex else 'chi2 = {}').format(chi2min)]
+            headers.append(('$\chi^{{2}} = {}$' if is_latex else 'chi2 = {}').format(chi2min))
+        headers.append('varied')
         headers += [quantity.replace('_',' ') for quantity in quantities]
         tab = tabulate.tabulate(data,headers=headers,tablefmt=tablefmt)
         if filename and self.is_mpi_root():

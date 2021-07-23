@@ -49,7 +49,7 @@ options:
     default: {}
     description: >
                 "dictionary options for k-edges: min: the edge of the first wavenumber bin (default: 0);
-                max: the edge of the last wavenumber bin (default: Nyquist frequency :math:`\pi \mathrm{Nmesh} / \mathrm{BoxSize});
+                max: the edge of the last wavenumber bin (default: Nyquist frequency :math:`\pi \mathrm{Nmesh} / \mathrm{BoxSize}`);
                 step, the spacing in wavenumber (:math:`h/\mathrm{Mpc}`) (default: the fundamental mode :math:`2 \pi / \mathrm{BoxSize}` of the box)"
   muwedges:
     type: int

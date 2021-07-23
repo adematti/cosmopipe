@@ -11,26 +11,24 @@ def weights_trapz(x):
 
 class BaseMultipoleIntegration(BaseClass):
 
-    def __init__(self, mu=100, ells=(0,2,4)):
+    def __init__(self, mu=100, ells=(0,2,4), sym=False):
         self.mu = mu
         if np.ndim(self.mu) == 0:
-            self.mu = np.linspace(0.,1.,self.mu+1)
+            self.mu = np.linspace(0. if sym else -1.,1.,self.mu+1)
         self.ells = ells
         self.set_mu_weights()
 
     def __call__(self, array):
-        return np.sum(array*self.muw[:,None,:],axis=-1)
+        return np.sum(array*self.weights[:,None,:],axis=-1)
 
 
 # TODO: implement gauss-legendre integration
 class TrapzMultipoleIntegration(BaseMultipoleIntegration):
 
     def set_mu_weights(self):
-        if np.ndim(self.mu) == 0:
-            self.mu = np.linspace(0.,1.,self.mu)
         muw_trapz = weights_trapz(self.mu)
         from scipy import special
-        self.muw = np.array([muw_trapz*(2*ell+1.)*special.legendre(ell)(self.mu) for ell in self.ells])/(self.mu[-1]-self.mu[0])
+        self.weights = np.array([muw_trapz*(2*ell+1.)*special.legendre(ell)(self.mu) for ell in self.ells])/(self.mu[-1]-self.mu[0])
 
 
 class BaseMuWedgeIntegration(BaseClass):
@@ -39,19 +37,20 @@ class BaseMuWedgeIntegration(BaseClass):
         self.mu = mu
         if np.ndim(self.mu) == 0:
             if np.ndim(muwedges) == 0:
-                muwedges = [(imu*1./muwedges,(imu+1)*1./muwedges) for imu in range(muwedges)]
+                muwedges = np.linspace(0.,1.,muwedges+1)
+                muwedges = zip(muwedges[:-1],muwedges[1:])
             self.mu = [np.linspace(*muwedge,mu//len(muwedges)) for muwedge in muwedges]
         self.set_mu_weights()
 
     def __call__(self, array):
-        return np.sum(array*self.muw[:,None,:],axis=-1)
+        return np.sum(array*self.weights[:,None,:],axis=-1)
 
 
 # TODO: implement gauss-legendre integration
 class TrapzMuWedgeIntegration(BaseMuWedgeIntegration):
 
     def set_mu_weights(self):
-        self.muw = np.array([weights_trapz(mu)/(mu[-1]-mu[0]) for mu in self.mu])
+        self.weights = np.array([weights_trapz(mu)/(mu[-1]-mu[0]) for mu in self.mu])
 
 
 class MultipoleExpansion(BaseClass):
@@ -74,7 +73,7 @@ class MultipoleToMultipole(BaseClass):
         self.weights = np.zeros((len(ellsin),len(ells)),dtype='f8')
         ells = np.array(ells)
         for illin,ellin in enumerate(ellsin):
-            self.weights[illin,ells==ellin] = 1.
+            self.weights[illin,ells == ellin] = 1.
 
     def __call__(self, array):
         return array.dot(self.weights)
@@ -84,7 +83,8 @@ class MultipoleToMuWedge(BaseClass):
 
     def __init__(self, ellsin=(0,2,4), muwedges=3):
         if np.ndim(muwedges) == 0:
-            muwedges = [(imu*1./muedges,(imu+1)*1./muwedges) for imu in range(muwedges)]
+            muwedges = np.linspace(0.,1.,muwedges+1)
+            muwedges = zip(muwedges[:-1],muwedges[1:])
         if np.ndim(muwedges[0]) == 0:
             muwedges = [muwedges]
         integlegendre = [special.legendre(ell).integ() for ell in ellsin]
