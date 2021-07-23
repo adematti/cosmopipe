@@ -2,9 +2,11 @@ data_dir: _data
 plots_dir: _plots
 
 main:
-  $execute: [params_power, primordial, model_power, params_correlation, model_correlation, mockcov, mockdata, compare]
+  #$execute: [primordial, model_power, model_correlation, mockcov, mockdata, fitting]
+  $execute: [primordial, model_power, xdata, mockcov, mockdata, fitting]
+  $[survey_selection.zeff]: 1.0
 
-compare:
+fitting:
   $module_name: pypescript
   $module_class: BasePipeline
   $modules: [minuit, plotting]
@@ -12,44 +14,27 @@ compare:
 minuit:
   $module_name: cosmopipe.samplers.profiler.minuit
   $module_class: MinuitProfiler
-  $modules: [params_correlation, like]
+  $modules: [like]
   torun: [migrad]
-
-params_power:
-  $module_name: cosmopipe.parameters.parameterization
-  common_parameters:
-    ${cosmological_parameters.yaml:}:
-    ${velocileptors_fourier_streaming_parameters.yaml:}:
-    survey_geometry:
-      zeff:
-        value: 1.0
-        fixed: True
-
-params_correlation:
-  $module_name: cosmopipe.parameters.parameterization
-  common_parameters:
-    ${cosmological_parameters.yaml:}:
-    ${velocileptors_gaussian_streaming_parameters.yaml:}:
-    survey_geometry:
-      zeff:
-        value: 1.0
-        fixed: True
 
 primordial:
   $module_name: cosmopipe.theory.primordial.primordial
   engine: eisenstein_hu
   compute: pk_m
 
-mockcov:
-  $module_name: cosmopipe.theory.galaxy_clustering.gaussian_covariance
-  $module_class: GaussianCovariance
+xdata:
+  $module_name: cosmopipe.data_vector.synthetic_data_vector
   edges:
     min: 10
     max: 180
     step: 10
-  volume: 1e10
   projs: e'[{'space':'correlation','mode':'multipole','proj':ell} for ell in [0,2,4]]'
   xlim: $&{mockdata.xlim}
+
+mockcov:
+  $module_name: cosmopipe.theory.galaxy_clustering.gaussian_covariance
+  $module_class: GaussianCovariance
+  volume: 1e10
 
 mockdata:
   $module_name: cosmopipe.data_vector.mock_data_vector
@@ -83,5 +68,4 @@ model_correlation:
   data_shotnoise: 1e3
 
 projection:
-  $module_name: cosmopipe.theory.projections.projection
-  $module_class: ModelProjection
+  $module_name: cosmopipe.survey_selection.projection

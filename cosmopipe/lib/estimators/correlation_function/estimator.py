@@ -70,9 +70,7 @@ class CorrelationFunctionEstimator(BinnedProjection):
         for muwedge in muwedges:
             new = BinnedProjection.__new__(BinnedProjection)
             new.__dict__.update(self.copy().__dict__)
-            new.proj = self.proj.copy()
-            new.proj.mode = ProjectionName.MUWEDGE
-            new.proj.proj = tuple(muwedge)
+            new.proj = self.proj.copy(mode=ProjectionName.MUWEDGE,proj=tuple(muwedge))
             new.set_new_edges(muwedge,dims='mu')
             new.squeeze(dims='mu')
             toret.append(new)
@@ -92,9 +90,7 @@ class CorrelationFunctionEstimator(BinnedProjection):
             new.dims = self.dims[:1]
             x = new.dims[0]
             new.edges = {x:self.edges[x]}
-            new.proj = self.proj.copy()
-            new.proj.mode = ProjectionName.MULTIPOLE
-            new.proj.proj = ell
+            new.proj = self.proj.copy(mode=ProjectionName.MULTIPOLE,proj=ell)
             edges = self.edges['mu']
             dmu = np.diff(edges,axis=-1)
             poly = special.legendre(ell)(edges)

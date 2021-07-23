@@ -14,11 +14,59 @@ options:
     type: string
     default: class
     description: Default engine for the cosmology class
-  Omega_m:
-    type: float
-    default: 0.3
-    description: Matter density parameters
-  $others: Valid parameters for cosmoprimo.Cosmology
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+  update_parameters:
+    type: dict
+    default: {}
+    description: update base parameters
+
+parameters:
+  fiducial_cosmology:
+    h:
+      value: 0.6766
+      fixed: true
+      prior:
+        dist: uniform
+        limits: [0.4,0.9]
+      latex: 'h'
+    omega_cdm:
+      value: 0.11933
+      fixed: true
+      prior:
+        dist: uniform
+        limits: [0.05,0.2]
+      latex: '\omega_{c}'
+    omega_b:
+      value: 0.02242
+      fixed: true
+      prior:
+        dist: uniform
+        limits: [0.01,0.03]
+      latex: '\omega_{b}'
+    sigma8:
+      value: 0.8102
+      fixed: true
+      prior:
+        dist: uniform
+        limits: [0.7,1.1]
+      latex: '\sigma_{8}'
+    n_s:
+      value: 0.9665
+      fixed: true
+      prior:
+        dist: uniform
+        limits: [0.8,1.2]
+      latex: 'n_s'
+    m_ncdm:
+      value: 0.06
+      fixed: true
+      prior:
+        dist: uniform
+        limits: [0.,1.]
+      latex: 'm_{\nu}'
 
 setup output:
   fiducial_cosmology.cosmo:

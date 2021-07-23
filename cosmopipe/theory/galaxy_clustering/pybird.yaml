@@ -55,6 +55,45 @@ options:
     type: bool
     default: False
     description: With next-to-next-to-leading counterterm :math:`k^{4} P_{11}(k)`
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+  update_parameters:
+    type: dict
+    default: {}
+    description: update base parameters
+
+parameters:
+  galaxy_bias:
+    b1:
+      value: 1.69
+      fixed: False
+      latex: 'b_{1}'
+    b2:
+      value: -1.17
+      fixed: False
+      latex: 'b_{2}'
+    b3:
+      value: -0.71
+      fixed: False
+      latex: 'b_{2}'
+    b4:
+      value: 0.
+      fixed: False
+      latex: 'b_{4}'
+    cct:
+      value: 0.
+      fixed: False
+      latex: 'c_{t}'
+    cr1:
+      value: 0.
+      fixed: False
+      latex: 'c_{r,1}'
+    cr2:
+      value: 0.
+      fixed: False
+      latex: 'c_{r,2}'
 
 setup input:
   primordial_perturbations.pk_callable:
@@ -71,37 +110,6 @@ setup input:
     description: Data shot noise
 
 execute input:
-  galaxy_bias.b1:
-    type: float
-    description: Linear eulerian bias
-  galaxy_bias.b2:
-    type: float
-    description: Second order bias
-  galaxy_bias.b3:
-    type: float
-    description: Third order bias
-  galaxy_bias.b4:
-  galaxy_bias.cct:
-  galaxy_bias.cr1:
-  galaxy_bias.cr2:
-  galaxy_bias.ce0:
-  galaxy_bias.ce1:
-  galaxy_bias.ce2:
-  galaxy_bias.bnnlo0:
-  galaxy_bias.bnnlo2:
-  galaxy_bias.bnnlo4:
-  galaxy_bias.cnnlo0:
-  galaxy_bias.cnnlo2:
-  galaxy_bias.cnnlo4:
-  galaxy_bias.fsig:
-    type: float
-    description: Normalisation of velocity power spectrum
-  effect_ap.qpar:
-    type: float
-    description: Scaling parallel to the line-of-sight
-  effect_ap.qper:
-    type: float
-    description: Scaling perpendicular to the line-of-sight
   primordial_perturbations.pk_callable:
     type: callable
     description: Power spectrum

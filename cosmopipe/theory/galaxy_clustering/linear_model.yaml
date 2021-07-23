@@ -23,6 +23,51 @@ options:
     type: dict
     default: {}
     description: additional model attributes, e.g. name (string)
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+  update_parameters:
+    type: dict
+    default: {}
+    description: update base parameters
+
+parameters:
+  galaxy_bias:
+    b1:
+      value: 2.
+      fixed: False
+      prior:
+        dist: uniform
+        limits: [1.0, 4.0]
+      ref:
+        dist: uniform
+        limits: [1.5, 2.5]
+      proposal: 0.01
+      latex: b_{1}
+    As:
+      value: 0.0
+      fixed: False
+      prior:
+        dist: uniform
+        limits: [-2, 2]
+      ref:
+        dist: uniform
+        limits: [-0.1, 0.1]
+      proposal: 0.005
+      latex: A_{s}
+    sigmav:
+      value: 4.0
+      fixed: False
+      prior:
+        dist: uniform
+        limits: [0.1, 10]
+      ref:
+        dist: uniform
+        limits: [3.8, 4.2]
+      proposal: 0.5
+      latex: \sigma_{v}
+
 
 setup input:
   primordial_perturbations.pk_callable:

@@ -6,16 +6,14 @@ maintainer: Arnaud de Mattia
 description: Set up parameters, with default values, priors and reference distributions
 
 options:
-  common_parameters:
+  base_parameters:
     type: dict
     default: {}
     description: common parameters, to be shared between all modules
-  specific_parameters:
+  update_parameters:
     type: dict
     default: {}
-    description: >
-                dictionary holding module names with parameters specific to this module.
-                The module name is appended to the parameter name, and the resulting parameter name is mapped to the original one for the given module.
+    description: update base parameters
 
 setup output:
   parameters.list:

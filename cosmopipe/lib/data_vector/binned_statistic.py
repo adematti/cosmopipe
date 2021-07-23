@@ -287,57 +287,6 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
         return header
 
     @classmethod
-    def read_header_txt(cls, file, comments='#', mapping_header=None, pattern_header=None, ignore_json_errors=True):
-        attrs = {}
-        mapping_header = (mapping_header or {}).copy()
-        mapping_header = utils.dict_nonedefault(mapping_header,**cls._default_mapping_header)
-
-        def decode_value(value, decode):
-            if decode is None:
-                try:
-                    value = json.loads(value)
-                except json.decoder.JSONDecodeError:
-                    if not ignore_json_errors:
-                        raise
-            elif isinstance(decode,str):
-                value = __builtins__[decode](value)
-            else:
-                value = decode(value)
-            return value
-
-        def fill_attrs_values(key, *values):
-            if len(values) > 1:
-                name,value = values
-                if key not in attrs:
-                    attrs[key] = {}
-                attrs[key][name] = decode_value(value,decode)
-            else:
-                attrs[key] = decode_value(values[0],decode)
-
-        for line in file:
-            if not line.startswith(comments):
-                break
-            for key,pattern in mapping_header.items():
-                if isinstance(pattern,tuple):
-                    pattern,decode = pattern
-                else:
-                    decode = None
-                match = re.match(pattern,line[len(comments):])
-                if match is not None:
-                    fill_attrs_values(key,*match.groups())
-                    cls.log_debug('Setting attribute {} = {} from header.'.format(key,attrs[key]),rank=0)
-            if pattern_header:
-                match = re.match(pattern_header,line[len(comments):])
-                if match is not None:
-                    fill_attrs_values(*match.groups())
-
-        for key in mapping_header.items():
-            if key not in attrs:
-                cls.log_debug('Could not find attribute {} in header'.format(key))
-
-        return attrs
-
-    @classmethod
     def load_txt(cls, filename, comments='#', usecols=None, skip_rows=0, max_rows=None, mapping_header=None, pattern_header=None, attrs=None, **kwargs):
 
         if isinstance(filename,str):
@@ -397,6 +346,63 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
             setattr(new,name,getattr(new,name).copy())
         return new
 
+@classmethod
+def read_header_txt(cls, file, comments='#', mapping_header=None, pattern_header=None, ignore_json_errors=True):
+    attrs = {}
+    mapping_header = (mapping_header or {}).copy()
+    mapping_header = utils.dict_nonedefault(mapping_header,**cls._default_mapping_header)
+
+    def decode_value(value, decode):
+        if decode is None:
+            try:
+                value = json.loads(value)
+            except json.decoder.JSONDecodeError:
+                if not ignore_json_errors:
+                    raise
+        elif isinstance(decode,str):
+            value = __builtins__[decode](value)
+        else:
+            value = decode(value)
+        return value
+
+    def fill_attrs_values(key, *values):
+        if len(values) > 1:
+            name,value = values
+            if key not in attrs:
+                attrs[key] = {}
+            attrs[key][name] = decode_value(value,decode)
+        else:
+            attrs[key] = decode_value(values[0],decode)
+
+    for line in file:
+        if not line.startswith(comments):
+            break
+        match = None
+        for key,pattern in mapping_header.items():
+            if isinstance(pattern,tuple):
+                pattern,decode = pattern
+            else:
+                decode = None
+            match = re.match(pattern,line[len(comments):])
+            if match is not None:
+                fill_attrs_values(key,*match.groups())
+                cls.log_debug('Setting attribute {} = {} from header.'.format(key,attrs[key]),rank=0)
+                break
+        if not match:
+            if pattern_header:
+                match = re.match(pattern_header,line[len(comments):])
+                if match is not None:
+                    fill_attrs_values(*match.groups())
+
+    for key in mapping_header.items():
+        if key not in attrs:
+            cls.log_debug('Could not find attribute {} in header'.format(key))
+
+    return attrs
+
+
+BinnedStatistic.read_header_txt = read_header_txt
+
 
 class BinnedProjection(BinnedStatistic):
     """
@@ -448,13 +454,17 @@ class BinnedProjection(BinnedStatistic):
             return [mid(self.edges[dim])[masks[idim]] for idim,dim in enumerate(self.dims)]
 
         x = self.get_x(flatten=False)
+        if np.ndim(x) == 1:
+            x = x[:,None]
         allaxes = list(range(self.ndim))
         toret = []
         for idim,dim in enumerate(self.dims):
             axes = allaxes.copy()
             del axes[idim]
-            toret.append(np.average(x[idim],axis=axes,weights=weights))
-        return toret
+            toret.append(np.average(x[...,idim],axis=tuple(axes),weights=weights))
+        #if self.ndim == 1:
+        #    return toret[0]
+        return tuple(toret)
 
     def get_x(self, xlim=None, mask=Ellipsis, flatten=True):
         x = [self[x] for x in self.dims]
@@ -515,9 +525,8 @@ class BinnedProjection(BinnedStatistic):
         toret = []
         x = self.get_x(flatten=False)
         allaxes = list(range(self.ndim))
-        if mask is not Ellipsis:
-            if np.ndim(mask) == 1:
-                mask = [mask]*self.ndim
+        if mask is Ellipsis or np.ndim(mask) == 1:
+            mask = [mask]*self.ndim
         for idim,dim in enumerate(self.dims):
             mask_ = np.zeros(self.shape[idim],dtype='?')
             mask_[mask[idim]] = True
@@ -528,7 +537,7 @@ class BinnedProjection(BinnedStatistic):
                 tmp = np.all(tmp,axis=tuple(axes))
                 mask_ &= tmp
             toret.append(np.flatnonzero(mask_))
-        return toret
+        return tuple(toret)
 
     def squeeze(self, dims=None):
         if dims is None:

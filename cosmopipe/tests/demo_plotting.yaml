@@ -1,28 +1,20 @@
+# This just adds up an extra step of comparing iftted model to data to the demo demo_linear.yaml
+
 data_dir: _data
 plots_dir: _plots
 
 main:
-  #$execute: [params, primordial, model, model_projection, model_plotting]
-  #$execute: [params, primordial, model, mockcov, mockdata, data_projection, data_model_plotting]
+  #$execute: [params, primordial, model, mockcov, mockdata, projection, data_model_plotting]
   #$execute: [params, primordial, model, mockcov, mockdata]
-  $execute: [params, primordial, model, mockcov, mockdata, minuit, postprocessing]
-
-params:
-  $module_name: cosmopipe.parameters.parameterization
-  common_parameters:
-    ${cosmological_parameters.yaml:}:
-    ${linear_parameters.yaml:}:
-    survey_geometry:
-      zeff:
-        value: 1.0
-        fixed: True
+  $execute: [primordial, model, xdata, mockcov, projection, mockdata, minuit, postprocessing]
+  $[survey_selection.zeff]: 1.0
 
 postprocessing:
   $module_name: cosmopipe.pipelines.postprocessing
   $module_class: ProfilesPostprocessing
   #$execute: ${like.$modules}
   #$modules: [data_model_plotting]
-  $modules: e'${like.$modules} + ["data_model_plotting"]'
+  $execute: [model, projection, data_model_plotting]
 
 minuit:
   $module_name: cosmopipe.samplers.profiler.minuit
@@ -39,13 +31,8 @@ primordial:
 mockcov:
   $module_name: cosmopipe.theory.galaxy_clustering.gaussian_covariance
   $module_class: GaussianCovariance
-  edges:
-    min: 0.02
-    max: 0.3
-    step: 0.01
-  volume: 1e10
-  projs: e'[{'space':'power','mode':'multipole','proj':ell} for ell in [0,2,4]]'
   xlim: $&{mockdata.xlim}
+  volume: 1e10
 
 mockdata:
   $module_name: cosmopipe.data_vector.mock_data_vector
@@ -53,6 +40,15 @@ mockdata:
   seed: 42
   xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
   save: f'${data_dir}/data.txt'
+
+xdata:
+  $module_name: cosmopipe.data_vector.synthetic_data_vector
+  edges:
+    min: 0.02
+    max: 0.3
+    step: 0.01
+  projs: e'[{'space':'power','mode':'multipole','proj':ell} for ell in [0,2,4]]'
+  xlim: $&{mockdata.xlim}
 
 plotting:
   $module_name: cosmopipe.samplers.plotting
@@ -80,18 +76,28 @@ data_model_plotting:
 like:
   $module_name: cosmopipe.likelihood.likelihood
   $module_class: GaussianLikelihood
-  $modules: [model, data_projection]
+  $modules: [model, projection]
 
 model:
   $module_name: cosmopipe.theory.galaxy_clustering.linear_model
   FoG: gaussian
   data_shotnoise: 1e3
 
-data_projection:
-  $module_name: cosmopipe.theory.projections.projection
+projection:
+  #$module_name: cosmopipe.theory.evaluation
+  $module_name: cosmopipe.survey_selection.projection
+  $modules: [wideangle, window]
 
-model_projection:
-  $module_name: cosmopipe.theory.projections.projection
+wideangle:
+  $module_name: cosmopipe.survey_selection.wide_angle
+  d: 1e3
+
+window:
+  $module_name: cosmopipe.survey_selection.window_convolution
+  window_load: f'${data_dir}/window_function.txt'
+
+fine_projection:
+  $module_name: cosmopipe.survey_selection.projection
   x:
     min: 0.01
     max: 0.2

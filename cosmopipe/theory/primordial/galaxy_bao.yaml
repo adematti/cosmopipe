@@ -9,8 +9,6 @@ long description: >
                   This module computes the ratio of the BAO angular and radial scale
                   between the current cosmology and a fiducial one.
 
-options:
-
 setup input:
   survey_geometry.zeff:
     type: float

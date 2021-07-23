@@ -2,17 +2,10 @@ import re
 
 import numpy as np
 
-from cosmopipe.lib.utils import BaseClass
+from cosmopipe.lib.utils import BaseNameSpace, BaseOrderedCollection
 
 
-def find_in_dict(di, item):
-    for key,value in di.items():
-        if value == item:
-            return key
-    raise ValueError('Unknown {}'.format(item))
-
-
-class ProjectionName(BaseClass):
+class ProjectionName(BaseNameSpace):
 
     MULTIPOLE = 'multipole'
     MUWEDGE = 'muwedge'
@@ -104,9 +97,7 @@ class ProjectionName(BaseClass):
         if self.space == self.CORRELATION:
             return '$\\xi(s)$'
 
-    def __repr__(self):
-        return '{}({}_{}_{}_{})'.format(self.__class__.__name__,self.name,self.space,self._mode_shorts[self.mode],self.proj)
-
+    """
     def __str__(self):
         proj = (self.proj,) if np.ndim(self.proj) == 0 else self.proj
         proj = '_'.join([str(p) for p in proj])
@@ -114,25 +105,42 @@ class ProjectionName(BaseClass):
         if self.name is not None:
             tmp = '{}_{}'.format(self.name,tmp)
         return tmp
-
-    def __eq__(self, other):
-        return isinstance(other,self.__class__) and all(getattr(self,name) == getattr(other,name) for name in self._attrs)
-
-    def eq_ignore_none(self, other):
-        return isinstance(other,self.__class__) and all(getattr(self,name) is None or getattr(other,name) is None or getattr(self,name) == getattr(other,name) for name in self._attrs)
-
-    def __hash__(self):
-        return hash(self.name)
-
+    """
     def __gt__(self, other):
         return np.mean(self.proj) > np.mean(other.proj)
 
     def __lt__(self, other):
         return np.mean(self.proj) < np.mean(other.proj)
 
-    def __getstate__(self):
-        return {name:getattr(self,name,None) for name in self._attrs}
 
-    def __setstate__(self, state):
-        for name in self._attrs:
-            setattr(self,name,state[name])
+class ProjectionNameCollection(BaseOrderedCollection):
+
+    _cast = ProjectionName
+
+    def index(self, proj, ignore_none=False):
+        proj = self._cast(proj)
+        if ignore_none:
+            return [iproj_ for iproj_,proj_ in enumerate(self.data) if proj.eq_ignore_none(proj_)]
+        if proj not in self.data:
+            raise KeyError('Projection {} not found among {}'.format(proj,self.data))
+        return self.data.index(proj)
+
+    def get(self, proj, ignore_none=True):
+        if ignore_none:
+            return [self.data[ii] for ii in self.index(proj,ignore_none=ignore_none)]
+        return self.data[self.data.index(proj)]
+
+    def group_by(self, include=None, exclude=None):
+        if not len(self):
+            return {}
+        include = include or []
+        exclude = exclude or []
+        exclude = exclude + [key for key in ProjectionName._attrs if key not in include]
+        exclude = {key:None for key in exclude}
+        toret = {}
+        for proj in self.data:
+            base = proj.copy(**exclude)
+            if base not in toret:
+                toret[base] = []
+            toret[base].append(proj)
+        return toret

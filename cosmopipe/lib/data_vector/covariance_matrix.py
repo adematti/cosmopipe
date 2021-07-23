@@ -9,10 +9,20 @@ from cosmopipe.lib import utils
 from .data_vector import DataVector
 from .data_vector import _format_index_kwargs as _format_single_index_kwargs
 from .data_vector import _reduce_index_kwargs as _reduce_single_index_kwargs
-from .binned_statistic import BinnedProjection, _title_template
+from .data_vector import _getstate_index_kwargs as _getstate_single_index_kwargs
+from .data_vector import _setstate_index_kwargs as _setstate_single_index_kwargs
+from .binned_statistic import BinnedProjection, _title_template, read_header_txt
 
 
 NDIM = 2
+
+
+def _getstate_index_kwargs(kwargs):
+    return [_getstate_single_index_kwargs(**kw) for kw in kwargs]
+
+
+def _setstate_index_kwargs(kwargs):
+    return [_setstate_single_index_kwargs(**kw) for kw in kwargs]
 
 
 def _format_index_kwargs(first=None, second=None,  **kwargs):
@@ -26,7 +36,7 @@ class CovarianceMatrix(BaseClass):
 
     logger = logging.getLogger('CovarianceMatrix')
 
-    _default_mapping_header = {'kwargs_view':'.*?kwview = (.*)$'}
+    _default_mapping_header = {'kwargs_view':'.*?#kwview = (.*)$'}
 
     def __init__(self, covariance, first, second=None, attrs=None):
 
@@ -191,13 +201,13 @@ class CovarianceMatrix(BaseClass):
         for key in ['_cov','attrs']:
             state[key] = getattr(self,key)
         state['_x'] = [x.__getstate__() for x in self._x]
-        state['_kwargs_view'] = [_getstate_index_kwargs(**kwargs) for kwargs in self._kwargs_view] if self._kwargs_view is not None else None
+        state['_kwargs_view'] = _getstate_index_kwargs(self._kwargs_view) if self._kwargs_view is not None else None
         return state
 
     def __setstate__(self, state):
         super(CovarianceMatrix,self).__setstate__(state)
         self._x = [DataVector.from_state(x) for x in self._x]
-        self._kwargs_view = [_setstate_index_kwargs(**kwargs) for kwargs in state['_kwargs_view']] if state['_kwargs_view'] is not None else None
+        self._kwargs_view = _setstate_index_kwargs(state['_kwargs_view']) if state['_kwargs_view'] is not None else None
 
     @classmethod
     def load_auto(cls, filename, *args, **kwargs):
@@ -242,9 +252,11 @@ class CovarianceMatrix(BaseClass):
         def str_to_int(e):
             return int(e)
 
+        kwargs_view = None
         cov = []
         if self_format:
             header = cls.read_header_txt(file[iline_seps[0]:iline_seps[1]],comments=comments,mapping_header=mapping_header)
+            kwargs_view = header.pop('kwargs_view',None)
             attrs = utils.dict_nonedefault(attrs,**header)
             start,stop = iline_seps[:2]
             for line in file[start:stop]:
@@ -276,11 +288,21 @@ class CovarianceMatrix(BaseClass):
                 columns = (columns,)*2
             list_data = [{col:[] for col in columns_} for columns_ in columns]
             allcolumns = sum(columns,[])
-            list_cov, mapping = [], []
+            list_cov = []
+            totalsize = 0
+            for line in file[start:stop]:
+                if line.startswith(comments): continue
+                totalsize += 1
+            mapping_proj = kwargs.pop('mapping_proj',None)
+            if isinstance(mapping_proj,list):
+                mapping_proj = {proj:int(totalsize**0.5)//len(mapping_proj) for proj in mapping_proj}
+            if mapping_proj is None:
+                mapping_proj = {None:int(totalsize**0.5)}
+            totalsize = sum(mapping_proj.values())
+            iline = 0
             for line in file[start:stop]:
                 if line.startswith(comments): continue
                 line = line.strip().split()
-                mapping_ = []
                 for icol in usecols:
                     value = line[icol]
                     if icol == len(usecols) - 1:
@@ -289,22 +311,23 @@ class CovarianceMatrix(BaseClass):
                     else:
                         col = allcolumns[icol]
                         idata = int(icol >= len(columns[0]))
+                        dcol = list_data[idata][col]
+                        toappend = (idata == 1 and iline < totalsize) or (idata == 0 and iline % totalsize == 0) # first column
+                        #if toappend: print(idata,iline,totalsize)
                         if col == 'x':
                             if data is not None:
                                 x_ = str_to_int(value)
                             else:
                                 x_ = str_to_float(value)
-                            if x_ not in list_data[idata][col]:
-                                list_data[idata][col].append(x_)
-                            mapping_.append(list_data[idata][col].index(x_))
+                            if toappend:
+                                dcol.append(x_)
                         else:
                             x_ = str_to_float(value)
-                            if x_ not in list_data[idata][col]:
-                                list_data[idata][col].append(x_)
-                mapping.append(mapping_)
-            mapping = np.array(mapping).T
-            cov = np.full(mapping.max(axis=-1)+1,np.nan)
-            cov[tuple(mapping)] = list_cov
+                            if toappend:
+                                dcol.append(x_)
+                iline += 1
+            cov = np.empty((totalsize,)*2,dtype='f8')
+            cov.flat[...] = list_cov
             if data is not None:
                 if not isinstance(data,tuple):
                     data = (data,data)
@@ -326,13 +349,37 @@ class CovarianceMatrix(BaseClass):
                     argsort.append(argsort_)
                 cov = cov[np.ix_(*argsort)]
             else:
-                x = tuple(BinnedProjection({col:data_[col] for col in columns_},**kwargs) for data_,columns_ in zip(list_data,columns))
+                x = []
+                for data_,columns_ in zip(list_data,columns):
+                    binnedprojs = []
+                    start = 0
+                    for proj in mapping_proj:
+                        stop = start + mapping_proj[proj]
+                        #print(proj,len(data_[columns_[0]]),data_[columns_[0]])
+                        binnedprojs.append(BinnedProjection({col:data_[col][start:stop] for col in columns_},proj=proj,**kwargs))
+                        start = stop
+                    x.append(DataVector(binnedprojs))
 
-        return cls(cov,first=x[0],second=x[1],attrs=attrs)
+        new = cls(cov,first=x[0],second=x[1],attrs=attrs)
+        #print(x[0].size,x[1].size,cov.shape)
+        if kwargs_view is not None: new._kwargs_view = _setstate_index_kwargs(kwargs_view)
+        return new
 
     @classmethod
     def get_title_label(cls):
         return _title_template.format(cls.__name__)
+
+    def get_header_txt(self, comments='#', ignore_json_errors=True):
+        header = ['{}{}'.format(comments,self.get_title_label())]
+        for key,value in self.attrs.items():
+            try:
+                header.append('{}{} = {}'.format(comments,key,json.dumps(value)))
+            except TypeError:
+                if not ignore_json_errors:
+                    raise
+        if self._kwargs_view is not None:
+            header.append('{}#{} = {}'.format(comments,'kwview',json.dumps(_getstate_index_kwargs(self._kwargs_view))))
+        return header
 
     @savefile
     def save_txt(self, filename, comments='#', fmt='.18e', ignore_json_errors=True):
@@ -359,8 +406,7 @@ class CovarianceMatrix(BaseClass):
         style.plot()
 
 
-CovarianceMatrix.read_header_txt = DataVector.read_header_txt
-CovarianceMatrix.get_header_txt = DataVector.get_header_txt
+CovarianceMatrix.read_header_txt = read_header_txt
 
 
 class MockCovarianceMatrix(CovarianceMatrix):

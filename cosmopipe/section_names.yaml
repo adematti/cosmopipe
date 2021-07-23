@@ -4,12 +4,10 @@
 - covariance
 - likelihood
 - parameters
-- cosmological_parameters
-- background
 - primordial_perturbations
 - primordial_cosmology
 - fiducial_cosmology
-- survey_geometry
+- survey_selection
 - galaxy_bias
 - effect_ap
 - galaxy_power

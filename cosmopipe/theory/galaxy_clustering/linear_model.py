@@ -2,14 +2,16 @@ import numpy as np
 
 from cosmopipe.lib import theory
 from cosmopipe.lib.theory.base import ProjectionBase, ModelCollection
+from cosmopipe.lib.modules import ParameterizedModule
 
 from cosmopipe import section_names
 
 
-class LinearModel(object):
+class LinearModel(ParameterizedModule):
 
     def setup(self):
-        zeff = self.data_block[section_names.survey_geometry,'zeff']
+        self.set_param_block()
+        zeff = self.data_block[section_names.survey_selection,'zeff']
         pklin = self.data_block[section_names.primordial_perturbations,'pk_callable'].to_1d(z=zeff)
         self.sigma8 = pklin.sigma8()
         fo = self.data_block[section_names.primordial_cosmology,'cosmo'].get_fourier()
@@ -28,6 +30,7 @@ class LinearModel(object):
 
     def execute(self):
         sigmav = self.data_block.get(section_names.galaxy_bias,'sigmav',0.)
+        #print(self._datablock_mapping)
         b1 = self.data_block.get(section_names.galaxy_bias,'b1',1.)
         shotnoise = (1. + self.data_block.get(section_names.galaxy_bias,'As',0.))*self.data_shotnoise
         fsig = self.data_block.get(section_names.galaxy_rsd,'fsig',self.growth_rate*self.sigma8)

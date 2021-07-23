@@ -1,7 +1,8 @@
+import sys
 import logging
-from collections import UserList
 import math
 import re
+import itertools
 
 import numpy as np
 from scipy import stats
@@ -11,6 +12,75 @@ from . import utils
 from .utils import BaseClass
 from cosmopipe import section_names
 from cosmopipe.lib import mpi
+
+
+def decode_name(name, size=None):
+
+    replaces = re.finditer('\[(-?\d*):(\d*):*(-?\d*)\]',name)
+    strings, ranges = [], []
+    string_start = 0
+    for ireplace,replace in enumerate(replaces):
+        start, stop, step = replace.groups()
+        if not start: start = 0
+        else: start = int(start)
+        if not stop:
+            stop = size
+            if size is None:
+                raise ValueError('You should provide an upper limit to parameter index')
+        else: stop = int(stop)
+        if not step: step = 1
+        else: step = int(step)
+        strings.append(name[string_start:replace.start()])
+        string_start = replace.end()
+        ranges.append(range(start,stop,step))
+
+    strings += [name[string_start:]]
+
+    return strings,ranges
+
+
+def yield_names(name, latex=None, size=1):
+
+    strings,ranges = decode_name(name,size=size)
+
+    if not ranges:
+        yield strings[0], latex
+
+    else:
+        import itertools
+
+        template = '{:d}'.join(strings)
+        if latex is not None:
+            latex = latex.replace('[]','{{{:d}}}')
+
+        for nums in itertools.product(*ranges):
+            yield template.format(*nums), latex.format(*nums) if latex is not None else latex
+
+
+def find_names(allnames, name, latex=None):
+
+    strings,ranges = decode_name(name,size=sys.maxsize)
+    if not ranges:
+        if strings[0] in allnames:
+            return [(strings[0], latex)]
+        return None
+    pattern = re.compile('(-?\d*)'.join(strings))
+    toret = []
+    if latex is not None:
+        latex = latex.replace('[]','{{{:d}}}')
+    for paramname in allnames:
+        match = re.match(pattern,paramname)
+        if match:
+            add = True
+            nums = []
+            for s,ra in zip(match.groups(),ranges):
+                idx = int(s)
+                nums.append(idx)
+                add = idx in ra # ra not in memory
+                if not add: break
+            if add:
+                toret.append((paramname,latex.format(*nums) if latex is not None else latex))
+    return toret
 
 
 class ParamError(Exception):
@@ -46,10 +116,13 @@ class ParamBlock(BaseClass):
             if isinstance(conf,Parameter):
                 self.set(conf)
             else:
-                conf = Parameter(name=name,**conf)
-                self.set(conf)
+                conf = conf.copy()
+                latex = conf.pop('latex',None)
+                for name,latex in yield_names(name,latex=latex):
+                    param = Parameter(name=name,latex=latex,**conf)
+                    self.set(param)
 
-    def __getitem__(self, name):
+    def get(self, name):
         if isinstance(name,Parameter):
             if name not in self.data:
                 raise KeyError('Parameter {} not found'.format(name.name))
@@ -58,6 +131,9 @@ class ParamBlock(BaseClass):
             return self.data[name]
         except TypeError:
             return self.data[self._index_name(name)]
+
+    def __getitem__(self, name):
+        return self.get(name)
 
     def __setitem__(self, name, item):
         if not isinstance(item,Parameter):
@@ -106,10 +182,6 @@ class ParamBlock(BaseClass):
             return name in self.names()
         return name in self.data
 
-    def update(self, other):
-        for param in other:
-            self.set(param)
-
     def setdefault(self, param):
         if param.name not in self:
             self.set(param)
@@ -131,7 +203,15 @@ class ParamBlock(BaseClass):
 
     def select(self, **kwargs):
         toret = self.__class__()
-        for param in self:
+        name = kwargs.pop('name',None)
+        if name is not None:
+            names = find_names(map(str,self.names()), name)
+            if names is None: return toret # no match
+            names = (name[0] for name in names)
+        else:
+            names = self.names()
+        for name in names:
+            param = self[name]
             if all(getattr(param,key) == val for key,val in kwargs.items()):
                 toret.set(param)
         return toret
@@ -142,6 +222,26 @@ class ParamBlock(BaseClass):
         for param in self:
             new.set(param)
         return new
+
+    @classmethod
+    def concatenate(cls, *others):
+        new = cls(others[0])
+        for other in others[1:]:
+            for item in other:
+                new.set(item)
+        return new
+
+    def extend(self, other):
+        new = self.concatenate(self,other)
+        self.__dict__.update(new.__dict__)
+
+    def __radd__(self, other):
+        if other in [[],0,None]:
+            return self.copy()
+        return self.__add__(other)
+
+    def __add__(self, other):
+        return self.concatenate(self,other)
 
 
 class ParamName(BaseClass):
@@ -163,7 +263,7 @@ class ParamName(BaseClass):
         self.tuple = tuple(str(name) for name in names)
 
     def add_suffix(self, suffix):
-        self.tuple = self.tuple[::-1] + ('{}_{}'.format(self.tuple[-1],suffix),)
+        self.tuple = self.tuple[:-1] + ('{}_{}'.format(self.tuple[-1],suffix),)
 
     def __repr__(self):
         return '{}{}'.format(self.__class__.__name__,self.tuple)
@@ -193,7 +293,7 @@ class ParamName(BaseClass):
 
 class Parameter(BaseClass):
 
-    _keys = ['name','value','latex','fixed','proposal','prior','ref']
+    _attrs = ['name','value','latex','fixed','proposal','prior','ref']
     logger = logging.getLogger('Parameter')
 
     def __init__(self, name=None, value=None, fixed=None, prior=None, ref=None, proposal=None, latex=None):
@@ -202,12 +302,12 @@ class Parameter(BaseClass):
             return
         self.name = ParamName(name)
         self.value = value
-        self.prior = Prior(**(prior or {}))
+        self.prior = prior if isinstance(prior,Prior) else Prior(**(prior or {}))
         if value is None:
             if self.prior.is_proper():
                 self.value = np.mean(self.prior.limits)
         if ref is not None:
-            self.ref = Prior(**ref)
+            self.ref = ref if isinstance(ref,Prior) else Prior(**(ref or {}))
         else:
             self.ref = self.prior.copy()
         if value is None:
@@ -228,17 +328,26 @@ class Parameter(BaseClass):
                 elif self.ref.is_proper():
                     self.proposal = (self.ref.limits[1] - self.ref.limits[0])/2.
 
+    def update(self, **kwargs):
+        state = {key: getattr(self,key) for key in self._attrs}
+        state.update(kwargs)
+        self.__init__(**state)
+
     def add_suffix(self, suffix):
         self.name.add_suffix(suffix)
         if self.latex is not None:
             match1 = re.match('(.*)_(.)$',self.latex)
             match2 = re.match('(.*)_{(.*)}$',self.latex)
             if match1 is not None:
-                self.latex = '%s_{%s,\\mathrm{%s}}' % (match1.group(1),match1.group(2),self.name)
+                self.latex = '%s_{%s,\\mathrm{%s}}' % (match1.group(1),match1.group(2),suffix)
             elif match2 is not None:
-                self.latex = '%s_{%s,\\mathrm{%s}}' % (match2.group(1),match2.group(2),self.name)
+                self.latex = '%s_{%s,\\mathrm{%s}}' % (match2.group(1),match2.group(2),suffix)
             else:
-                self.latex = '%s_{\\mathrm{%s}}' % (self.latex,self.name)
+                self.latex = '%s_{\\mathrm{%s}}' % (self.latex,suffix)
+
+    @property
+    def varied(self):
+        return not self.fixed
 
     def get_label(self):
         if self.latex is not None:
@@ -251,7 +360,7 @@ class Parameter(BaseClass):
 
     def __getstate__(self):
         state = {}
-        for key in self._keys:
+        for key in self._attrs:
             state[key] = getattr(self,key)
             if hasattr(state[key],'__getstate__'):
                 state[key] = state[key].__getstate__()
@@ -270,7 +379,7 @@ class Parameter(BaseClass):
         return str(self.name)
 
     def __eq__(self, other):
-        return type(other) == type(self) and all(getattr(other,key) == getattr(self,key) for key in self._keys)
+        return type(other) == type(self) and all(getattr(other,key) == getattr(self,key) for key in self._attrs)
 
 
 class PriorError(Exception):
@@ -303,7 +412,7 @@ class Prior(BaseClass):
             else:
                 self.rv = dist(*self.limits,**kwargs)
         else:
-            self.rv = getattr(scipy.stats,self.dist)(**kwargs)
+            self.rv = getattr(stats,self.dist)(**kwargs)
 
     def set_limits(self, limits=None):
         if not limits:

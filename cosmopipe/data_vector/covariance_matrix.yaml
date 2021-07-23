@@ -8,12 +8,11 @@ description: Load a covariance matrix
 
 options:
   xlim:
-  xlim:
     type: [dict, list]
     default: None
     description: "dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)})
                 or list of tuples corresponding to the data projections"
-  data_load:
+  covariance_load:
     type: string
     description: either (section, name) in data_block where to find the covariance matrix or, if containing / (or \), a path to a covariance matrix on disk.
                 If path ends with .npy, none of the arguments below apply.
@@ -44,9 +43,9 @@ options:
     description: dictionary holding keyword:regex mapping or (regex, type) to provide the type.
                 The corresponding values will be saved in the :attr:`attrs` dictionary
   mapping_proj:
-    type: dict
+    type: [dict, list]
     default: None
-    description: "dictionary holding a mapping from column name to projection specifier (e.g. 'ell_0', ['muwedge', [0.0,0.2]], or with a name, e.g.: 'ELG_ell_0', ['ELG','muwedge',[0.0,0.2]])"
+    description: "dictionary holding a mapping from projection to length of corresponding vector, or a list or projections (assumed the same length)"
   data:
     type: dict
     default: None

@@ -7,15 +7,18 @@ from scipy import linalg
 
 from cosmopipe.lib.utils import BaseClass, savefile
 from cosmopipe.lib import utils
-from .binned_statistic import BinnedProjection, _title_template
-from .projection import ProjectionName
+from .binned_statistic import BinnedProjection, _title_template, read_header_txt
+from .projection import ProjectionName, ProjectionNameCollection
+
+
+_list_types = (ProjectionNameCollection,list,np.ndarray)
 
 
 def _format_index_kwargs(kwargs):
     toret = {}
     #kwargs = kwargs or {'proj':None,'xlim':None}
     for key,value in kwargs.items():
-        if not isinstance(value,(list,np.ndarray)):
+        if not isinstance(value,_list_types):
             value = [value]
         toret[key] = value
     if toret:
@@ -75,7 +78,7 @@ class DataVector(BaseClass):
 
     logger = logging.getLogger('DataVector')
 
-    _default_mapping_header = {'kwargs_view':'.*?kwview = (.*)$'}
+    _default_mapping_header = {'kwargs_view':'.*?#kwview = (.*)$'}
 
     def __init__(self, x=None, y=None, proj=None, edges=None, attrs=None, **kwargs):
         if isinstance(x,self.__class__):
@@ -160,7 +163,7 @@ class DataVector(BaseClass):
         index = []
         isscalar = kwargs.get('proj',None) is not None
         for key,value in kwargs.items():
-            if isinstance(value,(list,np.ndarray)):
+            if isinstance(value,_list_types):
                 isscalar = False
                 break
 
@@ -208,11 +211,11 @@ class DataVector(BaseClass):
 
     @property
     def projs(self):
-        return [dataproj.proj for dataproj in self.data]
+        return ProjectionNameCollection([dataproj.proj for dataproj in self.data])
 
     def get_projs(self, **kwargs):
         index = self.get_index(**kwargs)
-        return [proj for proj,index_ in index if index_.size]
+        return ProjectionNameCollection([proj for proj,index_ in index if index_.size])
 
     def view(self, **kwargs):
         self._kwargs_view = _reduce_index_kwargs(_format_index_kwargs(kwargs),projs=self.projs)
@@ -228,16 +231,7 @@ class DataVector(BaseClass):
         return self._kwargs_view or {}
 
     def __contains__(self, projection):
-        return ProjectionName(projection) in self.projs
-
-    def get_proj_index(self, proj, permissive=False):
-        proj = ProjectionName(proj)
-        self_projs = self.projs
-        if permissive:
-            return [iproj_ for iproj_,proj_ in enumerate(self_projs) if proj.eq_ignore_none(proj_)]
-        if proj not in self_projs:
-            raise KeyError('Projection {} not found among {}'.format(proj,self_projs))
-        return self_projs.index(proj)
+        return projection in self.projs
 
     def set_new_edges(self, proj, *args, **kwargs):
         if not isinstance(proj,list):
@@ -287,12 +281,12 @@ class DataVector(BaseClass):
         proj = ProjectionName(name)
         if proj != item.proj:
             raise KeyError('BinnedProjection {} should be indexed by proj (incorrect {})'.format(item,proj))
-        self.data[self.get_proj_index(proj)] = item
+        self.data[self.projs.index(proj)] = item
 
     def get(self, proj, permissive=False):
         if permissive:
-            return [self.data[index] for index in self.get_proj_index(proj,permissive=permissive)]
-        return self.data[self.get_proj_index(proj)]
+            return [self.data[index] for index in self.projs.index(proj,ignore_none=permissive)]
+        return self.data[self.projs.index(proj)]
 
     def set(self, data):
         if not isinstance(data,BinnedProjection):
@@ -302,9 +296,9 @@ class DataVector(BaseClass):
         else:
             self.data.append(data)
 
-    def set_y(self, y, concatenated=True):
+    def set_y(self, y, concatenated=True, **kwargs):
         start = 0
-        for iproj,(proj,index) in enumerate(self.get_index()):
+        for iproj,(proj,index) in enumerate(self.get_index(**kwargs)):
             dataproj = self.get(proj)
             if concatenated:
                 stop = start + index.size
@@ -439,7 +433,7 @@ class DataVector(BaseClass):
                 if not ignore_json_errors:
                     raise
         if self._kwargs_view is not None:
-            header.append('{}{} = {}'.format(comments,'kwview',json.dumps(_getstate_index_kwargs(**self._kwargs_view))))
+            header.append('{}{} = {}'.format(comments,'#kwview',json.dumps(_getstate_index_kwargs(**self._kwargs_view))))
         return header
 
     @classmethod
@@ -476,7 +470,7 @@ class DataVector(BaseClass):
             iline_seps = iline_seps[1:]
 
         new = cls(attrs=attrs)
-        new._kwargs_view = kwargs_view
+        new._kwargs_view = _setstate_index_kwargs(**kwargs_view) if kwargs_view is not None else None
         for start,stop in zip(iline_seps[:-1],iline_seps[1:]):
             projection_format = BinnedProjection.read_title_label(file[start][len(comments):])
             if not projection_format:
@@ -524,4 +518,4 @@ class DataVector(BaseClass):
             return lines
 
 
-DataVector.read_header_txt = BinnedProjection.read_header_txt
+DataVector.read_header_txt = read_header_txt

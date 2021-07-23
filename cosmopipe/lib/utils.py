@@ -31,7 +31,6 @@ def customspace(min=0., max=1., step=None, nbins=None, scale='linear'):
     return toret
 
 
-
 class ScatteredBaseClass(_ScatteredBaseClass):
 
     @classmethod
@@ -84,6 +83,149 @@ class BaseClass(_BaseClass):
             else:
                 cls = clsname
         new = cls.from_state(state,mpiroot=mpiroot,mpicomm=mpicomm)
+        return new
+
+
+def _drop_none(di):
+    return {key:value for key,value in di.items() if value is not None}
+
+
+class BaseNameSpace(BaseClass):
+
+    _attrs = ['name']
+
+    def set(self, **kwargs):
+        for name,value in kwargs.items():
+            if name in self._attrs:
+                setattr(self,name,value)
+            else:
+                raise ValueError('Cannot set (unknown) attribute {} (available: {})'.format(name,self._attrs))
+
+    def get(self, name, default=None):
+        toret = getattr(self,name,default)
+        if toret is None:
+            return default
+        return toret
+
+    def copy(self, **kwargs):
+        new = self.__copy__()
+        new.set(**kwargs)
+        return new
+
+    def __repr__(self):
+        toret = ['{}={}'.format(name,value) for name,value in self.as_dict(drop_none=True).items()]
+        return '{}({})'.format(self.__class__.__name__,','.join(toret))
+
+    def __eq__(self, other):
+        return isinstance(other,self.__class__) and all(getattr(self,name) == getattr(other,name) for name in self._attrs)
+
+    def eq_ignore_none(self, other):
+        return isinstance(other,self.__class__) and all(getattr(self,name) is None or getattr(other,name) is None or getattr(self,name) == getattr(other,name) for name in self._attrs)
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __gt__(self, other):
+        raise NotImplementedError
+
+    def __lt__(self, other):
+        raise NotImplementedError
+
+    def as_dict(self, drop_none=True):
+        toret = {name:getattr(self,name,None) for name in self._attrs}
+        if drop_none:
+            return _drop_none(toret)
+        return toret
+
+    def __getstate__(self):
+        return self.as_dict(drop_none=True)
+
+    def __setstate__(self, state):
+        for name in self._attrs:
+            setattr(self,name,state.get(name,None))
+
+
+class BaseOrderedCollection(BaseClass):
+
+    _cast = lambda x: x
+
+    def __init__(self, items=None):
+        if isinstance(items,self.__class__):
+            self.__dict__.update(items.__dict__)
+            return
+        if items is None:
+            items = []
+        if not isinstance(items,list):
+            items = [items]
+        self.data = []
+        for item in items:
+            self.set(item)
+
+    def index(self, item):
+        item = self._cast(item)
+        return self.data.index(item)
+
+    def set(self, item):
+        item = self._cast(item)
+        if item not in self.data:
+            self.data.append(item)
+
+    def __getitem__(self, index):
+        return self.data[index]
+
+    @classmethod
+    def concatenate(cls, *others):
+        new = cls(others[0])
+        for other in others[1:]:
+            other = cls(other)
+            for item in other.data:
+                new.set(item)
+        return new
+
+    def extend(self, other):
+        new = self.concatenate(self,other)
+        self.__dict__.update(new.__dict__)
+
+    def __radd__(self, other):
+        if other in [[],0,None]:
+            return self.copy()
+        return self.__add__(other)
+
+    def __add__(self, other):
+        return self.concatenate(self,other)
+
+    def unique(self, key):
+        return np.unique([getattr(item,key) for item in self]).tolist()
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__,repr(self.data))
+
+    def __len__(self):
+        return len(self.data)
+
+    def __contains__(self, item):
+        return self._cast(item) in self.data
+
+    def __iter__(self):
+        return iter(self.data)
+
+    def __copy__(self):
+        new = super(BaseOrderedCollection,self).__copy__()
+        new.data = self.data.copy()
+        return new
+
+    def select(self, *args, **kwargs):
+        new = self.__class__()
+        if args:
+            if kwargs:
+                raise ValueError('Cannot provide both an expanded dictionary and a list of dictionaries')
+            kwargs = args
+        if not isinstance(kwargs,tuple):
+            kwargs = [kwargs]
+        for item in self.data:
+            for kw in kwargs:
+                if all(getattr(item,key) == value for key,value in kw.items()):
+                    new.data.append(item)
         return new
 
 

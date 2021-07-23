@@ -1,10 +1,20 @@
+# This an internal pipeline:
+# - setup template cosmology
+# - compute Gaussian covariance matrix with Kaiser model
+# - build mock data vector (here just taken as the theory)
+# - fit mock data vector
+# with geometry effects: wide-angle and window function (not accounted for in the covariance matrix)
+# WARNING: requires running prepare_window.py first (sets configuration-space window function)
+# estimating window function should be part of cosmopipe at some point
+
 data_dir: _data
 plots_dir: _plots
 
 main:
-  $execute: [params, primordial, model, mockcov, mockdata, compare]
+  $execute: [primordial, model, xdata, mockcov, projection, mockdata, fitting]
+  $[survey_selection.zeff]: 1.0
 
-compare:
+fitting:
   $module_name: pypescript
   $module_class: BasePipeline
   $modules: [minuit, plotting]
@@ -16,43 +26,30 @@ minuit:
   migrad:
     n_iterations: 5
 
-params:
-  $module_name: cosmopipe.parameters.parameterization
-  common_parameters:
-    ${cosmological_parameters.yaml:}:
-    ${linear_parameters.yaml:}:
-    ${ap_parameters.yaml:}:
-    galaxy_rsd.fsig:
-      value: 0.5
-      fixed: False
-      prior:
-        dist: uniform
-        limits: [0.2, 0.8]
-      latex: 'f\sigma_{8}'
-    survey_geometry:
-      zeff:
-        value: 1.0
-        fixed: True
-
 primordial:
   $module_name: cosmopipe.theory.primordial.primordial
   engine: eisenstein_hu
   compute: pk_m
 
-mockcov:
-  $module_name: cosmopipe.theory.galaxy_clustering.gaussian_covariance
-  $module_class: GaussianCovariance
+xdata:
+  $module_name: cosmopipe.data_vector.synthetic_data_vector
   edges:
     min: 0.02
     max: 0.3
     step: 0.01
-  volume: 1e10
   projs: e'[{'space':'power','mode':'multipole','proj':ell} for ell in [0,2,4]]'
+  xlim: $&{mockdata.xlim}
+
+mockcov:
+  $module_name: cosmopipe.theory.galaxy_clustering.gaussian_covariance
+  $module_class: GaussianCovariance
+  volume: 1e10
   xlim: $&{mockdata.xlim}
 
 mockdata:
   $module_name: cosmopipe.data_vector.mock_data_vector
   mean: True
+  mean_load: True
   seed: 42
   xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
   save: f'${data_dir}/data.txt'
@@ -69,19 +66,28 @@ plotting:
 like:
   $module_name: cosmopipe.likelihood.likelihood
   $module_class: GaussianLikelihood
-  $setup: [isotropic.execute]
+  #$setup: [isotropic.execute]
   $modules: [model, anisotropic, projection]
-
-isotropic:
-  $module_name: cosmopipe.theory.projections.isotropic_scaling
 
 model:
   $module_name: cosmopipe.theory.galaxy_clustering.linear_model
   FoG: gaussian
   data_shotnoise: 1e3
+  update_parameters:
+    galaxy_bias.b1:
+      specific: model
 
 anisotropic:
   $module_name: cosmopipe.theory.projections.anisotropic_scaling
 
 projection:
-  $module_name: cosmopipe.theory.projections.projection
+  $module_name: cosmopipe.survey_selection.projection
+  $modules: [wideangle, window]
+
+wideangle:
+  $module_name: cosmopipe.survey_selection.wide_angle
+  d: 1e3
+
+window:
+  $module_name: cosmopipe.survey_selection.window_convolution
+  window_load: f'${data_dir}/window_function.txt'

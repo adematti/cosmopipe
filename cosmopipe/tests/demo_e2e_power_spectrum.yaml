@@ -1,28 +1,38 @@
+# This an end-to-end analysis example in Fourier space:
+# - setup fiducial cosmology
+# - run power spectrum estimation of the input box (periodic) catalog
+# - plot power spectrum
+# - apply cuts to the data vector
+# - setup template cosmology
+# - compute Gaussian covariance matrix
+# - fit measured power spectrum with Kaiser model
+# - plot fitted model v.s. measured power spectrum
+# WARNING: requires running prepare_e2e.py first (sets input catalogs)
+
+
 data_dir: _data
 samples_dir: _samples
 plots_dir: _plots
 catalog_dir: _catalog
 
 main:
-  #$execute: [fiducial, survey_estimator, data_plotting]
-  #$execute: [fiducial, box_estimator, data_plotting]
-  #$execute: [fiducial, box_estimator, data_plotting, data, params, primordial, model, mockcov, minuit, plotting, postprocessing]
-  $execute: [data, params, primordial, model, mockcov, minuit, plotting, postprocessing]
-  #$execute: [data, params, primordial, model, mockcov, compare]
-  #$execute: [fiducial, box_estimator, data_plotting]
-  #$execute: [data_plotting]
+  $execute: [fiducial, box_estimator, data_plotting, data, params, primordial, model, mockcov, fitting, postprocessing]
+  #$execute: [data, params, primordial, model, mockcov, fitting, postprocessing]
+  $[survey_selection.zeff]: 1.0
 
-compare:
+fitting:
   $module_name: pypescript
   $module_class: BasePipeline
   $modules: [minuit, plotting]
+  $[likelihood]: $[likelihood]
 
 postprocessing:
   $module_name: cosmopipe.pipelines.postprocessing
   $module_class: ProfilesPostprocessing
   #$execute: ${like.$modules}
   #$modules: [data_model_plotting]
-  $modules: e'${like.$modules} + ["data_model_plotting"]'
+  $setup: [model]
+  $execute: [model, projection, data_model_plotting]
 
 minuit:
   $module_name: cosmopipe.samplers.profiler.minuit
@@ -33,9 +43,7 @@ minuit:
 
 params:
   $module_name: cosmopipe.parameters.parameterization
-  common_parameters:
-    ${cosmological_parameters.yaml:}:
-    ${linear_parameters.yaml:}:
+  base_parameters:
     galaxy_rsd.fsig:
       value: 0.5
       fixed: False
@@ -43,10 +51,6 @@ params:
         dist: uniform
         limits: [0.2, 0.8]
       latex: 'f\sigma_{8}'
-    survey_geometry:
-      zeff:
-        value: 1.0
-        fixed: True
 
 fiducial:
   $module_name: cosmopipe.theory.primordial.fiducial
@@ -116,7 +120,7 @@ like:
   $modules: [model, projection]
 
 projection:
-  $module_name: cosmopipe.theory.projections.projection
+  $module_name: cosmopipe.survey_selection.projection
 
 model:
   $module_name: cosmopipe.theory.galaxy_clustering.linear_model

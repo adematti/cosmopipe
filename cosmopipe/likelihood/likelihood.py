@@ -53,6 +53,8 @@ class GaussianLikelihood(BaseLikelihood):
             self.log_info('Covariance matrix with {:d} points built from {:d} observations.'.format(self.data.size,self.nobs),rank=0)
             self.log_info('...resulting in Hartlap factor of {:.4f}.'.format(self.hartlap),rank=0)
             self.precision = self.invcovariance * self.hartlap
+        if np.ndim(self.precision) == 0:
+            self.precision = self.precision * np.eye(self.data.size,dtype=self.data.dtype)
 
     def loglkl(self):
         diff = self.model - self.data

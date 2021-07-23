@@ -4,18 +4,18 @@ import numpy as np
 from scipy import interpolate
 from cosmoprimo import PowerSpectrumInterpolator1D
 
-from cosmopipe.lib.utils import BaseClass
-from cosmopipe.lib.data_vector import ProjectionName
+from cosmopipe.lib.utils import BaseClass, BaseNameSpace, BaseOrderedCollection
+from cosmopipe.lib.data_vector import ProjectionName, ProjectionNameCollection
 from .fog import get_FoG
 
 
-class ProjectionBase(BaseClass):
+class ProjectionBase(BaseNameSpace):
 
     MULTIPOLE = 'multipole'
     MUWEDGE = 'muwedge'
     POWER = 'power'
     CORRELATION = 'correlation'
-    _attrs = ['x','name','fields','space','shotnoise','mode','projs']
+    _attrs = ['x','name','fields','space','shotnoise','mode','projs','wa_order']
 
     def __init__(self, x=None, **kwargs):
         if isinstance(x,self.__class__):
@@ -29,89 +29,34 @@ class ProjectionBase(BaseClass):
         self.x = x
         self.set(**kwargs)
 
-    def set(self, **kwargs):
-        for name,value in kwargs.items():
-            setattr(self,name,value)
+    def __gt__(self, other):
+        return np.mean(self.projs) > np.mean(other.projs)
 
-    def get(self, name, default=None):
-        toret = getattr(self,name,default)
-        if toret is None:
-            return default
-        return toret
+    def __lt__(self, other):
+        return np.mean(self.projs) < np.mean(other.projs)
 
-    def __repr__(self):
-        attrs = ','.join('{}'.format(getattr(self,name)) for name in ['name','fields','space','mode','projs'])
-        return '{}({})'.format(self.__class__.__name__,attrs)
+    def __hash__(self):
+        # if __eq__ is redefined, __hash__ must be as well
+        return hash(self.name)
 
     def __eq__(self, other):
         return isinstance(other,self.__class__) and all(getattr(self,name) == getattr(other,name) for name in self._attrs if name != 'x')
 
-    def __hash__(self):
-        return hash(self.name)
-
-    def __gt__(self, other):
-        return np.mean(self.proj) > np.mean(other.proj)
-
-    def __lt__(self, other):
-        return np.mean(self.proj) < np.mean(other.proj)
-
-    def __getstate__(self):
-        return {name:getattr(self,name,None) for name in self._attrs}
-
-    def __setstate__(self, state):
-        for name in self._attrs:
-            setattr(self,name,state[name])
+    def to_projs(self):
+        toret = ProjectionNameCollection()
+        di = {name:value for name,value in self.as_dict(drop_none=True).items() if name in ProjectionName._attrs and name != 'proj'}
+        return ProjectionNameCollection([ProjectionName(proj=proj,**di) for proj in self.projs])
 
 
-class ProjectionBaseCollection(BaseClass):
+class ProjectionBaseCollection(BaseOrderedCollection):
 
-    def __init__(self, bases=None):
-        if bases is None:
-            bases = []
-        self.data = []
-        for base in bases:
-            self.set(base)
-
-    def set(self, base):
-        try:
-            base = ProjectionBase(**base)
-        except TypeError:
-            base = ProjectionBase(base)
-        if base not in self.data:
-            self.data.append(base)
-
-    def __repr__(self):
-        return '{}({})'.format(self.__class__.__name__,repr(self.data))
+    _cast = ProjectionBase
 
     def spaces(self):
         return [base.space for data in self.data]
 
     def modes(self):
         return [base.mode for mode in self.data]
-
-    def __len__(self):
-        return len(self.data)
-
-    def __contains__(self, base):
-        return base in self.data
-
-    def __iter__(self):
-        return iter(self.data)
-
-    def __copy__(self):
-        new = super(ProjectionBaseCollection,self).__copy__()
-        new.data = self.data.copy()
-        return new
-
-    def select(self, kwargs):
-        new = self.__class__()
-        if not isinstance(kwargs,list):
-            kwargs = [kwargs]
-        for base in self.data:
-            for kwargs_ in kwargs:
-                if all(getattr(base,key) == val for key,val in kwargs_.items()):
-                    new.data.append(base)
-        return new
 
     def get_by_proj(self, *args, **kwargs):
         proj = ProjectionName(*args,**kwargs)
@@ -122,10 +67,12 @@ class ProjectionBaseCollection(BaseClass):
             indices = [index for index in indices if self.data[index].space == proj.space]
         if len(indices) > 1 and proj.mode is not None:
             indices = [index for index in indices if self.data[index].mode == proj.mode]
+        if len(indices) > 1 and proj.wa_order is not None:
+            indices = [index for index in indices if self.data[index].wa_order == proj.wa_order]
         if not len(indices):
             raise IndexError('Could not find any match between data projection {} and model bases {}'.format(proj,self))
         if len(indices) > 1:
-            raise IndexError('Data projection {} corresponds to several model bases {}'.format(proj,self.model_bases[indices]))
+            raise IndexError('Data projection {} corresponds to several model bases {}'.format(proj,[self.data[ii] for ii in indices]))
         return self.data[indices[0]]
 
 
@@ -138,6 +85,8 @@ class ModelCollection(BaseClass):
         self.data = {}
         if models is None:
             models = []
+        if not isinstance(models,list):
+            models = [models]
         if bases is None:
             bases = [None]*len(models)
         for model,base in zip(models,bases):
@@ -160,6 +109,7 @@ class ModelCollection(BaseClass):
         return new
 
     def get(self, base):
+        base = ProjectionBase(base)
         return self.data[base]
 
     def set(self, model, base=None):
@@ -169,22 +119,21 @@ class ModelCollection(BaseClass):
             base = ProjectionBase(base)
         self.data[base] = model
 
-    def select(self, kwargs):
+    def select(self, *args, **kwargs):
         new = self.__class__()
-        bases = self.bases.select(kwargs)
+        bases = self.bases.select(*args,**kwargs)
         for base in bases:
             new.set(self.get(base),base=base)
         return new
 
     def __getitem__(self, base):
-        base = ProjectionBase(base)
-        return self.data[base]
+        return self.get(base)
 
     def __len__(self):
         return len(self.data)
 
     def __contains__(self, base):
-        return base in self.data
+        return ProjectionBase(base) in self.data
 
     def __iter__(self):
         return iter(self.data.items())
@@ -195,11 +144,10 @@ class ModelCollection(BaseClass):
 
     @classmethod
     def concatenate(cls, *others):
-        """WARNING: output attrs merges each attrs."""
         new = cls(others[0])
         new.data = others[0].data.copy()
         for other in others[1:]:
-            for base,model in other.data.items():
+            for base,model in cls(other).data.items():
                 new.set(model,base=base)
         return new
 
@@ -230,6 +178,7 @@ class BasePTModel(BaseModel):
     def __init__(self, pklin, klin=None, FoG='gaussian'):
         if callable(pklin):
             self.pk_linear = pklin
+            if klin is None: klin = getattr(pklin,'k',None)
         elif klin is not None:
             self.pk_linear = PowerSpectrumInterpolator1D(k=klin,pk=pklin)
         else:
@@ -237,4 +186,4 @@ class BasePTModel(BaseModel):
         self.FoG = FoG
         if FoG is not None:
             self.FoG = get_FoG(FoG)
-        self.base = ProjectionBase(x=klin,space=ProjectionBase.POWER,mode=ProjectionBase.MUWEDGE)
+        self.base = ProjectionBase(x=klin,space=ProjectionBase.POWER,mode=ProjectionBase.MUWEDGE,wa_order=0)

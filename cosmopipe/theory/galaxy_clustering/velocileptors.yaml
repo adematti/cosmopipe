@@ -50,30 +50,356 @@ options:
     type: bool
     default: True
     description: reduced set of parameters?
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+  update_parameters:
+    type: dict
+    default: {}
+    description: update base parameters
 
+parameters:
+  galaxy_bias:
+    b1:
+      value: 1.69
+      fixed: False
+      latex: 'b_{1}'
+    b2:
+      value: -1.17
+      fixed: False
+      latex: 'b_{2}'
+    bs:
+      value: -0.71
+      fixed: False
+      latex: 'b_{s}'
+    b3:
+      value: -0.479
+      fixed: False
+      latex: 'b_{3}'
+    alpha[0:7:2]:
+      value: 0.
+      fixed: False
+      latex: '\alpha_[]'
+    sn:
+      value: 0.
+      fixed: False
+      latex: 's_{n}'
+    sn2:
+      value: 0.
+      fixed: False
+      latex: 's_{n,2}'
+    sn4:
+      value: 0.
+      fixed: False
+      latex: 's_{n,4}'
+
+    alpha:
+      value: 0.
+      fixed: False
+      latex: '\alpha'
+    alphav:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{v}'
+    alpha_s0:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{s,0}'
+    alpha_s2:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{s,2}'
+    alpha_g1:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{g,1}'
+    alpha_g3:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{g,3}'
+    alpha_k2:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{k,2}'
+    sv:
+      value: 0.
+      fixed: False
+      latex: 's_{v}'
+    sigma0:
+      value: 0.
+      fixed: False
+      latex: '\sigma_{0}'
+    stoch_k0:
+      value: 0.
+      fixed: False
+      latex: 's_{k,0}'
+
+  counterterm_c3:
+    value: 0.
+    fixed: True
+    latex: 'c_{3}'
 ---
 
 ${#EPTMoments:}:
 
 name: EPTFull
 
+options:
+  ${#EPTMoments:options}:
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+
+parameters:
+  galaxy_bias:
+    b1:
+      value: 1.69
+      fixed: False
+      latex: 'b_{1}'
+    b2:
+      value: -1.17
+      fixed: False
+      latex: 'b_{2}'
+    bs:
+      value: -0.71
+      fixed: False
+      latex: 'b_{s}'
+    b3:
+      value: -0.479
+      fixed: False
+      latex: 'b_{3}'
+    alpha[0:7:2]:
+      value: 0.
+      fixed: False
+      latex: '\alpha_[]'
+    sn:
+      value: 0.
+      fixed: False
+      latex: 's_{n}'
+    sn2:
+      value: 0.
+      fixed: False
+      latex: 's_{n,2}'
+    sn4:
+      value: 0.
+      fixed: False
+      latex: 's_{n,4}'
+
+    bFoG:
+      value: 0.
+      fixed: True
+      latex: 'b_{\mathrm{FoG}}'
 ---
 
 ${#EPTMoments:}:
 
 name: LPTMoments
 
+options:
+  ${#EPTMoments:options}:
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+
+parameters:
+  galaxy_bias:
+    b1:
+      value: 1.69
+      fixed: False
+      latex: 'b_{1}'
+    b2:
+      value: -1.17
+      fixed: False
+      latex: 'b_{2}'
+    bs:
+      value: -0.71
+      fixed: False
+      latex: 'b_{s}'
+    b3:
+      value: -0.479
+      fixed: False
+      latex: 'b_{3}'
+    alpha[0:7:2]:
+      value: 0.
+      fixed: False
+      latex: '\alpha_[]'
+    sn:
+      value: 0.
+      fixed: False
+      latex: 's_{n}'
+    sn2:
+      value: 0.
+      fixed: False
+      latex: 's_{n,2}'
+    sn4:
+      value: 0.
+      fixed: False
+      latex: 's_{n,4}'
+
+    alpha:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{0}'
+    alpha_v:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{v}'
+    alpha_s0:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{s,0}'
+    alpha_s2:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{s,2}'
+    alpha_g1:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{g,1}'
+    alpha_g3:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{g,3}'
+    alpha_k2:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{k,2}'
+    sv:
+      value: 0.
+      fixed: False
+      latex: 's_{v}'
+    sigma0_stoch:
+      value: 0.
+      fixed: False
+      latex: '\sigma_{\mathrm{stoch}}'
+
+  counterterm_c3:
+    value: 0.
+    fixed: True
+    latex: 'c_{3}'
 ---
 
 ${#LPTMoments:}:
 
 name: LPTFourierStreaming
 
+options:
+  ${#LPTMoments:options}:
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+
+parameters:
+  galaxy_bias:
+    b1:
+      value: 1.69
+      fixed: False
+      latex: 'b_{1}'
+    b2:
+      value: -1.17
+      fixed: False
+      latex: 'b_{2}'
+    bs:
+      value: -0.71
+      fixed: False
+      latex: 'b_{s}'
+    b3:
+      value: -0.479
+      fixed: False
+      latex: 'b_{3}'
+    alpha:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{0}'
+    alpha_v:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{v}'
+    alpha_s0:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{s0}'
+    alpha_s2:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{s2}'
+    sn:
+      value: 0.
+      fixed: False
+      latex: 's_{n}'
+    sv:
+      value: 0.
+      fixed: False
+      latex: 's_{v}'
+    sigma0_stoch:
+      value: 0.
+      fixed: False
+      latex: '\sigma_{\mathrm{stoch}}'
+
+  counterterm_c3:
+    value: 0.
+    fixed: True
+    latex: 'c_{3}'
 ---
 
 ${#LPTMoments:}:
 
 name: LPTGaussianStreaming
+
+options:
+  ${#LPTMoments:options}:
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+
+parameters:
+  galaxy_bias:
+    b1:
+      value: 1.69
+      fixed: False
+      latex: 'b_{1}'
+    b2:
+      value: -1.17
+      fixed: False
+      latex: 'b_{2}'
+    bs:
+      value: -0.71
+      fixed: False
+      latex: 'b_{s}'
+    b3:
+      value: -0.479
+      fixed: False
+      latex: 'b_{3}'
+    alpha:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{0}'
+    alpha_v:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{v}'
+    alpha_s0:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{s0}'
+    alpha_s2:
+      value: 0.
+      fixed: False
+      latex: '\alpha_{s2}'
+    s2FoG:
+      value: 0.
+      fixed: False
+      latex: '\sigma_{\mathrm{FoG}}^{2}'
+
+  counterterm_c3:
+    value: 0.
+    fixed: True
+    latex: 'c_{3}'
 
 ---
 
@@ -82,6 +408,7 @@ ${#LPTMoments:}:
 name: LPTDirect
 
 options:
+  ${#LPTMoments:options}:
   output:
     type: list
     default: [power]
@@ -94,3 +421,43 @@ options:
     type: bool
     default: True
     description: third order bias?
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+
+
+parameters:
+  galaxy_bias:
+    b1:
+      value: 1.69
+      fixed: False
+      latex: 'b_{1}'
+    b2:
+      value: -1.17
+      fixed: False
+      latex: 'b_{2}'
+    bs:
+      value: -0.71
+      fixed: False
+      latex: 'b_{s}'
+    b3:
+      value: -0.479
+      fixed: False
+      latex: 'b_{3}'
+    alpha[0:5:2]:
+      value: 0.
+      fixed: False
+      latex: '\alpha_[]'
+    sn:
+      value: 0.
+      fixed: False
+      latex: 's_{n}'
+    sn2:
+      value: 0.
+      fixed: False
+      latex: 's_{n,2}'
+    sn4:
+      value: 0.
+      fixed: False
+      latex: 's_{n,4}'

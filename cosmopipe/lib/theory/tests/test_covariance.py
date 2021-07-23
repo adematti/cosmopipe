@@ -5,7 +5,7 @@ from scipy import interpolate
 
 from cosmoprimo import Cosmology
 
-from cosmopipe.lib.theory import LinearModel, GaussianCovarianceMatrix, ModelCollection, ModelProjection
+from cosmopipe.lib.theory import LinearModel, GaussianCovarianceMatrix, ModelCollection, ModelEvaluation
 from cosmopipe.lib.data_vector import DataVector, MockDataVector, BinnedProjection
 from cosmopipe.lib.data_vector.plotting import PowerSpectrumPlotStyle, CovarianceMatrixPlotStyle
 
@@ -24,10 +24,9 @@ def test_pk_multipole_covariance():
     k = (kedges[:-1] + kedges[1:])/2.
     proj = [{'space':'power','mode':'multipole','proj':proj} for proj in [0,2,4]]
     data = DataVector(x=k,proj=proj,edges=[{'x':kedges}]*len(proj))
-    models = ModelCollection([model])
-    cov = GaussianCovarianceMatrix(data,model_bases=models.bases,volume=(1e3)**3)
+    cov = GaussianCovarianceMatrix(data,model_base=model.base,volume=(1e3)**3)
     #cov = GaussianPkCovarianceMatrix(kedges,projs=('ell_0','ell_2'),volume=(1e3)**3,shotnoise=1e3)
-    cov.compute(models)
+    cov.compute(model)
     assert cov.cov.shape == (len(k)*len(proj),)*2
     filename = os.path.join(plot_dir,'covariance_multipoles.png')
     cov.plot(filename=filename,style='corr',data_styles='power')
@@ -47,9 +46,8 @@ def test_pk_muwedge_covariance():
     k = (kedges[:-1] + kedges[1:])/2.
     proj = [{'space':'power','mode':'muwedge','proj':proj} for proj in [(0.,1./3.),(1./3.,2./3.),(2./3.,1.)]]
     data = DataVector(x=k,proj=proj,edges=[{'x':kedges}]*len(proj))
-    models = ModelCollection([model])
-    cov = GaussianCovarianceMatrix(data,model_bases=models.bases,volume=(1e3)**3)
-    cov.compute(models)
+    cov = GaussianCovarianceMatrix(data,model_base=model.base,volume=(1e3)**3)
+    cov.compute(model)
     assert cov.cov.shape == (len(k)*len(proj),)*2
     filename = os.path.join(plot_dir,'covariance_muwedges.png')
     cov.plot(filename=filename,style='corr',data_styles='power')
@@ -70,9 +68,8 @@ def test_pk_covariance():
     proj = [{'space':'power','mode':'multipole','proj':proj} for proj in [0,2,4]]
     proj += [{'space':'power','mode':'muwedge','proj':proj} for proj in [(0.,1./3.),(1./3.,2./3.),(2./3.,1.)]]
     data = DataVector(x=k,proj=proj,edges=[{'x':kedges}]*len(proj))
-    models = ModelCollection([model])
-    cov = GaussianCovarianceMatrix(data,model_bases=models.bases,volume=(1e3)**3)
-    cov.compute(models)
+    cov = GaussianCovarianceMatrix(data,model_base=model.base,volume=(1e3)**3)
+    cov.compute(model)
     assert cov.cov.shape == (len(k)*len(proj),)*2
     filename = os.path.join(plot_dir,'covariance_pk.png')
     cov.plot(filename=filename,style='corr',data_styles='power')
@@ -88,16 +85,15 @@ def test_xi_covariance():
 
     pk = Cosmology().get_fourier('eisenstein_hu').pk_interpolator().to_1d()
     model = LinearModel(klin=pk.k,pklin=pk)
-    sedges = np.linspace(10.,200,41)
+    sedges = np.linspace(10.,200,21)
     s = (sedges[:-1] + sedges[1:])/2.
     x, proj, edges = [], [], []
     data = DataVector()
     for ell in [0,2,4]:
         dataproj = BinnedProjection(x=s,proj={'space':'correlation','mode':'multipole','proj':ell},edges={'x':sedges})
         data.set(dataproj)
-    models = ModelCollection([model])
-    cov = GaussianCovarianceMatrix(data,model_bases=models.bases,volume=(1e3)**3)
-    cov.compute(models)
+    cov = GaussianCovarianceMatrix(data,model_base=model.base,volume=(1e3)**3)
+    cov.compute(model)
     assert cov.cov.shape == (data.size,)*2
     filename = os.path.join(plot_dir,'covariance_xi.png')
     cov.plot(filename=filename,style='corr')
@@ -129,7 +125,7 @@ def test_pk_xi_covariance():
         dataproj = BinnedProjection(x=s,proj={'space':'correlation','mode':'muwedge','proj':muwedge},edges={'x':sedges})
         data.set(dataproj)
     models = ModelCollection([model])
-    cov = GaussianCovarianceMatrix(data,model_bases=models.bases,volume=(1e3)**3)
+    cov = GaussianCovarianceMatrix(data,model_base=models.bases,volume=(1e3)**3)
     cov.compute(models)
     assert cov.cov.shape == (data.size,)*2
     filename = os.path.join(plot_dir,'covariance_pk_xi.png')
@@ -152,8 +148,8 @@ def test_pkell_covariance():
     km = pk.k
     model = LinearModel(klin=km,pklin=pk)
     data = DataVector(x=km,proj=['ell_0','ell_2','ell_4'])
-    projection = ModelProjection(data,model_base=model.base)
-    pkell = projection(model,concatenate=False)
+    evaluation = ModelEvaluation(data,model_base=model.base)
+    pkell = evaluation(model,concatenate=False)
     model = interpolate.interp1d(km,np.array(pkell).T,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)
     models = ModelCollection([model],bases=[{'x':km,'space':'power','mode':'multipole','projs':[0,2,4]}])
 
@@ -162,7 +158,7 @@ def test_pkell_covariance():
     proj = [{'space':'power','mode':'multipole','proj':proj} for proj in [0,2,4]]
     proj += [{'space':'power','mode':'muwedge','proj':proj} for proj in [(0.,1./3.),(1./3.,2./3.),(2./3.,1.)]]
     data = DataVector(x=k,proj=proj,edges=[{'x':kedges}]*len(proj))
-    cov = GaussianCovarianceMatrix(data,model_bases=models.bases,volume=(1e3)**3)
+    cov = GaussianCovarianceMatrix(data,model_base=models.bases,volume=(1e3)**3)
     cov.compute(models)
     assert cov.cov.shape == (len(k)*len(proj),)*2
     filename = os.path.join(plot_dir,'covariance_pkell.png')
@@ -185,7 +181,7 @@ def test_view_covariance():
     data = DataVector(x=k,proj=proj,edges=[{'x':kedges}]*len(proj))
     data.view(xlim=(0.01,0.2))
     models = ModelCollection([model])
-    cov = GaussianCovarianceMatrix(data,model_bases=models.bases,volume=(1e3)**3)
+    cov = GaussianCovarianceMatrix(data,model_base=models.bases,volume=(1e3)**3)
     cov.compute(models)
     assert cov.cov.shape == (data.get_x(concatenate=True).size,)*2
     cov.view(xlim=(0.01,0.1))
@@ -202,10 +198,10 @@ def test_view_covariance():
 if __name__ == '__main__':
 
     setup_logging()
-    #test_pk_multipole_covariance()
-    #test_pk_muwedge_covariance()
+    test_pk_multipole_covariance()
+    test_pk_muwedge_covariance()
     #test_xi_covariance()
     #test_pk_xi_covariance()
-    #test_pk_covariance()
-    #test_pkell_covariance()
+    test_pk_covariance()
+    test_pkell_covariance()
     test_view_covariance()

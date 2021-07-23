@@ -4,7 +4,7 @@ import numpy as np
 from scipy import interpolate
 from cosmoprimo import Cosmology, PowerToCorrelation
 
-from cosmopipe.lib.theory import LinearModel, ModelProjection
+from cosmopipe.lib.theory import LinearModel, ModelEvaluation
 from cosmopipe.lib.data_vector import DataVector
 from cosmopipe.lib import setup_logging
 
@@ -13,25 +13,25 @@ base_dir = os.path.dirname(os.path.realpath(__file__))
 plot_dir = os.path.join(base_dir,'_plots')
 
 
-def test_projection():
+def test_evaluation():
 
     pk = Cosmology().get_fourier('eisenstein_hu').pk_interpolator().to_1d()
     model = LinearModel(pklin=pk)
     k = np.linspace(0.02,0.2,15)
     data = DataVector(x=[k]*2,proj=['ell_0','ell_2'])
-    projection = ModelProjection(data,model_base={'mode':'muwedge'})
-    assert len(projection.evalmesh) == 1 and projection.evalmesh[0][0].size == k.size
-    pk_ell = projection(model.pk_mu)
+    evaluation = ModelEvaluation(data,model_base={'mode':'muwedge'})
+    assert len(list(evaluation.evalmesh.values())[0]) == 1 and list(evaluation.evalmesh.values())[0][0][0].size == k.size
+    pk_ell = evaluation(model.pk_mu)
     #print(pk_ell)
     assert pk_ell.size == k.size*2
     data = DataVector(x=[k,k[:10]],proj=['ell_0','ell_2'])
-    projection = ModelProjection(data=data,model_base={'mode':'muwedge'})
-    assert len(projection.evalmesh) == 1 and projection.evalmesh[0][0].size == k.size
-    assert projection(model.pk_mu).size == k.size + 10
+    evaluation = ModelEvaluation(data=data,model_base={'mode':'muwedge'})
+    assert len(list(evaluation.evalmesh.values())[0]) == 1 and list(evaluation.evalmesh.values())[0][0][0].size == k.size
+    assert evaluation(model.pk_mu).size == k.size + 10
     data = DataVector(x=[k,k[:10]+0.042],proj=['ell_0','ell_2'])
-    projection = ModelProjection(data,model_base={'mode':'muwedge'})
-    assert len(projection.evalmesh) == 1 and projection.evalmesh[0][0].size == k.size + 10
-    pk_ell = projection(model.pk_mu)
+    evaluation = ModelEvaluation(data,model_base={'mode':'muwedge'})
+    assert len(list(evaluation.evalmesh.values())[0]) == 1 and list(evaluation.evalmesh.values())[0][0][0].size == k.size + 10
+    pk_ell = evaluation(model.pk_mu)
     assert pk_ell.size == k.size + 10
 
 
@@ -44,10 +44,10 @@ def test_plot():
 
     k = np.linspace(0.02,0.4,15)
     data = DataVector(x=[k]*4,proj=['ell_0','ell_2','mu_0_1/3','mu_1/3_2/3'])
-    projection = ModelProjection(data,model_base={'mode':'muwedge'})
-    #projection = ModelProjection(x=k,projs=('ell_0','ell_2'))
-    data_vector = projection.to_data_vector(pk_mu)
-    filename = os.path.join(plot_dir,'projection.png')
+    evaluation = ModelEvaluation(data,model_base={'mode':'muwedge'})
+    #evaluation = ModelEvaluation(x=k,projs=('ell_0','ell_2'))
+    data_vector = evaluation.to_data_vector(pk_mu)
+    filename = os.path.join(plot_dir,'evaluation.png')
     data_vector.plot(style='power',filename=filename)
 
 
@@ -57,8 +57,8 @@ def test_hankel(plot_fftlog=True):
     ells = [0,2,4]
     projs = ['ell_{:d}'.format(ell) for ell in ells]
     data = DataVector(x=[pk.k]*len(projs),proj=projs)
-    projection = ModelProjection(data,model_base={'mode':'muwedge'})
-    pkell = projection(model,concatenate=False)
+    evaluation = ModelEvaluation(data,model_base={'mode':'muwedge'})
+    pkell = evaluation(model,concatenate=False)
     pkell = np.array(pkell)
     x = pk.k
     fftlog = PowerToCorrelation(x,ell=ells,q=1.5,minfolds=10)
@@ -86,15 +86,15 @@ def test_hankel(plot_fftlog=True):
     xi_interp = interpolate.interp1d(s,xiell.T,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)
     x = np.linspace(10,200,30)
     data = DataVector(x=[x]*len(projs),proj=projs)
-    projection = ModelProjection(data=data,model_base={'mode':'multipole','projs':ells})
-    data_vector = projection.to_data_vector(xi_interp)
-    filename = os.path.join(plot_dir,'xi_projection.png')
+    evaluation = ModelEvaluation(data=data,model_base={'mode':'multipole','projs':ells})
+    data_vector = evaluation.to_data_vector(xi_interp)
+    filename = os.path.join(plot_dir,'xi_evaluation.png')
     data_vector.plot(style='correlation',filename=filename)
 
 
 if __name__ == '__main__':
 
     setup_logging()
-    #test_projection()
-    #test_plot()
+    test_evaluation()
+    test_plot()
     test_hankel()

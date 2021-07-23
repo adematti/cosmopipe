@@ -6,21 +6,24 @@ catalog_dir: _catalog
 main:
   #$execute: [fiducial, power_box_estimator, correlation_survey_estimator, power_plotting, correlation_plotting]
   #$execute: [params, fiducial, power_box_estimator, correlation_survey_estimator, data, primordial, model, gaussiancov, minuit, plotting, postprocessing]
-  $execute: [params, fiducial, power, correlation, primordial, model, gaussiancov, minuit, plotting, postprocessing]
+  $execute: [params, fiducial, power, correlation, primordial, model, gaussiancov, fitting, postprocessing]
   #$execute: [fiducial, power_box_estimator, power_plotting]
   #$execute: [power_plotting, correlation_plotting]
+  $[survey_selection.zeff]: 1.0
 
-compare:
+fitting:
   $module_name: pypescript
   $module_class: BasePipeline
   $modules: [minuit, plotting]
+  $[likelihood]: $[likelihood]
 
 postprocessing:
   $module_name: cosmopipe.pipelines.postprocessing
   $module_class: ProfilesPostprocessing
   #$execute: ${like.$modules}
   #$modules: [data_model_plotting]
-  $modules: e'${like.$modules} + ["data_power_plotting","data_correlation_plotting"]'
+  $setup: [model]
+  $execute: [model, hankel, projection, data_power_plotting, data_correlation_plotting]
 
 minuit:
   $module_name: cosmopipe.samplers.profiler.minuit
@@ -31,9 +34,7 @@ minuit:
 
 params:
   $module_name: cosmopipe.parameters.parameterization
-  common_parameters:
-    ${cosmological_parameters.yaml:}:
-    ${linear_parameters.yaml:}:
+  base_parameters:
     galaxy_rsd.fsig:
       value: 0.5
       fixed: False
@@ -41,10 +42,6 @@ params:
         dist: uniform
         limits: [0.2, 0.8]
       latex: 'f\sigma_{8}'
-    survey_geometry:
-      zeff:
-        value: 1.0
-        fixed: True
 
 fiducial:
   $module_name: cosmopipe.theory.primordial.fiducial
@@ -131,7 +128,7 @@ like:
   $modules: [model, hankel, projection]
 
 projection:
-  $module_name: cosmopipe.theory.projections.projection
+  $module_name: cosmopipe.survey_selection.projection
 
 model:
   $module_name: cosmopipe.theory.galaxy_clustering.linear_model
