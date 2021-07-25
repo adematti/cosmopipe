@@ -7,7 +7,7 @@ plots_dir: _plots
 
 main:
   $execute: [primordial, model, xdata, mockcov, projection, mockdata, fitting]
-  #$execute: [params, primordial, model, mockcov, mockdata]
+  #$execute: [primordial, model, mockcov, mockdata]
   $[survey_selection.zeff]: 1.0
 
 fitting:
@@ -63,16 +63,6 @@ minuit:
   $modules: [like]
   torun: [migrad]
   save: f'${samples_dir}/minuit.npy'
-
-params:
-  $module_name: cosmopipe.parameters.parameterization
-  common_parameters:
-    ${cosmological_parameters.yaml:}:
-    ${linear_parameters.yaml:}:
-    survey_selection:
-      zeff:
-        value: 1.0
-        fixed: True
 
 primordial:
   $module_name: cosmopipe.theory.primordial.primordial
@@ -130,5 +120,4 @@ model:
   data_shotnoise: 1e3
 
 projection:
-  #$module_name: cosmopipe.theory.evaluation
   $module_name: cosmopipe.survey_selection.projection

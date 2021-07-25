@@ -19,26 +19,29 @@ class HankelTransform(object):
         model_attrs = [{'space':ProjectionBase.POWER},{'space':ProjectionBase.CORRELATION}]
         if model_names is not None:
             model_attrs['name'] = set(model_names)
-        origin_collection = self.data_block[section_names.model,'collection']
-        tmp = origin_collection.select(*model_attrs)
+        self.model_collection = self.data_block[section_names.model,'collection']
+        tmp = self.model_collection.select(*model_attrs)
         collection = ModelCollection()
-        for base,model in tmp:
+        for base,model in tmp.items():
             if not isinstance(model,hankel_transform.HankelTransform):
                 collection.set(model,base=base)
         if len(collection) > 1 and model_names is None:
-            raise ConfigError('Found several models that can be Hankel-transformed: {}; specify the one of interest with "model_names"'.format(collection))
+            raise ConfigError('Found several models that can be Hankel-transformed: {}; specify the one(s) of interest with "model_names"'.format(collection))
 
-        self.collection = ModelCollection()
-        for base,model in collection:
+        hankel_collection = ModelCollection()
+        for base,model in collection.items():
             ht = hankel_transform.HankelTransform(model=model,base=base,**options)
-            self.collection.set(ht)
+            hankel_collection.set(ht)
 
-        self.data_block[section_names.model,'collection'] = origin_collection + self.collection
+        self.model_collection += hankel_collection
 
     def execute(self):
+        pass
+        """
         for base,model in self.collection:
             model.input_model = self.data_block[section_names.model,'collection'].get(model.input_base)
         self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',{}) + self.collection
+        """
 
     def cleanup(self):
         pass

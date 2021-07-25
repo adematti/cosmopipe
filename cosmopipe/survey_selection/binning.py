@@ -6,8 +6,8 @@ class BaseBinning(object):
 
     def setup(self):
         options = dict()
-        self.matrix = binning.BaseBinning(**options)
-        self.data_block[section_names.survey_selection,'effect'] = self.matrix
+        matrix = binning.BaseBinning(**options)
+        self.data_block[section_names.survey_selection,'operations'] = self.data_block.get(section_names.survey_selection,'operations',[]) + [matrix]
 
     def execute(self):
         pass

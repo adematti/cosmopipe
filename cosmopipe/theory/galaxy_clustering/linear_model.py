@@ -25,7 +25,9 @@ class LinearModel(ParameterizedModule):
             self.data_shotnoise = self.data_block[section_names.data,'data_vector'].get(self.data_shotnoise,permissive=True)[0].attrs['shotnoise']
         self.model.base.set(shotnoise=self.data_shotnoise,**self.options.get('model_attrs',{}))
         self.model.eval = None # just to make sure it is not called without execute
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
+        model_collection = self.data_block.get(section_names.model,'collection',[])
+        model_collection += ModelCollection([self.model])
+        self.data_block[section_names.model,'collection'] = model_collection
         self.x = pklin.k
 
     def execute(self):
@@ -39,7 +41,6 @@ class LinearModel(ParameterizedModule):
             return self.eval(k,mu,b1=b1,sigmav=sigmav,shotnoise=shotnoise,f=fsig/self.sigma8,grid=grid)
 
         self.model.eval = model
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
 
     def cleanup(self):
         pass

@@ -57,25 +57,28 @@ class SyntheticDataVector(object):
             if isinstance(data_load,bool) and data_load:
                 data_load = 'data_vector'
             data_vector = self.data_block[syntax.split_sections(data_load,default_section=section_names.data)]
-            data = data_vector.copy(copy_proj=True)
+            self.data_vector = data_vector.copy(copy_proj=True)
             if projs is not None:
-                data.data = [data.get(proj).copy() for proj in projs]
+                self.data_vector.data = [self.data_vector.get(proj).copy() for proj in projs]
             if x is not None:
-                for iproj,dataproj in enumerate(data.data): dataproj.set_x(x[iproj])
+                for iproj,dataproj in enumerate(self.data_vector.data): dataproj.set_x(x[iproj])
             if y is not None:
-                data.set_y(y,concatenated=False)
+                self.data_vector.set_y(y,concatenated=False)
             if edges is not None:
                 for proj,edges in zip(projs,edges):
-                    dataproj = data.get(proj)
+                    dataproj = self.data_vector.get(proj)
                     dataproj.edges[dataproj.attrs['x']] = edges
             #data = data.noview() # required for now, because covariance matrix without view should have data vectors without view
         else:
-            data = DataVector(x=x,y=y,proj=projs,edges=[{'x':edge} for edge in edges] if edges is not None else None)
-        if save: data.save_auto(save)
-        kwview = get_kwview(data,xlim=self.options.get('xlim',None))
-        data = data.view(**kwview)
-        self.data_block[section_names.data,'data_vector'] = data
-        if y is not None: self.data_block[section_names.data,'y'] = data.get_y()
+            self.data_vector = DataVector(x=x,y=y,proj=projs,edges=[{'x':edge} for edge in edges] if edges is not None else None)
+        if save: self.data_vector.save_auto(save)
+        kwview = get_kwview(self.data_vector,xlim=self.options.get('xlim',None))
+        self.data_vector = self.data_vector.view(**kwview)
+
+        data_vector = self.data_block.get(section_names.data,'data_vector',[])
+        data_vector += self.data_vector
+        self.data_block[section_names.data,'data_vector'] = data_vector
+        if y is not None: self.data_block[section_names.data,'y'] = data_vector.get_y()
 
     def execute(self):
         pass

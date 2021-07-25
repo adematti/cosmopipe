@@ -44,7 +44,9 @@ class ParameterizedModule(BaseModule):
                 raise ParamError('An initial value must be provided for parameter {}.'.format(param.name))
         for param in base:
             self.data_block.setdefault(*param.name.tuple,param.value)
-        self.data_block[section_names.parameters,'list'] = self.data_block.get(section_names.parameters,'list',[]) + base
+        paramblock = self.data_block.get(section_names.parameters,'list',[])
+        paramblock += base
+        self.data_block[section_names.parameters,'list'] = paramblock
         #for param in self.data_block[section_names.parameters,'list']:
         #    print(repr(param))
         self._datablock_mapping.update(datablock_mapping)

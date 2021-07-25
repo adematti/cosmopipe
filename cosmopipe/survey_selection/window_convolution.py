@@ -21,11 +21,11 @@ class WindowConvolution(object):
         if options['krange'] is None:
             # try get model base
             model_bases = self.data_block[section_names.model,'collection'].bases
-            k = model_bases.select({'space':ProjectionBase.POWER})[0].x
+            k = model_bases.select(space=ProjectionBase.POWER)[0].x
             options['krange'] = (k.min(),k.max())
 
-        self.matrix = PowerWindowMatrix(window=window,**options)
-        self.data_block[section_names.survey_selection,'effect'] = self.matrix
+        matrix = PowerWindowMatrix(window=window,**options)
+        self.data_block[section_names.survey_selection,'operations'] = self.data_block.get(section_names.survey_selection,'operations',[]) + [matrix]
 
     def execute(self):
         pass

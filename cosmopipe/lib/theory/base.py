@@ -29,6 +29,10 @@ class ProjectionBase(BaseNameSpace):
         self.x = x
         self.set(**kwargs)
 
+    def __repr__(self):
+        toret = ['{}={}'.format(name,value) for name,value in self.as_dict(drop_none=True).items() if name != 'x']
+        return '{}({})'.format(self.__class__.__name__,','.join(toret))
+
     def __gt__(self, other):
         return np.mean(self.projs) > np.mean(other.projs)
 
@@ -136,7 +140,10 @@ class ModelCollection(BaseClass):
         return ProjectionBase(base) in self.data
 
     def __iter__(self):
-        return iter(self.data.items())
+        return iter(self.data)
+
+    def items(self):
+        return self.data.items()
 
     def get_by_proj(self, *args, **kwargs):
         base = self.bases.get_by_proj(*args,**kwargs)
@@ -160,8 +167,15 @@ class ModelCollection(BaseClass):
             return self.copy()
         return self.concatenate(self,other)
 
+    def __iadd__(self, other):
+        self.extend(other)
+        return self
+
     def __add__(self, other):
         return self.concatenate(self,other)
+
+    def clear(self):
+        self.data.clear()
 
 
 class BaseModel(BaseClass):

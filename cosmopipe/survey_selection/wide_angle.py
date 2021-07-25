@@ -14,8 +14,8 @@ class OddWideAngle(object):
             cosmo = self.data_block.get[section_names.fiducial_cosmology,'cosmo']
             options['d'] = cosmo.get_background().comoving_radial_distance(zeff)
 
-        self.matrix = PowerOddWideAngle(**options)
-        self.data_block[section_names.survey_selection,'effect'] = self.matrix
+        matrix = PowerOddWideAngle(**options)
+        self.data_block[section_names.survey_selection,'operations'] = self.data_block.get(section_names.survey_selection,'operations',[]) + [matrix]
 
     def execute(self):
         pass

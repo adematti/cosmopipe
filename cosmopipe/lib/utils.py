@@ -191,6 +191,10 @@ class BaseOrderedCollection(BaseClass):
             return self.copy()
         return self.__add__(other)
 
+    def __iadd__(self, other):
+        self.extend(other)
+        return self
+
     def __add__(self, other):
         return self.concatenate(self,other)
 

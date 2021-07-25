@@ -29,7 +29,9 @@ class Velocileptors(ParameterizedModule):
         include += [ParamName(section_names.galaxy_bias,name) for name in self.optional_params]
         self.set_param_block(include=include)
         self.model = BaseModel(base=ProjectionBase(x=self.theory.kv if space == ProjectionBase.POWER else self.theory.rint,space=space,mode=mode,projs=projs,**self.model_attrs))
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
+        model_collection = self.data_block.get(section_names.model,'collection',[])
+        model_collection += ModelCollection([self.model])
+        self.data_block[section_names.model,'collection'] = model_collection
 
     def set_pklin(self):
         self.zeff = self.data_block[section_names.survey_selection,'zeff']
@@ -71,7 +73,7 @@ class Velocileptors(ParameterizedModule):
         f = fsig/self.sigma8
 
         self.model.eval = self.get_model_callable(pars,f,**opts,**self.optional_kw)
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
+        #self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
 
     def cleanup(self):
         pass
@@ -271,11 +273,11 @@ class LPTDirect(Velocileptors):
         f = fsig/self.sigma8
         self.theory.make_pltable(f,apar=1,aperp=1,**self.optional_kw)
 
-        model_collection = ModelCollection()
+        #model_collection = ModelCollection()
         if self.with_correlation:
             self.model_correlation.eval = self.get_correlation_callable(pars,**opts)
-            model_collection.set(self.model_correlation)
+            #model_collection.set(self.model_correlation)
         if self.with_power:
             self.model_power.eval = self.get_power_callable(pars,**opts)
-            model_collection.set(self.model_power)
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + model_collection
+            #model_collection.set(self.model_power)
+        #self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + model_collection

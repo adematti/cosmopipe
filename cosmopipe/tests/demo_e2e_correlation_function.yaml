@@ -15,8 +15,8 @@ plots_dir: _plots
 catalog_dir: _catalog
 
 main:
-  $execute: [fiducial, survey_estimator, data_plotting, data, params, primordial, model, mockcov, fitting]
-  #$execute: [data, params, primordial, model, hankel, mockcov, fitting]
+  #$execute: [fiducial, survey_estimator, data_plotting, data, params, primordial, model, mockcov, fitting]
+  $execute: [data, params, primordial, model, hankel, mockcov, fitting]
   $[survey_selection.zeff]: 1.0
 
 fitting:

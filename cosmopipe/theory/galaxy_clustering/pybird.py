@@ -89,7 +89,7 @@ class PyBird(ParameterizedModule):
         if self.with_nnlo_higher_derivative or self.with_nnlo_counterterm:
             self.set_pknow()
 
-        model_collection = ModelCollection()
+        model_collection = self.data_block.get(section_names.model,'collection',ModelCollection())
         if self.with_correlation:
             self.model_correlation = BaseModel(base=ProjectionBase(x=self.co.s,space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs))
             model_collection.set(self.model_correlation)
@@ -98,7 +98,7 @@ class PyBird(ParameterizedModule):
             self.model_power = BaseModel(base=ProjectionBase(x=self.co.k,space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs))
             model_collection.set(self.model_power)
 
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + model_collection
+        self.data_block[section_names.model,'collection'] = model_collection
 
     def execute(self):
         bias = {}
@@ -138,21 +138,17 @@ class PyBird(ParameterizedModule):
                 self.nnlo_counterterm.Ps(self.bird,self.pknow_loglog)
             # self.bird.Pnnlo = self.co.k**4 * self.pknow # equivalent to the commented line above, just make it less stupid
         #self._cache['f'] = f
-        model_collection = ModelCollection()
         if self.with_power:
             power = self.bird.fullPs + self.data_shotnoise
             if self.with_nnlo_higher_derivative:
                 power += power_nnlo
             self.model_power.eval = interpolate.interp1d(self.co.k,power.T,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)
-            model_collection.set(self.model_power)
 
         if self.with_correlation:
             correlation = self.bird.fullCf
             if self.with_nnlo_higher_derivative:
                 correlation += correlation_nnlo
             self.model_correlation.eval = interpolate.interp1d(self.co.s,correlation.T,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)
-
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + model_collection
 
     def cleanup(self):
         pass

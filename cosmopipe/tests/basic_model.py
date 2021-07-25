@@ -17,7 +17,9 @@ class BasicModel(ParameterizedModule):
         # a model = a function (callable) (None for now, it will be given in execute()) + a ProjectionBase
         self.model = BaseModel(base=base)
         # we add the model to the model collection of self.data_block[section_names.model,'collection'], passed on to other modules
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
+        model_collection = self.data_block.get(section_names.model,'collection',[])
+        model_collection += ModelCollection([self.model])
+        self.data_block[section_names.model,'collection'] = model_collection
 
     def execute(self):
         # we retrieve the bias
@@ -28,8 +30,7 @@ class BasicModel(ParameterizedModule):
 
         # we monkey-patch our current function to the model instance
         self.model.eval = model
-
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
+        #self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
 
     def cleanup(self):
         pass

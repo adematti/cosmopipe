@@ -46,10 +46,12 @@ def get_kwview(data, xlim=None):
 class DataVector(object):
 
     def setup(self):
-        data = get_data_from_options(self.options,data_load=self.options['data_load'],data_block=self.data_block)
-        self.data = data.view(**get_kwview(data,xlim=self.options.get('xlim',None)))
-        self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + self.data
-        self.data_block[section_names.data,'y'] = self.data_block[section_names.data,'data_vector'].get_y()
+        self.data_vector = get_data_from_options(self.options,data_load=self.options['data_load'],data_block=self.data_block)
+        self.data_vector = self.data_vector.view(**get_kwview(self.data_vector,xlim=self.options.get('xlim',None)))
+        data_vector = self.data_block.get(section_names.data,'data_vector',[])
+        data_vector += self.data_vector
+        self.data_block[section_names.data,'data_vector'] = data_vector
+        self.data_block[section_names.data,'y'] = data_vector.get_y()
         #print(self.data.get_x())
 
     def execute(self):
