@@ -27,7 +27,7 @@ class Velocileptors(ParameterizedModule):
     def set_model(self, space=ProjectionBase.POWER, mode=ProjectionBase.MUWEDGE, projs=None):
         include = [ParamName(section_names.galaxy_bias,name) for name in self.required_params if name not in self.default_required_params]
         include += [ParamName(section_names.galaxy_bias,name) for name in self.optional_params]
-        self.set_param_block(include=include)
+        self.set_parameters(include=include)
         self.model = BaseModel(base=ProjectionBase(x=self.theory.kv if space == ProjectionBase.POWER else self.theory.rint,space=space,mode=mode,projs=projs,**self.model_attrs))
         model_collection = self.data_block.get(section_names.model,'collection',[])
         model_collection += ModelCollection([self.model])

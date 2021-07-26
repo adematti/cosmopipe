@@ -16,5 +16,5 @@ options:
 
 execute input:
   parameters.list:
-    type: cosmopipe.lib.ParamBlock
+    type: cosmopipe.lib.ParameterCollection
     description: list of parameters

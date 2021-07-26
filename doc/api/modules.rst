@@ -3828,12 +3828,18 @@ Description of module :mod:`data_vector.DataVector`:
 |              |                | description | | dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)}) or list of  |
 |              |                |             | | tuples corresponding to the data projections                                                                                 |
 |              +----------------+-------------+--------------------------------------------------------------------------------------------------------------------------------+
-|              | projs          | type        | dict                                                                                                                           |
+|              | update_projs   | type        | - dict                                                                                                                         |
+|              |                |             |                                                                                                                                +
+|              |                |             | - list                                                                                                                         |
 |              |                +-------------+--------------------------------------------------------------------------------------------------------------------------------+
 |              |                | default     | {}                                                                                                                             |
 |              |                +-------------+--------------------------------------------------------------------------------------------------------------------------------+
-|              |                | description | | dictionary holding a mapping between projection names and projection attributes to be added to the corresponding projections |
-|              |                |             | | (e.g.: shotnoise?)                                                                                                           |
+|              |                | description | | dictionary holding attributes to add to projections (e.g., space?), which can be selected with ``select`` keywords. e.g.:    |
+|              |                |             | | .. code-block:: python                                                                                                       |
+|              |                |             | | update_projs:                                                                                                                |
+|              |                |             | | select: {'mode':'multipole'}                                                                                                 |
+|              |                |             | | space: power                                                                                                                 |
+|              |                |             | | will add the attribute ``space = power`` to multipole projections. One can also provide a list of such updates.              |
 |              +----------------+-------------+--------------------------------------------------------------------------------------------------------------------------------+
 |              | data_load      | type        | string                                                                                                                         |
 |              |                +-------------+--------------------------------------------------------------------------------------------------------------------------------+
@@ -3929,12 +3935,18 @@ Description of module :mod:`data_vector.MockCovarianceMatrix`:
 |              |                | description       | | dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)}) or list of  |
 |              |                |                   | | tuples corresponding to the data projections                                                                                 |
 |              +----------------+-------------------+--------------------------------------------------------------------------------------------------------------------------------+
-|              | projs          | type              | dict                                                                                                                           |
+|              | update_projs   | type              | - dict                                                                                                                         |
+|              |                |                   |                                                                                                                                +
+|              |                |                   | - list                                                                                                                         |
 |              |                +-------------------+--------------------------------------------------------------------------------------------------------------------------------+
 |              |                | default           | {}                                                                                                                             |
 |              |                +-------------------+--------------------------------------------------------------------------------------------------------------------------------+
-|              |                | description       | | dictionary holding a mapping between projection names and projection attributes to be added to the corresponding projections |
-|              |                |                   | | (e.g.: shotnoise?)                                                                                                           |
+|              |                | description       | | dictionary holding attributes to add to projections (e.g., space?), which can be selected with ``select`` keywords. e.g.:    |
+|              |                |                   | | .. code-block:: python                                                                                                       |
+|              |                |                   | | update_projs:                                                                                                                |
+|              |                |                   | | select: {'mode':'multipole'}                                                                                                 |
+|              |                |                   | | space: power                                                                                                                 |
+|              |                |                   | | will add the attribute ``space = power`` to multipole projections. One can also provide a list of such updates.              |
 |              +----------------+-------------------+--------------------------------------------------------------------------------------------------------------------------------+
 |              | data_load      | type              | list                                                                                                                           |
 |              |                +-------------------+--------------------------------------------------------------------------------------------------------------------------------+

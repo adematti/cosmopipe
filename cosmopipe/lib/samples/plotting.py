@@ -5,7 +5,7 @@ from matplotlib import gridspec, patches
 from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
 from cosmopipe.lib import plotting, utils
-from cosmopipe.lib.parameter import ParamBlock, Parameter
+from cosmopipe.lib.parameter import ParameterCollection, Parameter
 
 from .mesh import Mesh
 from .samples import Samples
@@ -151,10 +151,10 @@ class ListPlotStyle(plotting.BasePlotStyle):
 
     @staticmethod
     def get_parameters(parameters, chains=None):
-        isscalar = not isinstance(parameters,(tuple,list,ParamBlock))
+        isscalar = not isinstance(parameters,(tuple,list,ParameterCollection))
         if isscalar:
             parameters = [parameters]
-        toret = ParamBlock(parameters)
+        toret = ParameterCollection(parameters)
         if chains is None:
             if isscalar:
                 return toret[0]
@@ -173,7 +173,7 @@ class ListPlotStyle(plotting.BasePlotStyle):
         return toret
 
     def get_default_truths(self, truths, parameters):
-        isscalar = not isinstance(parameters,(tuple,list,ParamBlock))
+        isscalar = not isinstance(parameters,(tuple,list,ParameterCollection))
         if isscalar:
             truths = [truths]
             parameters = [parameters]

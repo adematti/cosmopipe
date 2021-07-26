@@ -115,10 +115,10 @@ class ProjectionName(BaseNameSpace):
 
 class ProjectionNameCollection(BaseOrderedCollection):
 
-    _cast = ProjectionName
+    _cast = lambda x: x if isinstance(x,ProjectionName) else ProjectionName(x)
 
     def index(self, proj, ignore_none=False):
-        proj = self._cast(proj)
+        proj = self.__class__._cast(proj)
         if ignore_none:
             return [iproj_ for iproj_,proj_ in enumerate(self.data) if proj.eq_ignore_none(proj_)]
         if proj not in self.data:

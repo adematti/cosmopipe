@@ -5,6 +5,8 @@ from pypescript import SectionBlock, syntax
 from cosmopipe import section_names
 from cosmopipe.lib import syntax, data_vector
 
+from .data_vector import update_data_projs
+
 
 class CovarianceMatrix(object):
 
@@ -25,6 +27,9 @@ class CovarianceMatrix(object):
         else:
             key = syntax.split_sections(covariance_load,default_section=section_names.data)
             cov = self.data_block[key]
+
+        for x in cov.x:
+            update_data_projs(x.projs,self.options.get('projs_attrs',[]))
 
         apply = self.options.get('apply',[])
         for apply_ in apply:

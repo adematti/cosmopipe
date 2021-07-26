@@ -9,7 +9,7 @@ from scipy import stats
 from pypescript.syntax import Decoder
 
 from . import utils
-from .utils import BaseClass
+from .utils import BaseClass, BaseOrderedCollection
 from cosmopipe import section_names
 from cosmopipe.lib import mpi
 
@@ -88,12 +88,12 @@ class ParamError(Exception):
     pass
 
 
-class ParamBlock(BaseClass):
+class ParameterCollection(BaseOrderedCollection):
 
-    logger = logging.getLogger('ParamBlock')
+    logger = logging.getLogger('ParameterCollection')
 
     def __init__(self, data=None, string=None, parser=None):
-        if isinstance(data,ParamBlock):
+        if isinstance(data,ParameterCollection):
             self.__dict__.update(data.__dict__)
             return
 
@@ -186,18 +186,6 @@ class ParamBlock(BaseClass):
         if param.name not in self:
             self.set(param)
 
-    def __repr__(self):
-        return '{}({})'.format(self.__class__.__name__,self.data)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __eq__(self, other):
-        return other.data == self.data
-
-    def __getstate__(self):
-        return {'data':[param.__getstate__() for param in self]}
-
     def __setstate__(self, state):
         self.data = [Parameter.from_state(param) for param in state['data']]
 
@@ -215,37 +203,6 @@ class ParamBlock(BaseClass):
             if all(getattr(param,key) == val for key,val in kwargs.items()):
                 toret.set(param)
         return toret
-
-    def __copy__(self):
-        new = super(ParamBlock,self).__copy__()
-        new.data = []
-        for param in self:
-            new.set(param)
-        return new
-
-    @classmethod
-    def concatenate(cls, *others):
-        new = cls(others[0])
-        for other in others[1:]:
-            for item in other:
-                new.set(item)
-        return new
-
-    def extend(self, other):
-        new = self.concatenate(self,other)
-        self.__dict__.update(new.__dict__)
-
-    def __radd__(self, other):
-        if other in [[],0,None]:
-            return self.copy()
-        return self.__add__(other)
-
-    def __iadd__(self, other):
-        self.extend(other)
-        return self
-
-    def __add__(self, other):
-        return self.concatenate(self,other)
 
 
 class ParamName(BaseClass):

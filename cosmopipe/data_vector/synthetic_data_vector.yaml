@@ -21,6 +21,8 @@ options:
     default: None
     description: list of projections (e.g. ['ell_0','mu_1/3_2/3']).
                 If ``None``, the projections of the current data vector are used
+  projs_attrs:
+    ${data_vector.yaml:options.projs_attrs}:
   x:
     type: [dict, list, float_array]
     default: None

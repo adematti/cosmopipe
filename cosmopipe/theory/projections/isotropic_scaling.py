@@ -12,7 +12,7 @@ from cosmopipe import section_names
 class IsotropicScaling(ParameterizedModule):
 
     def setup(self):
-        self.set_param_block()
+        self.set_parameters()
         input_model = self.data_block[section_names.primordial_perturbations,'pk_callable']
         self.scaling = theory.IsotropicScaling(model=input_model,
                                                 base=ProjectionBase(space=ProjectionBase.POWER),

@@ -5,7 +5,7 @@ import numpy as np
 
 from cosmopipe.lib.utils import BaseClass
 from cosmopipe.lib import utils
-from cosmopipe.lib.parameter import ParamBlock, Parameter, ParamName
+from cosmopipe.lib.parameter import ParameterCollection, Parameter, ParamName
 
 
 class ParamDict(BaseClass):
@@ -79,7 +79,7 @@ class ParamCovariance(BaseClass):
     def __setstate__(self, state):
         """Set the class state dictionary."""
         self.mat = state['mat']
-        self.parameters = ParamBlock.from_state(state['parameters'])
+        self.parameters = ParameterCollection.from_state(state['parameters'])
 
     def __repr__(self):
         return '{}({})'.format(self.__class__.__name__,self.mat)
@@ -91,7 +91,7 @@ class Profiles(BaseClass):
     _paramdicts = ['metrics','init','bestfit','parabolic_errors','deltachi2_errors']
 
     def __init__(self, parameters=None, attrs=None):
-        self.parameters = ParamBlock(parameters)
+        self.parameters = ParameterCollection(parameters)
         self.attrs = attrs or {}
 
     def __len__(self):
@@ -151,7 +151,7 @@ class Profiles(BaseClass):
 
     def __setstate__(self, state):
         """Set the class state dictionary."""
-        self.parameters = ParamBlock.from_state(state['parameters'])
+        self.parameters = ParameterCollection.from_state(state['parameters'])
         self.attrs = state['attrs']
         for name in self._paramdicts:
             if name in state:

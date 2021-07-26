@@ -13,7 +13,7 @@ class Parameterization(ParameterizedModule):
     logger = logging.getLogger('Parameterization')
 
     def setup(self):
-        self.set_param_block()
+        self.set_parameters()
 
     def execute(self):
         pass

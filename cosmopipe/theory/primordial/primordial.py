@@ -9,7 +9,7 @@ from cosmopipe import section_names
 class Primordial(ParameterizedModule):
 
     def setup(self):
-        self.set_param_block()
+        self.set_parameters()
         self.compute = self.options.get('compute',None)
         self.calculation_params = {}
         self.calculation_params['engine'] = self.options.get('engine','class')

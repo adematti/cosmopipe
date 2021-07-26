@@ -7,26 +7,10 @@ import logging
 import numpy as np
 
 from cosmopipe.lib import utils, mpi
-from cosmopipe.lib.catalog import BaseCatalog
-from cosmopipe.lib.parameter import ParamBlock, Parameter, ParamName
+from cosmopipe.lib.catalog.base import BaseCatalog, vectorize_columns
+from cosmopipe.lib.parameter import ParameterCollection, Parameter, ParamName
 
 from .utils import *
-
-
-def _multiple_columns(column):
-    return isinstance(column,(list,ParamBlock))
-
-
-def vectorize_columns(func):
-    @functools.wraps(func)
-    def wrapper(self, column, **kwargs):
-        if not _multiple_columns(column):
-            return func(self,column,**kwargs)
-        toret = [func(self,col,**kwargs) for col in column]
-        if all(t is None for t in toret): # in case not broadcast to all ranks
-            return None
-        return np.asarray(toret)
-    return wrapper
 
 
 class hybridmethod:
@@ -57,15 +41,19 @@ class Samples(BaseCatalog):
     logger = logging.getLogger('Samples')
     _broadcast_attrs = ['parameters','attrs','mpistate','mpiroot']
 
+    @classmethod
+    def _multiple_columns(cls, column):
+        return isinstance(column,(list,ParameterCollection))
+
     @mpi.MPIInit
     def __init__(self, data=None, parameters=None, attrs=None):
         self.data = {}
         if parameters is None:
             parameters = list((data or {}).keys())
-        if isinstance(parameters,ParamBlock):
+        if isinstance(parameters,ParameterCollection):
             self.parameters = parameters.copy()
         else:
-            self.parameters = ParamBlock(parameters)
+            self.parameters = ParameterCollection(parameters)
         if data is not None:
             for name in data:
                 self[name] = data[name]
@@ -137,7 +125,7 @@ class Samples(BaseCatalog):
     def __setstate__(self, state):
         """Set the class state dictionary."""
         self.data = state['data'].copy()
-        self.parameters = ParamBlock.from_state(state['parameters'])
+        self.parameters = ParameterCollection.from_state(state['parameters'])
         self.attrs = state['attrs']
 
     def __getitem__(self, name):
@@ -178,7 +166,7 @@ class Samples(BaseCatalog):
     def to_mesh(self, columns, **kwargs):
         from .mesh import Mesh
         if columns is None: columns = self.columns(fixed=False)
-        if not _multiple_columns(columns):
+        if not self._multiple_columns(columns):
             columns = [columns]
         columns = list(columns) + ['metrics.weight']
         samples = []
@@ -205,7 +193,7 @@ class Samples(BaseCatalog):
         if self.is_mpi_root():
             parameters_filename = '{}.paramnames'.format(base_filename)
             self.log_info('Loading parameters file: {}.'.format(parameters_filename))
-            self.parameters = ParamBlock()
+            self.parameters = ParameterCollection()
             with open(parameters_filename) as file:
                 for line in file:
                     name,latex = line.split()
@@ -310,7 +298,7 @@ class Samples(BaseCatalog):
 
     def cov(self, columns=None, ddof=1, **kwargs):
         if columns is None: columns = self.columns(fixed=False)
-        isscalar = not _multiple_columns(columns)
+        isscalar = not self._multiple_columns(columns)
         if isscalar: columns = [columns]
         if self.is_mpi_scattered():
             toret = mpi.cov_array([self[col] for col in columns],fweights=self['metrics.fweight'],aweights=self['metrics.aweight'],mpicomm=self.mpicomm)
@@ -483,7 +471,7 @@ class Samples(BaseCatalog):
         http://www.stat.columbia.edu/~gelman/research/published/brooksgelman2.pdf
         """
         if columns is None: columns = chains[0].columns(fixed=False)
-        isscalar = not _multiple_columns(columns)
+        isscalar = not cls._multiple_columns(columns)
         if isscalar: columns = [columns]
 
         if not isinstance(chains,(list,tuple)):
@@ -550,7 +538,7 @@ class Samples(BaseCatalog):
         if not isinstance(chains,(list,tuple)):
             chains = [chains]
 
-        if _multiple_columns(column):
+        if cls._multiple_columns(column):
             return np.array([cls.integrated_autocorrelation_time(chains,col,min_corr=min_corr,c=c,reliable=reliable,check=check) for col in column])
 
         # Automated windowing procedure following Sokal (1989)

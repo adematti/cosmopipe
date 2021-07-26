@@ -10,7 +10,7 @@ from cosmopipe import section_names
 class AnisotropicScaling(ParameterizedModule):
 
     def setup(self):
-        self.set_param_block()
+        self.set_parameters()
         factor = 0.8
         self.model_collection = self.data_block[section_names.model,'collection']
         scaling_collection = ModelCollection()
@@ -25,7 +25,7 @@ class AnisotropicScaling(ParameterizedModule):
     def execute(self):
         qpar = self.data_block[section_names.effect_ap,'qpar']
         qperp = self.data_block[section_names.effect_ap,'qperp']
-        for base,model in self.model_collection.items():
+        for model in self.model_collection:
             model.set_scaling(qpar=qpar,qperp=qperp)
 
     def cleanup(self):

@@ -1,16 +1,17 @@
 from pypescript import BaseModule
 
-from cosmopipe.lib.parameter import ParamBlock, ParamError, find_names
+from cosmopipe.lib.parameter import ParamError, find_names
 from cosmopipe.lib import syntax
 from cosmopipe import section_names
 
 
 class ParameterizedModule(BaseModule):
 
-    def set_param_block(self, include=None):
+    def set_parameters(self, include=None):
         base = self.options.get('base_parameters',{})
         extra = self.options.get('update_parameters',{}) or {}
-        base = ParamBlock(syntax.collapse_sections(base,maxdepth=2))
+        from cosmopipe.lib.parameter import ParameterCollection
+        base = ParameterCollection(syntax.collapse_sections(base,maxdepth=2))
         if include is not None:
             for param in base:
                 if param.name not in include:
@@ -44,9 +45,9 @@ class ParameterizedModule(BaseModule):
                 raise ParamError('An initial value must be provided for parameter {}.'.format(param.name))
         for param in base:
             self.data_block.setdefault(*param.name.tuple,param.value)
-        paramblock = self.data_block.get(section_names.parameters,'list',[])
-        paramblock += base
-        self.data_block[section_names.parameters,'list'] = paramblock
+        ParameterCollection = self.data_block.get(section_names.parameters,'list',[])
+        ParameterCollection += base
+        self.data_block[section_names.parameters,'list'] = ParameterCollection
         #for param in self.data_block[section_names.parameters,'list']:
         #    print(repr(param))
         self._datablock_mapping.update(datablock_mapping)

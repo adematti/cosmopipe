@@ -47,7 +47,7 @@ class PyBird(ParameterizedModule):
         self.pknow = pknow_callable(self.co.k)
 
     def setup(self):
-        self.set_param_block()
+        self.set_parameters()
         self.set_pklin()
         self.ells = [0,2,4]
         self.data_shotnoise = self.options.get('data_shotnoise',None)

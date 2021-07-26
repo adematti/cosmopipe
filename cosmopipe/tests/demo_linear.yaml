@@ -37,7 +37,9 @@ xdata:
     min: 0.02
     max: 0.3
     step: 0.01
-  projs: e'[{'space':'power','mode':'multipole','proj':ell} for ell in [0,2,4]]'
+  projs: [ell_0, ell_2, ell_4]
+  projs_attrs:
+    space: power
   xlim: $&{mockdata.xlim}
 
 mockcov:
@@ -83,6 +85,7 @@ anisotropic:
 projection:
   $module_name: cosmopipe.survey_selection.projection
   $modules: [wideangle, window]
+  #$modules: []
 
 wideangle:
   $module_name: cosmopipe.survey_selection.wide_angle

@@ -162,12 +162,14 @@ class BaseOrderedCollection(BaseClass):
             self.set(item)
 
     def index(self, item):
-        item = self._cast(item)
+        item = self.__class__._cast(item)
         return self.data.index(item)
 
     def set(self, item):
-        item = self._cast(item)
-        if item not in self.data:
+        item = self.__class__._cast(item)
+        if item in self: # always set the last one
+            self.data[self.data.index(item)] = item
+        else:
             self.data.append(item)
 
     def __getitem__(self, index):
@@ -185,6 +187,9 @@ class BaseOrderedCollection(BaseClass):
     def extend(self, other):
         new = self.concatenate(self,other)
         self.__dict__.update(new.__dict__)
+
+    def __eq__(self, other):
+        return other.data == self.data
 
     def __radd__(self, other):
         if other in [[],0,None]:
@@ -208,7 +213,7 @@ class BaseOrderedCollection(BaseClass):
         return len(self.data)
 
     def __contains__(self, item):
-        return self._cast(item) in self.data
+        return self.__class__._cast(item) in self.data
 
     def __iter__(self):
         return iter(self.data)
@@ -231,6 +236,15 @@ class BaseOrderedCollection(BaseClass):
                 if all(getattr(item,key) == value for key,value in kw.items()):
                     new.data.append(item)
         return new
+
+    def __getstate__(self):
+        return {'data':[item.__getstate__() if hasattr(item,'__getstate__') else item for item in self]}
+
+    def __setstate__(self, state):
+        self.data = [self.__class__._cast(item) for item in state['data']]
+
+    def clear(self):
+        self.data.clear()
 
 
 def _check_inv(mat, invmat, rtol=1e-04, atol=1e-05):

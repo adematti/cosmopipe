@@ -4,7 +4,7 @@ from cosmopipe import section_names
 from cosmopipe.lib.data_vector import DataVector
 from cosmopipe.lib import utils
 
-from .data_vector import get_kwview
+from .data_vector import get_kwview, update_data_projs
 
 
 def _cast_to_arrays(x, n=1):
@@ -14,6 +14,7 @@ def _cast_to_arrays(x, n=1):
         if isinstance(x[0],dict):
             x = [utils.customspace(**kw) for kw in x]
     return x
+
 
 class SyntheticDataVector(object):
 
@@ -71,6 +72,9 @@ class SyntheticDataVector(object):
             #data = data.noview() # required for now, because covariance matrix without view should have data vectors without view
         else:
             self.data_vector = DataVector(x=x,y=y,proj=projs,edges=[{'x':edge} for edge in edges] if edges is not None else None)
+        #print(id(self.data_vector.projs[0]))
+        update_data_projs(self.data_vector.projs,self.options.get('projs_attrs',[]))
+        #print(id(self.data_vector.projs[0]))
         if save: self.data_vector.save_auto(save)
         kwview = get_kwview(self.data_vector,xlim=self.options.get('xlim',None))
         self.data_vector = self.data_vector.view(**kwview)

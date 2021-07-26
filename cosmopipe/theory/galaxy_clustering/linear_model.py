@@ -10,13 +10,15 @@ from cosmopipe import section_names
 class LinearModel(ParameterizedModule):
 
     def setup(self):
-        self.set_param_block()
+        self.set_parameters()
         zeff = self.data_block[section_names.survey_selection,'zeff']
         pklin = self.data_block[section_names.primordial_perturbations,'pk_callable'].to_1d(z=zeff)
         self.sigma8 = pklin.sigma8()
         fo = self.data_block[section_names.primordial_cosmology,'cosmo'].get_fourier()
         self.growth_rate = fo.sigma8_z(zeff,of='theta_cb')/fo.sigma8_z(zeff,of='delta_cb')
+        model_attrs = self.options.get_dict('model_attrs',{})
         self.model = theory.LinearModel(klin=pklin.k,pklin=pklin,FoG=self.options.get('FoG','gaussian'))
+        self.model.base.set(**model_attrs)
         self.eval = self.model.eval
         self.data_shotnoise = self.options.get('data_shotnoise',None)
         try:

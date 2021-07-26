@@ -9,14 +9,10 @@ from cosmopipe.lib.utils import ScatteredBaseClass
 from cosmopipe.lib import utils, mpi
 
 
-def _multiple_columns(column):
-    return isinstance(column,list)
-
-
 def vectorize_columns(func):
     @functools.wraps(func)
     def wrapper(self, column, **kwargs):
-        if not _multiple_columns(column):
+        if not self.__class__._multiple_columns(column):
             return func(self,column,**kwargs)
         toret = [func(self,col,**kwargs) for col in column]
         if all(t is None for t in toret): # in case not broadcast to all ranks
@@ -29,6 +25,10 @@ class BaseCatalog(ScatteredBaseClass):
 
     logger = logging.getLogger('BaseCatalog')
     _broadcast_attrs = ['attrs','mpistate','mpiroot']
+
+    @classmethod
+    def _multiple_columns(cls, column):
+        return isinstance(column,list)
 
     @mpi.MPIInit
     def __init__(self, data=None, columns=None, attrs=None):

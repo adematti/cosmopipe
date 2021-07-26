@@ -9,7 +9,7 @@ from cosmopipe import section_names
 class Fiducial(ParameterizedModule):
 
     def setup(self):
-        self.set_param_block()
+        self.set_parameters()
         self.calculation_params = {}
         self.calculation_params['engine'] = self.options.get('engine','class')
         for name,value in Cosmology.get_default_parameters(of='calculation',include_conflicts=True).items():

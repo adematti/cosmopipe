@@ -54,7 +54,7 @@ class ProjectionBase(BaseNameSpace):
 
 class ProjectionBaseCollection(BaseOrderedCollection):
 
-    _cast = ProjectionBase
+    _cast = lambda x: x if isinstance(x,ProjectionBase) else ProjectionBase(x)
 
     def spaces(self):
         return [base.space for data in self.data]
@@ -80,48 +80,39 @@ class ProjectionBaseCollection(BaseOrderedCollection):
         return self.data[indices[0]]
 
 
-class ModelCollection(BaseClass):
+class ModelCollection(BaseOrderedCollection):
 
-    def __init__(self, models=None, bases=None):
-        if isinstance(models,self.__class__):
-            self.__dict__.update(models.__dict__)
-            return
-        self.data = {}
-        if models is None:
-            models = []
-        if not isinstance(models,list):
-            models = [models]
-        if bases is None:
-            bases = [None]*len(models)
-        for model,base in zip(models,bases):
-            self.set(model,base=base)
+    _cast = lambda x: x if isinstance(x,ProjectionBase) else x.base if isinstance(x,BaseModel) else ProjectionBase(x) # for __contains__
 
     @property
     def bases(self):
-        return ProjectionBaseCollection(list(self.data.keys()))
+        return ProjectionBaseCollection([model.base for model in self.data])
 
     @property
     def models(self):
-        return list(self.data.values())
+        return self.data
 
     def __repr__(self):
         return '{}({})'.format(self.__class__.__name__,repr(self.data))
 
-    def __copy__(self):
-        new = super(ModelCollection,self).__copy__()
-        new.data = self.data.copy()
-        return new
+    def index(self, base):
+        base = self.__class__._cast(base)
+        return self.bases.index(base)
 
     def get(self, base):
-        base = ProjectionBase(base)
-        return self.data[base]
+        return self.data[self.index(base)]
 
-    def set(self, model, base=None):
-        if base is None:
-            base = model.base
+    def set(self, model):
+        if model in self:
+            self.data[self.index(model)] = model
         else:
-            base = ProjectionBase(base)
-        self.data[base] = model
+            self.data.append(model)
+
+    def __contains__(self, item):
+        return self.__class__._cast(item) in self.bases
+
+    def __getitem__(self, index):
+        return self.data[index]
 
     def select(self, *args, **kwargs):
         new = self.__class__()
@@ -130,52 +121,13 @@ class ModelCollection(BaseClass):
             new.set(self.get(base),base=base)
         return new
 
-    def __getitem__(self, base):
-        return self.get(base)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __contains__(self, base):
-        return ProjectionBase(base) in self.data
-
-    def __iter__(self):
-        return iter(self.data)
-
     def items(self):
-        return self.data.items()
+        for model in self.data:
+            yield (model.base, model)
 
     def get_by_proj(self, *args, **kwargs):
         base = self.bases.get_by_proj(*args,**kwargs)
-        return self.data[base]
-
-    @classmethod
-    def concatenate(cls, *others):
-        new = cls(others[0])
-        new.data = others[0].data.copy()
-        for other in others[1:]:
-            for base,model in cls(other).data.items():
-                new.set(model,base=base)
-        return new
-
-    def extend(self, other):
-        new = self.concatenate(self,other)
-        self.__dict__.update(new.__dict__)
-
-    def __radd__(self, other):
-        if other in [[],0,None]:
-            return self.copy()
-        return self.concatenate(self,other)
-
-    def __iadd__(self, other):
-        self.extend(other)
-        return self
-
-    def __add__(self, other):
-        return self.concatenate(self,other)
-
-    def clear(self):
-        self.data.clear()
+        return self.get(base)
 
 
 class BaseModel(BaseClass):

@@ -7,11 +7,10 @@ description: Load a covariance matrix
 
 
 options:
-  xlim:
-    type: [dict, list]
-    default: None
-    description: "dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)})
-                or list of tuples corresponding to the data projections"
+  projs_attrs:
+    ${data_vector.yaml:options.xlim}:
+  projs_attrs:
+    ${data_vector.yaml:options.projs_attrs}:
   covariance_load:
     type: string
     description: either (section, name) in data_block where to find the covariance matrix or, if containing / (or \), a path to a covariance matrix on disk.

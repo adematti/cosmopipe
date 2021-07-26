@@ -5,17 +5,17 @@ from cosmopipe import section_names
 from cosmopipe.lib import syntax, data_vector
 
 
-def get_data_from_options(options, data_load, data_block=None, default_section=section_names.data, loader=data_vector.DataVector.load_auto):
-    kwargs = dict(comments='#',usecols=None,skip_rows=0,max_rows=None,mapping_header=None,mapping_proj=None,attrs=None)
-    for name,value in kwargs.items():
-        kwargs[name] = options.get(name,value)
-    data = syntax.load_auto(data_load,data_block=data_block,default_section=default_section,loader=loader,squeeze=True,**kwargs)
-    projs = options.get('projs',{})
-    for projname in projs:
-        for proj in data.projs:
-            if proj.name == projname:
-                proj.set(**projs[projname])
-    apply = options.get('apply',[])
+def update_data_projs(projs, updates):
+    if not isinstance(updates,list):
+        updates = [updates]
+    for update in updates:
+        update = update.copy()
+        select = update.pop('select',{})
+        for proj in projs.select(**select):
+            proj.set(**update)
+
+
+def apply_data(data, apply):
     for apply_ in apply:
         for key,value in apply_.items():
             value = value.copy()
@@ -29,6 +29,15 @@ def get_data_from_options(options, data_load, data_block=None, default_section=s
                         data.set(dataproj)
                 elif toret is not None:
                     data.set(toret)
+
+
+def get_data_from_options(options, data_load, data_block=None, default_section=section_names.data, loader=data_vector.DataVector.load_auto):
+    kwargs = dict(comments='#',usecols=None,skip_rows=0,max_rows=None,mapping_header=None,mapping_proj=None,attrs=None)
+    for name,value in kwargs.items():
+        kwargs[name] = options.get(name,value)
+    data = syntax.load_auto(data_load,data_block=data_block,default_section=default_section,loader=loader,squeeze=True,**kwargs)
+    update_data_projs(data.projs,options.get('projs_attrs',[]))
+    apply_data(data,options.get('apply',[]))
     return data
 
 

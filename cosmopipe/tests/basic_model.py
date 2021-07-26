@@ -10,8 +10,8 @@ from cosmopipe import section_names
 class BasicModel(ParameterizedModule):
 
     def setup(self):
-        # this adds parameters defined in basic_model.yaml to the ParamBlock
-        self.set_param_block()
+        # this adds parameters defined in basic_model.yaml to the ParameterCollection
+        self.set_parameters()
         # here we declare what this model is about, let's say it is just the monopole of the power spectrum, reliable between 1e-4 et 100 h/Mpc
         base = ProjectionBase(x=np.linspace(1e-4,100,100),space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE,projs=[0])
         # a model = a function (callable) (None for now, it will be given in execute()) + a ProjectionBase

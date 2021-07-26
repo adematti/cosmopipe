@@ -37,11 +37,6 @@ class HankelTransform(object):
 
     def execute(self):
         pass
-        """
-        for base,model in self.collection:
-            model.input_model = self.data_block[section_names.model,'collection'].get(model.input_base)
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',{}) + self.collection
-        """
 
     def cleanup(self):
         pass
