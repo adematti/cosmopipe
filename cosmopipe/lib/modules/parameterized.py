@@ -1,6 +1,6 @@
 from pypescript import BaseModule
 
-from cosmopipe.lib.parameter import ParamError, find_names
+from cosmopipe.lib.parameter import ParamError, find_names, find_names_latex
 from cosmopipe.lib import syntax
 from cosmopipe import section_names
 
@@ -16,8 +16,9 @@ class ParameterizedModule(BaseModule):
             for param in base:
                 if param.name not in include:
                     del base[param]
-        fix = extra.pop('fix',[])
-        extra = syntax.collapse_sections(extra,maxdepth=2)
+        extra = syntax.collapse_sections(extra,maxdepth=2).copy()
+        fixed = extra.pop('fixed',[])
+        varied = extra.pop('varied',[])
         datablock_mapping = {}
         allnames = list(map(str,base.names()))
         for name,update in extra.items():
@@ -25,21 +26,28 @@ class ParameterizedModule(BaseModule):
             specific = update.pop('specific',False)
             set_latex = 'latex' in update
             latex = update.pop('latex',None)
-            names = find_names(allnames,name,latex=latex)
-            if names is None:
+            if set_latex:
+                names = find_names_latex(allnames,name,latex=latex)
+            else:
+                names = find_names(allnames,name)
+            if not names:
                 raise ParamError('Parameter {} not found in {}'.format(name,allnames))
-            for name,latex in names:
-                param = base[name]
+            for name in names:
                 if set_latex:
+                    name,latex = name
+                    param = base[name]
                     param.update(latex=latex,**update)
                 else:
+                    param = base[name]
                     param.update(**update)
                 if specific:
                     param_name = param.name.copy()
                     param.add_suffix(self.name if isinstance(specific,bool) else specific)
                     datablock_mapping[param_name.tuple] = param.name.tuple
-        for name in fix:
+        for name in find_names(allnames,fixed):
             base[name].fixed = True
+        for name in find_names(allnames,varied):
+            base[name].fixed = False
         for param in base:
             if param.value is None:
                 raise ParamError('An initial value must be provided for parameter {}.'.format(param.name))

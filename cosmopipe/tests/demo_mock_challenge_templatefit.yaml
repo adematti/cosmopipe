@@ -91,7 +91,7 @@ model:
 anisotropic:
   $module_name: cosmopipe.theory.projections.anisotropic_scaling
   #update_parameters:
-    #fix: [effect_ap.qpar, effect_ap.qperp]
+    #fixed: [effect_ap.qpar, effect_ap.qperp]
 
 projection:
   $module_name: cosmopipe.survey_selection.projection

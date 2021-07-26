@@ -81,6 +81,8 @@ model:
 
 anisotropic:
   $module_name: cosmopipe.theory.projections.anisotropic_scaling
+  update_parameters:
+    varied: '*'
 
 projection:
   $module_name: cosmopipe.survey_selection.projection

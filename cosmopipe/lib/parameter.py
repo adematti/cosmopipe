@@ -2,6 +2,7 @@ import sys
 import logging
 import math
 import re
+import fnmatch
 import itertools
 
 import numpy as np
@@ -39,7 +40,7 @@ def decode_name(name, size=None):
     return strings,ranges
 
 
-def yield_names(name, latex=None, size=1):
+def yield_names_latex(name, latex=None, size=1):
 
     strings,ranges = decode_name(name,size=size)
 
@@ -57,7 +58,7 @@ def yield_names(name, latex=None, size=1):
             yield template.format(*nums), latex.format(*nums) if latex is not None else latex
 
 
-def find_names(allnames, name, latex=None):
+def find_names_latex(allnames, name, latex=None):
 
     strings,ranges = decode_name(name,size=sys.maxsize)
     if not ranges:
@@ -80,6 +81,32 @@ def find_names(allnames, name, latex=None):
                 if not add: break
             if add:
                 toret.append((paramname,latex.format(*nums) if latex is not None else latex))
+    return toret
+
+
+def find_names(allnames, name):
+
+    if not np.ndim(name) == 0:
+        toret = []
+        for name_ in name: toret += find_names(allnames,name_)
+        return toret
+
+    name = fnmatch.translate(name)
+    strings,ranges = decode_name(name,size=sys.maxsize)
+    pattern = re.compile('(-?\d*)'.join(strings))
+    toret = []
+    for paramname in allnames:
+        match = re.match(pattern,paramname)
+        if match:
+            add = True
+            nums = []
+            for s,ra in zip(match.groups(),ranges):
+                idx = int(s)
+                nums.append(idx)
+                add = idx in ra # ra not in memory
+                if not add: break
+            if add:
+                toret.append(paramname)
     return toret
 
 
@@ -118,7 +145,7 @@ class ParameterCollection(BaseOrderedCollection):
             else:
                 conf = conf.copy()
                 latex = conf.pop('latex',None)
-                for name,latex in yield_names(name,latex=latex):
+                for name,latex in yield_names_latex(name,latex=latex):
                     param = Parameter(name=name,latex=latex,**conf)
                     self.set(param)
 
@@ -193,9 +220,8 @@ class ParameterCollection(BaseOrderedCollection):
         toret = self.__class__()
         name = kwargs.pop('name',None)
         if name is not None:
-            names = find_names(map(str,self.names()), name)
-            if names is None: return toret # no match
-            names = (name[0] for name in names)
+            names = find_names(map(str,self.names()),name)
+            if not names: return toret # no match
         else:
             names = self.names()
         for name in names:
