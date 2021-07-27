@@ -18,7 +18,7 @@ class SurveyProjection(BasePipeline):
         xmodels = self.options.get('x',None)
         self.model_collection = self.data_block[section_names.model,'collection']
         data = self.data_block[section_names.data,'data_vector']
-        self.projection_collection = ModelProjectionCollection(data=data,projs=projs,model_base=self.model_collection.bases,integration=integration)
+        self.projection_collection = ModelProjectionCollection(data=data,projs=projs,model_base=self.model_collection.bases(),integration=integration)
         self.projection = self.projection_collection.model_projections[0]
 
         self.pipe_block = self.data_block.copy()

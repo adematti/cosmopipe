@@ -132,7 +132,7 @@ def get_cosmopipe_likelihood(pipeline, params):
 
 def get_cobaya_parameter(parameter):
 
-    if parameter.fixed:
+    if not parameter.varied:
         return parameter.value
     toret = {}
     toret['latex'] = parameter.latex

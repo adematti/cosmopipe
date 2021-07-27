@@ -34,9 +34,9 @@ class EnsembleSampler(BasePipeline):
             self.pool = mpi.MPIPool(mpicomm=self.mpicomm,check_tasks=True)
 
         parameters = self.pipe_block[section_names.parameters,'list']
-        self.varied = parameters.select(fixed=False)
+        self.varied = parameters.select(varied=True)
         self.log_info('Varying parameters {}.'.format([str(param.name) for param in self.varied]),rank=0)
-        self.fixed = parameters.select(fixed=True)
+        self.fixed = parameters.select(varied=False)
 
         if self.nwalkers is None:
             self.nwalkers = 2 * ((int(2.5 * len(self.varied)) + 1)//2)

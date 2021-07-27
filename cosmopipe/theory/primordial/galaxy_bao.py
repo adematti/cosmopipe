@@ -1,13 +1,14 @@
 import numpy as np
 
-from cosmopipe.lib.primordial import Cosmology
+from cosmoprimo import Cosmology
+
 from cosmopipe import section_names
 
 
 class GalaxyBAO(object):
 
     def setup(self):
-        self.zeff = self.data_block[section_names.survey_geometry,'zeff']
+        self.zeff = self.data_block[section_names.survey_selection,'zeff']
         cosmo = self.data_block[section_names.fiducial_cosmology,'cosmo']
         th = cosmo.get_thermodynamics()
         ba = cosmo.get_background()

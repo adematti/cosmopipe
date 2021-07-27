@@ -10,7 +10,7 @@ class GalaxyRSD(object):
 
     def execute(self):
         cosmo = self.data_block[section_names.primordial_cosmology,'cosmology']
-        zeff = self.data_block[section_names.survey_geometry,'zeff']
+        zeff = self.data_block[section_names.survey_selection,'zeff']
         self.data_block[section_names.galaxy_rsd,'fsig'] = cosmo.get_fourier().sigma_rz(r=self.sigma_radius,z=zeff)
 
     def cleanup(self):

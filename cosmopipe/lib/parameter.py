@@ -58,13 +58,17 @@ def yield_names_latex(name, latex=None, size=1):
             yield template.format(*nums), latex.format(*nums) if latex is not None else latex
 
 
-def find_names_latex(allnames, name, latex=None):
+def find_names_latex(allnames, name, latex=None, quiet=True):
 
+    name = str(ParamName(name))
+    error = ParamError('No match found for {}'.format(name))
     strings,ranges = decode_name(name,size=sys.maxsize)
     if not ranges:
         if strings[0] in allnames:
             return [(strings[0], latex)]
-        return None
+        if not quiet:
+            raise error
+        return []
     pattern = re.compile('(-?\d*)'.join(strings))
     toret = []
     if latex is not None:
@@ -81,15 +85,20 @@ def find_names_latex(allnames, name, latex=None):
                 if not add: break
             if add:
                 toret.append((paramname,latex.format(*nums) if latex is not None else latex))
+    if not toret and not quiet:
+        raise error
     return toret
 
 
-def find_names(allnames, name):
+def find_names(allnames, name, quiet=True):
 
-    if not np.ndim(name) == 0:
+    if isinstance(name,list):
         toret = []
-        for name_ in name: toret += find_names(allnames,name_)
+        for name_ in name: toret += find_names(allnames,name_,quiet=quiet)
         return toret
+
+    name = str(ParamName(name))
+    error = ParamError('No match found for {}'.format(name))
 
     name = fnmatch.translate(name)
     strings,ranges = decode_name(name,size=sys.maxsize)
@@ -107,6 +116,8 @@ def find_names(allnames, name):
                 if not add: break
             if add:
                 toret.append(paramname)
+    if not toret and not quiet:
+        raise error
     return toret
 
 
@@ -180,9 +191,9 @@ class ParameterCollection(BaseOrderedCollection):
 
     def __delitem__(self, name):
         try:
-            del self[name]
+            del self.data[name]
         except TypeError:
-            del self[self._index_name(name)]
+            del self.data[self.index(name)]
 
     def set(self, param):
         if not isinstance(param,Parameter):
@@ -205,9 +216,9 @@ class ParameterCollection(BaseOrderedCollection):
         return list(self.names()).index(name)
 
     def __contains__(self, name):
-        if not isinstance(name,Parameter):
-            return name in self.names()
-        return name in self.data
+        if isinstance(name,Parameter):
+            return name.name in self.names()
+        return ParamName(name) in self.names()
 
     def setdefault(self, param):
         if param.name not in self:
@@ -334,7 +345,7 @@ class Parameter(BaseClass):
 
     @property
     def varied(self):
-        return not self.fixed
+        return (not self.fixed)
 
     def get_label(self):
         if self.latex is not None:

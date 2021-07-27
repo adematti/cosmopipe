@@ -2,7 +2,7 @@ import numpy as np
 
 from cosmoprimo import Cosmology
 
-from cosmopipe.lib.modules import ParameterizedModule
+from cosmopipe.parameters import ParameterizedModule
 from cosmopipe import section_names
 
 

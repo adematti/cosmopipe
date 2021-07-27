@@ -55,12 +55,14 @@ def test_sugar():
 
     name = '*.test_[-1:3]_[:2]_test'
     allnames = ['a.test_1_1_test','b.test_2_1_test','b.test_2_2_test','test_2_1_test']
-    assert find_names(allnames,name) == [name for name in allnames[:-2]]
+    assert find_names(allnames,name) == allnames[:-2]
 
 
     name = ['*.test_[-1:3]_[:2]_test','*.test_2_2_test']
     allnames = ['a.test_1_1_test','b.test_2_1_test','b.test_2_2_test','test_2_1_test']
-    assert find_names(allnames,name) == [name for name in allnames[:-1]]
+    assert find_names(allnames,name) == allnames[:-1]
+
+    assert find_names(allnames,['*']) == allnames
 
 
 def test_collection():

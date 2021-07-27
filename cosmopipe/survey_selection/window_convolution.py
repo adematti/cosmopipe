@@ -20,7 +20,7 @@ class WindowConvolution(object):
 
         if options['krange'] is None:
             # try get model base
-            model_bases = self.data_block[section_names.model,'collection'].bases
+            model_bases = self.data_block[section_names.model,'collection'].bases()
             k = model_bases.select(space=ProjectionBase.POWER)[0].x
             options['krange'] = (k.min(),k.max())
 

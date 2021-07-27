@@ -60,6 +60,13 @@ options:
     description: update base parameters
 
 parameters:
+  galaxy_rsd.fsig:
+    value: 0.5
+    fixed: False
+    prior:
+      dist: uniform
+      limits: [0.2, 1.2]
+    latex: 'f\sigma_{8}'
   galaxy_bias:
     b1:
       value: 1.69
@@ -135,10 +142,10 @@ parameters:
       fixed: False
       latex: 's_{k,0}'
 
-  counterterm_c3:
-    value: 0.
-    fixed: True
-    latex: 'c_{3}'
+    counterterm_c3:
+      value: 0.
+      fixed: True
+      latex: 'c_{3}'
 ---
 
 ${#EPTMoments:}:
@@ -153,6 +160,7 @@ options:
     description: base parameters
 
 parameters:
+  ${#EPTMoments:parameters}:
   galaxy_bias:
     b1:
       value: 1.69
@@ -205,6 +213,7 @@ options:
     description: base parameters
 
 parameters:
+  ${#EPTMoments:parameters}:
   galaxy_bias:
     b1:
       value: 1.69
@@ -276,10 +285,10 @@ parameters:
       fixed: False
       latex: '\sigma_{\mathrm{stoch}}'
 
-  counterterm_c3:
-    value: 0.
-    fixed: True
-    latex: 'c_{3}'
+    counterterm_c3:
+      value: 0.
+      fixed: True
+      latex: 'c_{3}'
 ---
 
 ${#LPTMoments:}:
@@ -294,6 +303,7 @@ options:
     description: base parameters
 
 parameters:
+  ${#EPTMoments:parameters}:
   galaxy_bias:
     b1:
       value: 1.69
@@ -340,10 +350,10 @@ parameters:
       fixed: False
       latex: '\sigma_{\mathrm{stoch}}'
 
-  counterterm_c3:
-    value: 0.
-    fixed: True
-    latex: 'c_{3}'
+    counterterm_c3:
+      value: 0.
+      fixed: True
+      latex: 'c_{3}'
 ---
 
 ${#LPTMoments:}:
@@ -358,6 +368,7 @@ options:
     description: base parameters
 
 parameters:
+  ${#EPTMoments:parameters}:
   galaxy_bias:
     b1:
       value: 1.69
@@ -396,10 +407,10 @@ parameters:
       fixed: False
       latex: '\sigma_{\mathrm{FoG}}^{2}'
 
-  counterterm_c3:
-    value: 0.
-    fixed: True
-    latex: 'c_{3}'
+    counterterm_c3:
+      value: 0.
+      fixed: True
+      latex: 'c_{3}'
 
 ---
 
@@ -428,6 +439,7 @@ options:
 
 
 parameters:
+  ${#EPTMoments:parameters}:
   galaxy_bias:
     b1:
       value: 1.69

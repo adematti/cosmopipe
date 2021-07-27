@@ -135,7 +135,7 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
             for fields in lfields:
 
                 try:
-                    base = models.bases.get_by_proj(fields=fields,space=ProjectionBase.POWER)
+                    base = models.bases().get_by_proj(fields=fields,space=ProjectionBase.POWER)
                 except IndexError:
                     if fields in [proj1.fields,proj2.fields]:
                         raise

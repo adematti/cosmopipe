@@ -7,18 +7,25 @@ from cosmopipe import section_names
 
 class ParameterizedModule(BaseModule):
 
-    def set_parameters(self, include=None):
+    def set_parameters(self, include=None, exclude=None):
         base = self.options.get('base_parameters',{})
         extra = self.options.get('update_parameters',{}) or {}
         from cosmopipe.lib.parameter import ParameterCollection
         base = ParameterCollection(syntax.collapse_sections(base,maxdepth=2))
-        if include is not None:
-            for param in base:
-                if param.name not in include:
-                    del base[param]
         extra = syntax.collapse_sections(extra,maxdepth=2).copy()
         fixed = extra.pop('fixed',[])
         varied = extra.pop('varied',[])
+        derived = extra.pop('derived',[])
+        allnames = list(map(str,base.names()))
+        if include is not None:
+            for name in find_names(allnames,include,quiet=False):
+                del base[name]
+        exclude = (exclude or []) + derived
+        self._derived_parameters = ParameterCollection()
+        for name in find_names(allnames,exclude,quiet=False):
+            self._derived_parameters.set(base[name])
+            del base[name]
+
         datablock_mapping = {}
         allnames = list(map(str,base.names()))
         for name,update in extra.items():
@@ -27,9 +34,9 @@ class ParameterizedModule(BaseModule):
             set_latex = 'latex' in update
             latex = update.pop('latex',None)
             if set_latex:
-                names = find_names_latex(allnames,name,latex=latex)
+                names = find_names_latex(allnames,name,latex=latex,quiet=False)
             else:
-                names = find_names(allnames,name)
+                names = find_names(allnames,name,quiet=False)
             if not names:
                 raise ParamError('Parameter {} not found in {}'.format(name,allnames))
             for name in names:
@@ -44,9 +51,9 @@ class ParameterizedModule(BaseModule):
                     param_name = param.name.copy()
                     param.add_suffix(self.name if isinstance(specific,bool) else specific)
                     datablock_mapping[param_name.tuple] = param.name.tuple
-        for name in find_names(allnames,fixed):
+        for name in find_names(allnames,fixed,quiet=False):
             base[name].fixed = True
-        for name in find_names(allnames,varied):
+        for name in find_names(allnames,varied,quiet=False):
             base[name].fixed = False
         for param in base:
             if param.value is None:

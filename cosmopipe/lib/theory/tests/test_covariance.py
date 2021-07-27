@@ -125,7 +125,7 @@ def test_pk_xi_covariance():
         dataproj = BinnedProjection(x=s,proj={'space':'correlation','mode':'muwedge','proj':muwedge},edges={'x':sedges})
         data.set(dataproj)
     models = ModelCollection([model])
-    cov = GaussianCovarianceMatrix(data,model_base=models.bases,volume=(1e3)**3)
+    cov = GaussianCovarianceMatrix(data,model_base=models.bases(),volume=(1e3)**3)
     cov.compute(models)
     assert cov.cov.shape == (data.size,)*2
     filename = os.path.join(plot_dir,'covariance_pk_xi.png')
@@ -158,7 +158,7 @@ def test_pkell_covariance():
     proj = [{'space':'power','mode':'multipole','proj':proj} for proj in [0,2,4]]
     proj += [{'space':'power','mode':'muwedge','proj':proj} for proj in [(0.,1./3.),(1./3.,2./3.),(2./3.,1.)]]
     data = DataVector(x=k,proj=proj,edges=[{'x':kedges}]*len(proj))
-    cov = GaussianCovarianceMatrix(data,model_base=models.bases,volume=(1e3)**3)
+    cov = GaussianCovarianceMatrix(data,model_base=models.bases(),volume=(1e3)**3)
     cov.compute(models)
     assert cov.cov.shape == (len(k)*len(proj),)*2
     filename = os.path.join(plot_dir,'covariance_pkell.png')
@@ -181,7 +181,7 @@ def test_view_covariance():
     data = DataVector(x=k,proj=proj,edges=[{'x':kedges}]*len(proj))
     data.view(xlim=(0.01,0.2))
     models = ModelCollection([model])
-    cov = GaussianCovarianceMatrix(data,model_base=models.bases,volume=(1e3)**3)
+    cov = GaussianCovarianceMatrix(data,model_base=models.bases(),volume=(1e3)**3)
     cov.compute(models)
     assert cov.cov.shape == (data.get_x(concatenate=True).size,)*2
     cov.view(xlim=(0.01,0.1))

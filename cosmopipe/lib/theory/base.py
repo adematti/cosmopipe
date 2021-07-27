@@ -84,7 +84,6 @@ class ModelCollection(BaseOrderedCollection):
 
     _cast = lambda x: x if isinstance(x,ProjectionBase) else x.base if isinstance(x,BaseModel) else ProjectionBase(x) # for __contains__
 
-    @property
     def bases(self):
         return ProjectionBaseCollection([model.base for model in self.data])
 
@@ -97,7 +96,7 @@ class ModelCollection(BaseOrderedCollection):
 
     def index(self, base):
         base = self.__class__._cast(base)
-        return self.bases.index(base)
+        return self.bases().index(base)
 
     def get(self, base):
         return self.data[self.index(base)]
@@ -109,14 +108,14 @@ class ModelCollection(BaseOrderedCollection):
             self.data.append(model)
 
     def __contains__(self, item):
-        return self.__class__._cast(item) in self.bases
+        return self.__class__._cast(item) in self.bases()
 
     def __getitem__(self, index):
         return self.data[index]
 
     def select(self, *args, **kwargs):
         new = self.__class__()
-        bases = self.bases.select(*args,**kwargs)
+        bases = self.bases().select(*args,**kwargs)
         for base in bases:
             new.set(self.get(base),base=base)
         return new
@@ -126,7 +125,7 @@ class ModelCollection(BaseOrderedCollection):
             yield (model.base, model)
 
     def get_by_proj(self, *args, **kwargs):
-        base = self.bases.get_by_proj(*args,**kwargs)
+        base = self.bases().get_by_proj(*args,**kwargs)
         return self.get(base)
 
 

@@ -135,7 +135,7 @@ def get_minuit_values(parameters, sample=True):
     toret = []
     for param in parameters:
         name = str(param.name)
-        if sample and (not param.fixed) and param.ref.is_proper():
+        if sample and param.varied and param.ref.is_proper():
             toret.append(param.ref.sample())
         else:
             toret.append(param.value)
@@ -145,7 +145,7 @@ def get_minuit_values(parameters, sample=True):
 def get_minuit_fixed(parameters):
     toret = {}
     for param in parameters:
-        toret[str(param.name)] = param.fixed
+        toret[str(param.name)] = not param.varied
     return toret
 
 

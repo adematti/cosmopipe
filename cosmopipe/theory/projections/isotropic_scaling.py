@@ -4,7 +4,7 @@ from cosmoprimo import PowerSpectrumInterpolator2D
 
 from cosmopipe.lib import theory
 from cosmopipe.lib.theory.base import ProjectionBase
-from cosmopipe.lib.modules import ParameterizedModule
+from cosmopipe.parameters import ParameterizedModule
 
 from cosmopipe import section_names
 

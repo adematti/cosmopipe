@@ -11,7 +11,7 @@ data_dir: _data
 plots_dir: _plots
 
 main:
-  $execute: [primordial, model, xdata, mockcov, projection, mockdata, fitting]
+  $execute: [fiducial, primordial, xdata, full_model, mockcov, mockdata, fitting]
   $[survey_selection.zeff]: 1.0
 
 fitting:
@@ -30,6 +30,8 @@ primordial:
   $module_name: cosmopipe.theory.primordial.primordial
   engine: eisenstein_hu
   compute: pk_m
+  update_parameters:
+    varied: ['*.omega_cdm', '*.h']
 
 xdata:
   $module_name: cosmopipe.data_vector.synthetic_data_vector
@@ -69,7 +71,19 @@ like:
   $module_name: cosmopipe.likelihood.likelihood
   $module_class: GaussianLikelihood
   #$setup: [isotropic.execute]
-  $modules: [model, anisotropic, projection]
+  $modules: [full_model]
+
+fiducial:
+  $module_name: cosmopipe.theory.primordial.fiducial
+
+effectap:
+  $module_name: cosmopipe.theory.primordial.effect_ap
+  engine: class
+
+full_model:
+  $module_name: pypescript
+  $module_class: StreamPipeline
+  $modules: [primordial, model, effectap, anisotropic, projection]
 
 model:
   $module_name: cosmopipe.theory.galaxy_clustering.linear_model
@@ -82,11 +96,13 @@ model:
 
 anisotropic:
   $module_name: cosmopipe.theory.projections.anisotropic_scaling
+  update_parameters:
+    derived: ['*']
 
 projection:
   $module_name: cosmopipe.survey_selection.projection
-  $modules: [wideangle, window]
-  #$modules: []
+  #$modules: [wideangle, window]
+  $modules: []
 
 wideangle:
   $module_name: cosmopipe.survey_selection.wide_angle

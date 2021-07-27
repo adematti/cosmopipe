@@ -19,7 +19,7 @@ options:
     description: Sphere radius
 
 execute input:
-  survey_geometry.zeff:
+  survey_selection.zeff:
     type: float
     description: Effective redshift
   primordial_cosmology.cosmo:

@@ -279,7 +279,7 @@ def test_pkell_projection():
     data = DataVector(x=k,proj=['ell_0','ell_1','ell_2','ell_4'])
     list_data_vector = []
 
-    model_projection = ModelProjection(data,model_base=model.bases)
+    model_projection = ModelProjection(data,model_base=model.bases())
     model_projection.setup()
     #list_data_vector.append(model_projection.to_data_vector(model))
     # add BaseBinning

@@ -18,7 +18,7 @@ class GaussianCovariance(object):
             options[name] = self.options.get(name,None)
         self.kwview = {}
         data = self.data_block[section_names.data,'data_vector']
-        model_bases = self.data_block[section_names.model,'collection'].bases
+        model_bases = self.data_block[section_names.model,'collection'].bases()
         self.covariance = gaussian_covariance.GaussianCovarianceMatrix(data=data,model_base=model_bases,**options)
 
     def execute(self):

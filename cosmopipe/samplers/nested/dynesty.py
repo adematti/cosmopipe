@@ -36,12 +36,12 @@ class DynestySampler(BasePipeline):
             self.queue_size = self.pool.size
 
         parameters = self.pipe_block[section_names.parameters,'list']
-        self.varied = parameters.select(fixed=False)
+        self.varied = parameters.select(varied=True)
         self.log_info('Varying parameters {}.'.format([str(param.name) for param in self.varied]),rank=0)
         for param in self.varied:
             if not param.prior.is_proper():
                 raise ParamError('Prior for {} is improper, Dynesty requires proper priors'.format(param.name))
-        self.fixed = parameters.select(fixed=True)
+        self.fixed = parameters.select(varied=False)
 
         ndim = len(self.varied)
         # e.g. propose_point requires the whole lkl to be pickelable...

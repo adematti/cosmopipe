@@ -137,7 +137,7 @@ def get_cosmosis_parameter(parameter):
     self.start = parameter.value
     for key in ['limits','prior']:
         setattr(self,key,getattr(parameter,key))
-    if parameter.fixed:
+    if not parameter.varied:
         self.limits = (parameter.value,)*2
     return self
 
