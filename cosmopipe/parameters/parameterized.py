@@ -25,7 +25,10 @@ class ParameterizedModule(BaseModule):
         for name in find_names(allnames,exclude,quiet=False):
             self._derived_parameters.set(base[name])
             del base[name]
-
+        derived = [str(name) for name in self.data_block.get(section_names.parameters,'derived',[])]
+        for name in find_names(allnames,derived,quiet=True):
+            self._derived_parameters.set(base[name])
+            del base[name]
         datablock_mapping = {}
         allnames = list(map(str,base.names()))
         for name,update in extra.items():

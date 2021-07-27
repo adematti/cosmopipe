@@ -32,18 +32,14 @@ class LinearModel(PTModule):
         if self.set_primordial():
             self.model.pk_linear = self.pklin
 
-        if self.derive_fsig:
-            fsig = self.growth_rate*self.sigma8
-        else:
-            fsig = self.data_block[section_names.galaxy_rsd,'fsig']
-
+        fsig = self.data_block[section_names.galaxy_rsd,'fsig']
         sigmav = self.data_block.get(section_names.galaxy_bias,'sigmav',0.)
         #print(self._datablock_mapping)
         b1 = self.data_block.get(section_names.galaxy_bias,'b1',1.)
         shotnoise = (1. + self.data_block.get(section_names.galaxy_bias,'As',0.))*self.data_shotnoise
 
         def model(k, mu, grid=True):
-            return self.eval(k,mu,b1=b1,sigmav=sigmav,shotnoise=shotnoise,f=fsig/self.sigma8,grid=grid)
+            return self.eval(k,mu,b1=b1,sigmav=sigmav,shotnoise=shotnoise,f=fsig/self.sigma,grid=grid)
 
         self.model.eval = model
 

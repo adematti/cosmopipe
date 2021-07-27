@@ -13,9 +13,9 @@ long description: >
                   and in absence of neutrinos.
 
 options:
-  sigma_radius:
+  radius_sig:
     type: float
-    default: 8
+    default: 8.0
     description: Sphere radius
 
 execute input:

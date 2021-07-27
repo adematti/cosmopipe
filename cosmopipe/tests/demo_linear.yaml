@@ -68,17 +68,17 @@ plotting:
 like:
   $module_name: cosmopipe.likelihood.likelihood
   $module_class: GaussianLikelihood
-  #$setup: [isotropic.execute]
-  $modules: [model, anisotropic, projection]
+  $modules: [isotropic, model, anisotropic, projection]
 
 model:
   $module_name: cosmopipe.theory.galaxy_clustering.linear_model
   FoG: gaussian
   data_shotnoise: 1e3
-  update_parameters:
-    galaxy_bias.b1:
-      specific: model
-    derived: ['*.fsig']
+  #update_parameters:
+  #  fixed: ['*']
+
+isotropic:
+  $module_name: cosmopipe.theory.projections.isotropic_scaling
 
 anisotropic:
   $module_name: cosmopipe.theory.projections.anisotropic_scaling

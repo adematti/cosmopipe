@@ -101,12 +101,8 @@ class PyBird(PTModule):
         for name in self.required_params:
             bias[name] = self.data_block.get(section_names.galaxy_bias,name)
 
-        if self.derive_fsig:
-            fsig = self.growth_rate*self.sigma8
-        else:
-            fsig = self.data_block[section_names.galaxy_rsd,'fsig']
-
-        f = fsig/self.sigma8
+        fsig = self.data_block[section_names.galaxy_rsd,'fsig']
+        f = fsig/self.sigma
         #if f != self._cache.get('f',None):
         self.bird.f = f
         self.bird.setPsCf(bias)

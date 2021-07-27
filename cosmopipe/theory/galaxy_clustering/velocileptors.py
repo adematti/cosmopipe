@@ -68,11 +68,8 @@ class Velocileptors(PTModule):
         opts = {}
         for par in self.optional_params:
             opts[par] = self.data_block.get(section_names.galaxy_bias,par,self.optional_params[par])
-        if self.derive_fsig:
-            fsig = self.growth_rate*self.sigma8
-        else:
-            fsig = self.data_block[section_names.galaxy_rsd,'fsig']
-        f = fsig/self.sigma8
+        fsig = self.data_block[section_names.galaxy_rsd,'fsig']
+        f = fsig/self.sigma
 
         self.model.eval = self.get_model_callable(pars,f,**opts,**self.optional_kw)
         #self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])

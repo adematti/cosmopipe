@@ -80,10 +80,13 @@ effectap:
   $module_name: cosmopipe.theory.primordial.effect_ap
   engine: class
 
+rsd:
+  $module_name: cosmopipe.theory.primordial.galaxy_rsd
+
 full_model:
   $module_name: pypescript
   $module_class: StreamPipeline
-  $modules: [primordial, model, effectap, anisotropic, projection]
+  $modules: [primordial, effectap, rsd, model, anisotropic, projection]
 
 model:
   $module_name: cosmopipe.theory.galaxy_clustering.linear_model
@@ -92,12 +95,11 @@ model:
   update_parameters:
     galaxy_bias.b1:
       specific: model
-    derived: ['*.fsig']
 
 anisotropic:
   $module_name: cosmopipe.theory.projections.anisotropic_scaling
-  update_parameters:
-    derived: ['*']
+  #update_parameters:
+  #  derived: ['*']
 
 projection:
   $module_name: cosmopipe.survey_selection.projection
