@@ -1,7 +1,8 @@
 from cobaya.likelihood import Likelihood as CobayaLikelihood
 from pypescript import BasePipeline
 
-from cosmopipe.lib.primordial import PowerSpectrumInterpolator1D
+from cosmoprimo import PowerSpectrumInterpolator1D
+
 from cosmopipe import section_names
 from cosmopipe.lib import mpi
 

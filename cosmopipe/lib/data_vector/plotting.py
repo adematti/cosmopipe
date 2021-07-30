@@ -25,9 +25,9 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
         self.labelsize = 17
         self.ticksize = 15
         self.errorbar = 'fill'
-        self.filename = None
         self.grid = True
         self.kwplt = {}
+        self.filename = None
         self.update(**kwargs)
 
     def update(self, **kwargs):
@@ -206,6 +206,7 @@ class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
         self.ticksize = 13
         self.norm = None
         self.barlabel = None
+        self.filename = None
         self.update(**kwargs)
 
     def get_styles(self, covariance=None):

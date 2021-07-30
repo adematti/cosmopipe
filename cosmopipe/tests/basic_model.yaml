@@ -26,7 +26,7 @@ parameters:
       fixed: False
       prior:
         dist: uniform
-        limits: [1.0, 4.0]
+        limits: [0.0, 10.0]
       ref:
         dist: uniform
         limits: [1.5, 2.5]

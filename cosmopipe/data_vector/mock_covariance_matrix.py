@@ -21,8 +21,8 @@ class MockCovarianceMatrix(object):
             kwview = get_kwview(list_data[0],xlim=xlim)
             cov = cov.view(**kwview)
 
-        self.save = self.options.get('save',None)
-        if self.save: cov.save_auto(self.save)
+        save = self.options.get('save',None)
+        if save: cov.save_auto(self.save)
 
         self.data_block[section_names.covariance,'covariance_matrix'] = cov
         self.data_block[section_names.covariance,'cov'] = cov.get_cov()

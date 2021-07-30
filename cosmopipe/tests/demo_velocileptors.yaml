@@ -17,6 +17,8 @@ minuit:
   $module_class: MinuitProfiler
   $modules: [like]
   torun: [migrad]
+  migrad:
+    n_iterations: 1
 
 primordial:
   $module_name: cosmopipe.theory.primordial.primordial

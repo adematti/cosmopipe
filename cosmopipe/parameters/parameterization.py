@@ -5,7 +5,8 @@ from pypescript.config import ConfigError
 from pypescript import syntax
 
 from cosmopipe import section_names
-from cosmopipe.lib.modules import ParameterizedModule
+
+from .parameterized import ParameterizedModule
 
 
 class Parameterization(ParameterizedModule):

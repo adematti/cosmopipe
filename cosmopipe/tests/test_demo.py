@@ -6,7 +6,7 @@ from cosmopipe.lib import setup_logging
 
 def test_demo():
 
-    configs = ['demo_basic.yaml','demo_linear.yaml','demo_plotting.yaml','demo_samplers.yaml']
+    configs = ['demo_basic.yaml','demo_linear_templatefit.yaml','demo_plotting.yaml','demo_samplers.yaml']
     #configs += ['demo_mock_challenge_templatefit.yaml']
 
     for config in configs:

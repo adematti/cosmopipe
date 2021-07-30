@@ -21,8 +21,7 @@ class ParamDict(BaseClass):
     def __getitem__(self, name):
         if isinstance(name,(Parameter,ParamName,str,tuple)):
             return self.data[ParamName(name)]
-        else:
-            return self.__class__({col:self[col][name] for col in self.columns()})
+        return self.__class__({col:self[col][name] for col in self.columns()})
 
     def __setitem__(self, name, item):
         if isinstance(name,(Parameter,ParamName,str,tuple)):
@@ -172,7 +171,7 @@ class Profiles(BaseClass):
             if select == 'best':
                 samples[param] = np.array([prof.get(name)[param][prof.argmin()] for prof in profiles])
                 for metrics in ['loglkl','logprior','logposterior']:
-                    if metrics in prof.metrics:
+                    if all(metrics in prof.metrics for prof in profiles):
                         samples['metrics.{}'.format(metrics)] = np.array([prof.metrics[metrics][prof.argmin()] for prof in profiles])
         return samples
 

@@ -5,8 +5,8 @@ from scipy import interpolate
 
 from cosmoprimo import Cosmology
 
-from cosmopipe.lib.theory import LinearModel, GaussianCovarianceMatrix, ModelCollection, ModelEvaluation
-from cosmopipe.lib.data_vector import DataVector, MockDataVector, BinnedProjection
+from cosmopipe.lib.theory import LinearModel, GaussianCovarianceMatrix, ModelCollection, ModelEvaluation, ProjectionBase
+from cosmopipe.lib.data_vector import DataVector, MockDataVector, BinnedProjection, CovarianceMatrix
 from cosmopipe.lib.data_vector.plotting import PowerSpectrumPlotStyle, CovarianceMatrixPlotStyle
 
 from cosmopipe.lib import setup_logging
@@ -27,6 +27,9 @@ def test_pk_multipole_covariance():
     cov = GaussianCovarianceMatrix(data,model_base=model.base,volume=(1e3)**3)
     #cov = GaussianPkCovarianceMatrix(kedges,projs=('ell_0','ell_2'),volume=(1e3)**3,shotnoise=1e3)
     cov.compute(model)
+    filename = os.path.join(plot_dir,'covariance.txt')
+    cov.save_auto(filename)
+    cov = CovarianceMatrix.load_auto(filename)
     assert cov.cov.shape == (len(k)*len(proj),)*2
     filename = os.path.join(plot_dir,'covariance_multipoles.png')
     cov.plot(filename=filename,style='corr',data_styles='power')
@@ -151,8 +154,9 @@ def test_pkell_covariance():
     evaluation = ModelEvaluation(data,model_base=model.base)
     pkell = evaluation(model,concatenate=False)
     model = interpolate.interp1d(km,np.array(pkell).T,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)
-    models = ModelCollection([model],bases=[{'x':km,'space':'power','mode':'multipole','projs':[0,2,4]}])
+    model.base = ProjectionBase({'x':km,'space':'power','mode':'multipole','projs':[0,2,4]})
 
+    models = ModelCollection([model])
     kedges = np.linspace(0.01,0.4,41)
     k = (kedges[:-1] + kedges[1:])/2.
     proj = [{'space':'power','mode':'multipole','proj':proj} for proj in [0,2,4]]

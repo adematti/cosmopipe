@@ -30,6 +30,8 @@ class GaussianCovariance(object):
         else:
             kwview = self.kwview
         cov = self.covariance.view(**kwview)
+        save = self.options.get('save',None)
+        if save: cov.save_auto(save)
         #print('COV',cov.get_x()[0],'y',cov.get_y()[0])
         #exit()
         self.data_block[section_names.covariance,'covariance_matrix'] = cov

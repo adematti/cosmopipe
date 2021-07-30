@@ -1,6 +1,6 @@
 from pypescript import BaseModule
 
-from cosmopipe.lib.parameter import ParamError, find_names, find_names_latex
+from cosmopipe.lib.parameter import ParameterCollection, ParamError, find_names, find_names_latex
 from cosmopipe.lib import syntax
 from cosmopipe import section_names
 
@@ -10,16 +10,17 @@ class ParameterizedModule(BaseModule):
     def set_parameters(self, include=None, exclude=None):
         base = self.options.get('base_parameters',{})
         extra = self.options.get('update_parameters',{}) or {}
-        from cosmopipe.lib.parameter import ParameterCollection
-        base = ParameterCollection(syntax.collapse_sections(base,maxdepth=2))
-        extra = syntax.collapse_sections(extra,maxdepth=2).copy()
+        base = ParameterCollection(syntax.collapse_sections(syntax.expand_sections(base),maxdepth=2))
+        extra = syntax.collapse_sections(syntax.expand_sections(extra),maxdepth=2).copy()
         fixed = extra.pop('fixed',[])
         varied = extra.pop('varied',[])
         derived = extra.pop('derived',[])
         allnames = list(map(str,base.names()))
         if include is not None:
-            for name in find_names(allnames,include,quiet=False):
-                del base[name]
+            include = find_names(allnames,include,quiet=False)
+            for name in list(base.names()):
+                if str(name) not in include:
+                    del base[name]
         exclude = (exclude or []) + derived
         self._derived_parameters = ParameterCollection()
         for name in find_names(allnames,exclude,quiet=False):
@@ -63,9 +64,9 @@ class ParameterizedModule(BaseModule):
                 raise ParamError('An initial value must be provided for parameter {}.'.format(param.name))
         for param in base:
             self.data_block.setdefault(*param.name.tuple,param.value)
-        ParameterCollection = self.data_block.get(section_names.parameters,'list',[])
-        ParameterCollection += base
-        self.data_block[section_names.parameters,'list'] = ParameterCollection
+        parameters = self.data_block.get(section_names.parameters,'list',[])
+        parameters += base
+        self.data_block[section_names.parameters,'list'] = parameters
         #for param in self.data_block[section_names.parameters,'list']:
         #    print(repr(param))
         self._datablock_mapping.update(datablock_mapping)

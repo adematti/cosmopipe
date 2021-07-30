@@ -2,7 +2,7 @@ import numpy as np
 
 from cosmopipe.lib import theory
 from cosmopipe.lib.theory.base import ProjectionBase, BaseModel, ModelCollection
-from cosmopipe.lib.modules import ParameterizedModule
+from cosmopipe.parameters import ParameterizedModule
 
 from cosmopipe import section_names
 

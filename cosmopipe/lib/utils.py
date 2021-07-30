@@ -79,7 +79,10 @@ class BaseClass(_BaseClass):
             clsname = state['__class__']
             if isinstance(clsname,str):
                 if hasattr(cls,'_registry'):
-                    cls = cls._registry[clsname]
+                    try:
+                        cls = cls._registry[clsname]
+                    except KeyError:
+                        pass
             else:
                 cls = clsname
         new = cls.from_state(state,mpiroot=mpiroot,mpicomm=mpicomm)

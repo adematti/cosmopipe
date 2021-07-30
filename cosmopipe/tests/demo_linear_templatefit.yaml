@@ -25,6 +25,7 @@ minuit:
   $modules: [like]
   migrad:
     n_iterations: 5
+  save: f'${data_dir}/profiles.npy'
 
 primordial:
   $module_name: cosmopipe.theory.primordial.primordial
@@ -47,6 +48,7 @@ mockcov:
   $module_class: GaussianCovariance
   volume: 1e10
   xlim: $&{mockdata.xlim}
+  save: f'${data_dir}/covariance.txt'
 
 mockdata:
   $module_name: cosmopipe.data_vector.mock_data_vector

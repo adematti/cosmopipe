@@ -15,8 +15,8 @@ plots_dir: _plots
 catalog_dir: _catalog
 
 main:
-  $execute: [fiducial, box_estimator, data_plotting, data, params, primordial, model, mockcov, fitting, postprocessing]
-  #$execute: [data, params, primordial, model, mockcov, fitting, postprocessing]
+  $execute: [fiducial, box_estimator, data_plotting, data, primordial, model, mockcov, fitting, postprocessing]
+  #$execute: [data, primordial, model, mockcov, fitting, postprocessing]
   $[survey_selection.zeff]: 1.0
 
 fitting:
@@ -39,17 +39,6 @@ minuit:
   $modules: [like]
   migrad:
     n_iterations: 10
-
-params:
-  $module_name: cosmopipe.parameters.parameterization
-  base_parameters:
-    galaxy_rsd.fsig:
-      value: 0.5
-      fixed: False
-      prior:
-        dist: uniform
-        limits: [0.2, 0.8]
-      latex: 'f\sigma_{8}'
 
 fiducial:
   $module_name: cosmopipe.theory.primordial.fiducial

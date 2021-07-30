@@ -161,6 +161,9 @@ def test_mock_data_vector():
     assert np.allclose(data.get_y(),cov.x[0].get_y())
     data = MockDataVector(cov,seed=42)
     assert not np.allclose(data.get_y(),cov.x[0].get_y())
+    filename = os.path.join(data_dir,'data.txt')
+    data.save_txt(filename)
+    assert DataVector.load_txt(filename).__class__ is MockDataVector
 
 
 def test_plotting():
@@ -218,7 +221,6 @@ def test_set_y():
 
 if __name__ == '__main__':
     setup_logging()
-    """
     test_misc()
     test_multipole_data_vector()
     test_muwedge_data_vector()
@@ -226,5 +228,4 @@ if __name__ == '__main__':
     test_set_y()
     test_plotting()
     test_multipole_covariance_matrix()
-    """
     test_mock_challenge_covariance()

@@ -7,19 +7,7 @@ plots_dir: _plots
 # the pipeline entry point is always [main]; one can choose whatever name for the others
 main:
   # in this pipeline we run setup and execute functions of modules xdata, fitting defined in the following
-  $modules: [xdata, fitting]
-
-xdata:
-  # we just construct a custom data vector (monopole, x between 0.02 and 0.3, constant y = 1)
-  $module_name: cosmopipe.data_vector.synthetic_data_vector
-  x:
-    min: 0.02
-    max: 0.3
-    nbins: 10
-  y: e'np.ones(${xdata.x.nbins}+1)'
-  projs: ['ell_0']
-  # we don't have theory for the covariance matrix, just set its inverse to 10
-  $[covariance.invcov]: 10.
+  $execute: [fitting]
 
 fitting:
   # this is the fitting pipeline: minimisation and plot of the fitted parameters
@@ -50,13 +38,30 @@ plotting:
         filename: f'${plots_dir}/aligned_stacked_linear.png'
 
 like:
+    $module_name: cosmopipe.likelihood.likelihood
+    $module_class: SumLikelihood
+    #like: [like1, like2]
+    #$modules: [like$(1), like$(2), like$(3)]
+    like: [like$(1), like$(2), like$(3)]
+
+like$(%):
   # the GaussianLikelihood to be maximized
   $module_name: cosmopipe.likelihood.likelihood
   $module_class: GaussianLikelihood
   # for the likelihood, we need to evaluate the model, and project it onto the data vector
-  $modules: [model, projection]
-  # we propage parameters upstream (to be changed)
-  #$[parameters.list]: $[parameters.list]
+  $modules: [xdata$(%), model, projection]
+
+xdata$(%):
+  # we just construct a custom data vector (monopole, x between 0.02 and 0.3, constant y = 1)
+  $module_name: cosmopipe.data_vector.synthetic_data_vector
+  x:
+    min: 0.02
+    max: 0.3
+    nbins: 10
+  y: e'np.zeros(${xdata$%.x.nbins}+1) + $%'
+  projs: ['ell_0']
+  # we don't have theory for the covariance matrix, just set its inverse to 10
+  $[covariance.invcov]: 10.
 
 model:
   # the basic model defined in this directory

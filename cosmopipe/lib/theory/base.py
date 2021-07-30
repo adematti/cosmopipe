@@ -117,7 +117,7 @@ class ModelCollection(BaseOrderedCollection):
         new = self.__class__()
         bases = self.bases().select(*args,**kwargs)
         for base in bases:
-            new.set(self.get(base),base=base)
+            new.set(self.get(base))
         return new
 
     def items(self):

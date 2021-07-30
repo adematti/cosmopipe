@@ -31,16 +31,16 @@ class CobayaSampler(BasePipeline):
         self.seed = self.options.get('seed',None)
         self.save = self.options.get('save',False)
         #self.extra_output = self.options.get_string('extra_output','').split()
+        super(CobayaSampler,self).setup()
+        self.parameters = self.pipe_block[section_names.parameters,'list']
 
     def execute(self):
-        super(CobayaSampler,self).setup()
         cobaya.mpi._mpi_comm = mpicomm = self.mpicomm
 
         #cobaya.theory.always_stop_exceptions = (Exception,)
         #from cobaya.mpi import get_mpi_comm
         #print(mpicomm,get_mpi_comm())
         self.cobaya_params, self.cosmopipe_params = {},{}
-        self.parameters = self.pipe_block[section_names.parameters,'list']
         for param in self.parameters:
             name = str(param.name)
             param = get_cobaya_parameter(param)

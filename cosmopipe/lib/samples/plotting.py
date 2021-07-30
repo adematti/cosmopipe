@@ -151,6 +151,8 @@ class ListPlotStyle(plotting.BasePlotStyle):
 
     @staticmethod
     def get_parameters(parameters, chains=None):
+        if parameters is None:
+            raise ValueError('Please provide parameter(s)')
         isscalar = not isinstance(parameters,(tuple,list,ParameterCollection))
         if isscalar:
             parameters = [parameters]
@@ -532,7 +534,7 @@ class ProfilesPlotStyle(ListPlotStyle):
             toret = Profiles.to_samples(profiles,parameters=parameters,name='bestfit',select=select)
             if residual:
                 for iparam,param in enumerate(parameters):
-                    if truths[iparam] is not None:
+                    if truths is not None and truths[iparam] is not None:
                         toret[param] -= truths[iparam]
                     else:
                         toret[param] -= toret.mean(param)

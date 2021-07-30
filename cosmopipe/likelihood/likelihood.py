@@ -13,8 +13,11 @@ class BaseLikelihood(BasePipeline):
     logger = logging.getLogger('BaseLikelihood')
 
     def setup(self):
+        self.data_block[section_names.parameters,'list'] = []
         super(BaseLikelihood,self).setup()
         self.set_data()
+        self.data_block[section_names.parameters,'list'] = self.pipe_block[section_names.parameters,'list']
+        #self.data_block[section_names.likelihood,'likelihood'] = self
 
     def set_data(self):
         self.data = self.pipe_block[section_names.data,'y']
@@ -30,7 +33,7 @@ class BaseLikelihood(BasePipeline):
     def execute(self):
         super(BaseLikelihood,self).execute()
         self.set_model()
-        self.data_block[section_names.likelihood,'loglkl'] = self.loglkl()
+        self.data_block[section_names.likelihood,'loglkl'] = self.pipe_block[section_names.likelihood,'loglkl'] = self.loglkl()
 
 
 class GaussianLikelihood(BaseLikelihood):
@@ -61,69 +64,90 @@ class GaussianLikelihood(BaseLikelihood):
         return -0.5*diff.T.dot(self.precision).dot(diff)
 
 
-class SumLikelihood(BaseLikelihood):
+class SumLikelihood(BasePipeline):
 
     logger = logging.getLogger('SumLikelihood')
 
+    def __init__(self, *args, **kwargs):
+        super(SumLikelihood,self).__init__(*args,**kwargs)
+        like = self.options.get_list('like',None)
+        if like is None:
+            self.like_modules = []
+            for module in self.modules.values():
+                if isinstance(module,BaseLikelihood):
+                    self.log_info('Found likelihood {}.'.format(module.name))
+                    self.like_modules.append(module)
+        else:
+            self.like_modules = self.get_modules(like)
+            from pypescript.pipeline import ModuleTodo, syntax
+            for module in self.like_modules:
+                self.setup_todos.append(ModuleTodo(self,module,funcnames=syntax.setup_function))
+                self.execute_todos.append(ModuleTodo(self,module,funcnames=syntax.execute_function))
+                self.cleanup_todos.append(ModuleTodo(self,module,funcnames=syntax.cleanup_function))
+                self.config_block.update(module.config_block)
+            self.modules.update(dict(zip([module.name for module in self.like_modules],self.like_modules)))
+            for module in self.modules.values():
+                module.set_config_block(config_block=self.config_block)
+        if not self.like_modules:
+            raise ValueError('No likelihood found')
+
+    @classmethod
+    def _join_values(cls, key, values):
+        if isinstance(values[0],np.ndarray):
+            return np.concatenate(values,axis=0)
+        return sum(values)
+
+    def _run_todos(self, todos, *join):
+        self.pipe_block = self.data_block.copy()
+        djoin = {key:[] for key in join}
+        for todo in todos:
+            todo()
+            if todo.module in self.like_modules:
+                for key in djoin: djoin[key].append(todo.module.pipe_block[key])
+        for key,values in djoin.items():
+            self.pipe_block[key] = self._join_values(key,values)
+
     def setup(self):
-        BasePipeline.setup(self)
+        self._run_todos(self.setup_todos,(section_names.parameters,'list'))
+        self.data_block[section_names.parameters,'list'] = self.pipe_block[section_names.parameters,'list']
 
     def execute(self):
-        loglkl = 0
-        self.pipe_block = self.data_block.copy()
-        for todo in self.execute_todos:
-            todo()
-            loglkl += self.pipe_block[section_names.likelihood,'loglkl']
-        self.data_block[section_names.likelihood,'loglkl'] = loglkl
+        self._run_todos(self.execute_todos,(section_names.likelihood,'loglkl'))
+        self.data_block[section_names.likelihood,'loglkl'] = self.pipe_block[section_names.likelihood,'loglkl']
 
 
-class JointGaussianLikelihood(GaussianLikelihood):
+class JointGaussianLikelihood(SumLikelihood,GaussianLikelihood):
 
     logger = logging.getLogger('JointGaussianLikelihood')
 
-    @classmethod
-    def _join_values(cls, key, value, other):
-        if value is None:
-            return other.copy()
-        if key == (section_names.data,'data_vector'):
-            return DataVector.concatenate(value,other)
-        if key == (section_names.model,'collection'):
-            return ModelCollection.concatenate(value,other)
-        return np.concatenate([value,other],axis=0)
-
-    @classmethod
-    def _run_todos(cls, todolist, join):
-        for todo in todolist:
-            module = todo.module
-            islike = isinstance(module,BaseLikelihood)
-            for key,value in join.items():
-                if value is not None:
-                    if not islike:
-                        todo.pipeline.pipe_block[key] = value # e.g. feed data vector to covariance matrix
-                    elif key in todo.pipeline.pipe_block and todo.pipeline.pipe_block[key] is value:
-                        del todo.pipeline.pipe_block[key]
-                    #if islike and key[1] == 'data_vector':
-                    #    print(module,todo.pipeline.pipe_block.get(*key,[]))
-            todo()
-            if islike:
-                for key in join:
-                    if key in module.pipe_block:
-                        join[key] = cls._join_values(key,join[key],module.pipe_block[key])
-
+    def __init__(self, *args, **kwargs):
+        super(JointGaussianLikelihood,self).__init__(*args,**kwargs)
+        after = self.options.get_list('after',[])
+        self.after_modules = self.get_modules(after)
+        self.after_setup_todos = []
+        from pypescript.pipeline import ModuleTodo, syntax
+        for module in self.after_modules:
+            self.after_setup_todos.append(ModuleTodo(self,module,funcnames=[syntax.setup_function,syntax.execute_function]))
+            self.cleanup_todos.append(ModuleTodo(self,module,funcnames=syntax.cleanup_function))
+            self.config_block.update(module.config_block)
+        self.modules.update(dict(zip([module.name for module in self.after_modules],self.after_modules)))
+        for module in self.modules.values():
+            module.set_config_block(config_block=self.config_block)
 
     def setup(self):
-        self.pipe_block = self.data_block.copy()
-        join = {(section_names.data,'data_vector'):None,(section_names.model,'collection'):None,(section_names.data,'y'):None}
-        self._run_todos(self.setup_todos,join)
+        #join = {(section_names.data,'data_vector'):[],(section_names.data,'y'):[],(section_names.model,'collection'):[]}
+        join = [(section_names.parameters,'list'),(section_names.data,'y')]
+        if self.after_setup_todos:
+            join += [(section_names.data,'data_vector'),(section_names.model,'collection')]
+        self._run_todos(self.setup_todos,*join)
+        self.data_block[section_names.parameters,'list'] = self.pipe_block[section_names.parameters,'list']
+        for todo in self.after_setup_todos:
+            todo()
         self.set_data()
         self.set_covariance()
 
     def execute(self):
-        self.pipe_block = self.data_block.copy()
-        join = {(section_names.model,'collection'):None,(section_names.model,'y'):None}
-        self._run_todos(self.execute_todos,join)
-        for key,value in join.items():
-            if value is not None:
-                self.pipe_block[key] = value
+        join = [(section_names.model,'y')]
+        self._run_todos(self.execute_todos,*join)
         self.set_model()
         self.data_block[section_names.likelihood,'loglkl'] = self.loglkl()

@@ -25,8 +25,10 @@ class DynestySampler(BasePipeline):
         self.seed = self.options.get('seed',None)
         self.save = self.options.get('save',False)
 
-    def execute(self):
         super(DynestySampler,self).setup()
+        self.parameters = self.pipe_block[section_names.parameters,'list']
+
+    def execute(self):
         self._data_block = self.data_block.copy().mpi_distribute(dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
 
         self.pool = None
@@ -35,13 +37,12 @@ class DynestySampler(BasePipeline):
             self.pool = mpi.MPIPool(mpicomm=self.mpicomm,check_tasks=True)
             self.queue_size = self.pool.size
 
-        parameters = self.pipe_block[section_names.parameters,'list']
-        self.varied = parameters.select(varied=True)
+        self.varied = self.parameters.select(varied=True)
         self.log_info('Varying parameters {}.'.format([str(param.name) for param in self.varied]),rank=0)
         for param in self.varied:
             if not param.prior.is_proper():
                 raise ParamError('Prior for {} is improper, Dynesty requires proper priors'.format(param.name))
-        self.fixed = parameters.select(varied=False)
+        self.fixed = self.parameters.select(varied=False)
 
         ndim = len(self.varied)
         # e.g. propose_point requires the whole lkl to be pickelable...
@@ -79,7 +80,7 @@ class DynestySampler(BasePipeline):
 
         results = sampler.results
 
-        samples = Samples(parameters=parameters,mpicomm=self.mpicomm,mpiroot=0,mpistate='gathered')
+        samples = Samples(parameters=self.parameters,mpicomm=self.mpicomm,mpiroot=0,mpistate='gathered')
         data = {param.name:results['samples'][...,iparam] for iparam,param in enumerate(self.varied)}
         data['metrics.loglkl'] = results['logl']
         # TODO: to compare to logvol!

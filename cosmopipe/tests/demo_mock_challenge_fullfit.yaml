@@ -1,4 +1,4 @@
-# This runs template fitting on DESI mock challenge ELG power spectrum
+# This runs full cosmo fitting on DESI mock challenge ELG power spectrum
 # WARNING: requires downloading /global/project/projectdirs/desi/users/UNIT-BAO-RSD-challenge/UNIT/pk_3Gpc/UNIT_3Gpc_Nmesh512_pkl.txt
 # and /global/project/projectdirs/desi/users/UNIT-BAO-RSD-challenge/UNIT/pk_3Gpc_corrected/Pkl_linear_Wilson_UNIT_DESI_Shadab_HOD_snap97_ELG_v1_4col.gcat_3Gpc_regress_1_lmax_4_stride_1_v2.txt into ./_data/ directory
 
@@ -7,7 +7,7 @@ plots_dir: _plots
 
 main:
   #$execute: [primordial, fitting]
-  $execute: [primordial, data, mockcov, minuit, plotting, postprocessing]
+  $execute: [fiducial, primordial, data, mockcov, minuit, plotting, postprocessing]
 
 postprocessing:
   $module_name: cosmopipe.pipelines.postprocessing
@@ -24,9 +24,10 @@ minuit:
 
 primordial:
   $module_name: cosmopipe.theory.primordial.primordial
-  engine: class
-  compute: pk_cb
-  #base_parameters: planck2015_parameters.yaml
+  engine: eisenstein_hu
+  compute: pk_m
+  update_parameters:
+    varied: ['*.omega_cdm', '*.h']
 
 plotting:
   $module_name: cosmopipe.samplers.plotting
@@ -49,7 +50,7 @@ data_model_plotting:
 like:
   $module_name: cosmopipe.likelihood.likelihood
   $module_class: GaussianLikelihood
-  $modules: [model, anisotropic, projection]
+  $modules: [full_model]
 
 data:
   $module_name: cosmopipe.data_vector.data_vector
@@ -66,21 +67,35 @@ mockcov:
   covariance_load: f'${data_dir}/cov_matrix_pk-EZmocks-3Gpc-nonfix-corrected_rsd_centerbin.txt'
   mapping_proj: [ell_0, ell_2, ell_4]
 
+fiducial:
+  $module_name: cosmopipe.theory.primordial.fiducial
+
+effectap:
+  $module_name: cosmopipe.theory.primordial.effect_ap
+  engine: class
+
+rsd:
+  $module_name: cosmopipe.theory.primordial.galaxy_rsd
+
+full_model:
+  $module_name: pypescript
+  $module_class: StreamPipeline
+  $modules: [primordial, effectap, rsd, model, anisotropic, projection]
+
 model:
   $module_name: cosmopipe.theory.galaxy_clustering.velocileptors
   $module_class: EPTFull
   #$module_class: EPTMoments
   #$module_class: LPTMoments
   reduced: True
-  kmax: 0.35
-
-#model:
-#  $module_name: cosmopipe.theory.galaxy_clustering.linear_model
+  kmax: 0.4
 
 anisotropic:
   $module_name: cosmopipe.theory.projections.anisotropic_scaling
   #update_parameters:
-    #fixed: [effect_ap.qpar, effect_ap.qperp]
+  #  derived: ['*']
 
 projection:
   $module_name: cosmopipe.survey_selection.projection
+  #$modules: [wideangle, window]
+  $modules: []

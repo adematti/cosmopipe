@@ -17,6 +17,7 @@ from cosmopipe.lib import mpi
 
 def decode_name(name, size=None):
 
+    name = str(ParamName(name))
     replaces = re.finditer('\[(-?\d*):(\d*):*(-?\d*)\]',name)
     strings, ranges = [], []
     string_start = 0

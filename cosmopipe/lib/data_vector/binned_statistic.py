@@ -64,9 +64,6 @@ def _mask_edges(edges, masks):
     return toret
 
 
-_title_template = '### {} ###'
-
-
 class RegisteredBinnedStatistic(type):
 
     _registry = {}
@@ -83,6 +80,7 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
     """
     logger = logging.getLogger('BinnedStatistic')
 
+    _title_template = '### {} ###'
     _default_mapping_header = {'shape':'.*?#shape = (.*)$','dims':'.*?#dims = (.*)$','edges':'.*?#edges (.*) = (.*)$','columns':'.*?#columns = (.*)$'}
 
     def __init__(self, data=None, edges=None, dims=None, attrs=None):
@@ -239,20 +237,6 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
         self.rebin(factors,weights=weights,columns_to_sum=columns_to_sum)
         self.squeeze(dims=dims)
 
-    @classmethod
-    def get_title_label(cls):
-        return _title_template.format('.'.join((cls.__module__,cls.__name__)))
-
-    @classmethod
-    def read_title_label(cls, line):
-        template = _title_template.replace('{}','(.*)')
-        match = re.match(template,line)
-        if match:
-            module_class = match.group(1)
-            import importlib
-            importlib.import_module(re.match('(.*)\.(.*)$',module_class).group(1))
-            return cls._registry[module_class]
-
     @savefile
     def save_txt(self, filename=None, fmt='.18e', comments='#', ignore_json_errors=True):
         lines = self.get_header_txt(comments=comments,ignore_json_errors=ignore_json_errors)
@@ -289,19 +273,26 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
     @classmethod
     def load_txt(cls, filename, comments='#', usecols=None, skip_rows=0, max_rows=None, mapping_header=None, pattern_header=None, attrs=None, **kwargs):
 
+        def get_file(file_):
+            file = []
+            for iline,line in enumerate(file_):
+                if max_rows is not None and iline >= skip_rows + max_rows:
+                    break
+                if iline >= skip_rows:
+                    file.append(line)
+            return file
+
         if isinstance(filename,str):
             cls.log_info('Loading {}.'.format(filename),rank=0)
-            file = []
             with open(filename,'r') as file_:
-                for line in file_:
-                    file.append(line)
+                file = get_file(file_)
         else:
-            file = [line for line in filename]
+            file = get_file(filename)
 
+        file = file[skip_rows:]
         tmpcls = cls.read_title_label(file[0][len(comments):])
         self_format = tmpcls is not None
-        if self_format:
-            cls = tmpcls
+        if self_format: cls = tmpcls
         if pattern_header is None and self_format:
             pattern_header = '(.*) = (.*)$'
 
@@ -322,8 +313,6 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
             data = {col:[] for col in columns}
 
         for iline,line in enumerate(file):
-            if iline < skip_rows: continue
-            if max_rows is not None and iline >= skip_rows + max_rows: break
             if line.startswith(comments): continue
             line = line.strip().split()
             if usecols is None:
@@ -345,6 +334,22 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
         for name in ['data','dims','edges','attrs']:
             setattr(new,name,getattr(new,name).copy())
         return new
+
+
+@classmethod
+def get_title_label(cls):
+    return cls._title_template.format('.'.join((cls.__module__,cls.__name__)))
+
+@classmethod
+def read_title_label(cls, line):
+    template = cls._title_template.replace('{}','(.*)')
+    match = re.match(template,line)
+    if match:
+        module_class = match.group(1)
+        import importlib
+        importlib.import_module(re.match('(.*)\.(.*)$',module_class).group(1))
+        if module_class in cls._registry:
+            return cls._registry[module_class]
 
 @classmethod
 def read_header_txt(cls, file, comments='#', mapping_header=None, pattern_header=None, ignore_json_errors=True):
@@ -401,6 +406,8 @@ def read_header_txt(cls, file, comments='#', mapping_header=None, pattern_header
     return attrs
 
 
+BinnedStatistic.get_title_label = get_title_label
+BinnedStatistic.read_title_label = read_title_label
 BinnedStatistic.read_header_txt = read_header_txt
 
 

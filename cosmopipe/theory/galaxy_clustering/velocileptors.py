@@ -42,20 +42,24 @@ class Velocileptors(PTModule):
             self.pklin = self.pklin(self.klin)
         return toret
 
-    def get_model_callable(self, pars, f, **kwargs):
+    def set_model_callable(self, pars, f, **opts):
 
-        def model_callable(k, mu, grid=True):
-            if grid:
-                tmp = np.array([self.theory.compute_redshift_space_power_at_mu(pars,f,mu_,apar=1.,aperp=1.,**kwargs)[-1] for mu_ in mu]).T
-                toret = interpolate.interp1d(self.theory.kv,tmp,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k)
-            else:
-                toret = np.empty(k.shape,dtype=k.dtype)
-                for imu,mu_ in enumerate(mu):
-                    tmp = self.theory.compute_redshift_space_power_at_mu(pars,f,mu_,apar=1.,aperp=1.,**kwargs)[-1]
-                    toret[:,imu] = interpolate.interp1d(self.theory.kv,tmp,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k[:,imu])
-            return toret + self.data_shotnoise
+        def _make_model_callable(pars, f, **kwargs):
 
-        return model_callable
+            def model_callable(k, mu, grid=True):
+                if grid:
+                    tmp = np.array([self.theory.compute_redshift_space_power_at_mu(pars,f,mu_,apar=1.,aperp=1.,**kwargs)[-1] for mu_ in mu]).T
+                    toret = interpolate.interp1d(self.theory.kv,tmp,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k)
+                else:
+                    toret = np.empty(k.shape,dtype=k.dtype)
+                    for imu,mu_ in enumerate(mu):
+                        tmp = self.theory.compute_redshift_space_power_at_mu(pars,f,mu_,apar=1.,aperp=1.,**kwargs)[-1]
+                        toret[:,imu] = interpolate.interp1d(self.theory.kv,tmp,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k[:,imu])
+                return toret + self.data_shotnoise
+
+            return model_callable
+
+        self.model.eval = _make_model_callable(pars,f,**opts,**self.optional_kw)
 
     def execute(self):
         if self.set_primordial():
@@ -69,9 +73,10 @@ class Velocileptors(PTModule):
         for par in self.optional_params:
             opts[par] = self.data_block.get(section_names.galaxy_bias,par,self.optional_params[par])
         fsig = self.data_block[section_names.galaxy_rsd,'fsig']
-        f = fsig/self.sigma
 
-        self.model.eval = self.get_model_callable(pars,f,**opts,**self.optional_kw)
+        f = fsig/self.sigma
+        self.set_model_callable(pars,f,**opts)
+
         #self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + ModelCollection([self.model])
 
     def cleanup(self):
@@ -215,16 +220,20 @@ class LPTGaussianStreaming(Velocileptors):
         from velocileptors.LPT.gaussian_streaming_model_fftw import GaussianStreamingModel
         self.theory = GaussianStreamingModel(self.klin,self.pklin,**self.theory_options)
 
-    def get_model_callable(self, pars, f, **kwargs):
+    def set_model_callable(self, pars, f, **opts):
 
-        def model_callable(s):
-            xi = []
-            for ss in s:
-                xi0,xi2,xi4 = self.theory.compute_xi_ell(ss,f,*pars,apar=1.,aperp=1.)
-                xi.append([xi0,xi2,xi4])
-            return np.array(xi)
+        def _make_model_callable(pars, f, **kwargs):
 
-        return model_callable
+            def model_callable(s):
+                xi = []
+                for ss in s:
+                    xi0,xi2,xi4 = self.theory.compute_xi_ell(ss,f,*pars,apar=1.,aperp=1.,**kwargs)
+                    xi.append([xi0,xi2,xi4])
+                return np.array(xi)
+
+            return model_callable
+
+        self.model.eval = _make_model_callable(pars,f,**opts,**self.optional_kw)
 
 
 class LPTDirect(Velocileptors):
@@ -259,45 +268,32 @@ class LPTDirect(Velocileptors):
         from velocileptors.LPT.lpt_rsd_fftw import LPT_RSD
         self.theory = LPT_RSD(self.klin,self.pklin,**self.theory_options)
 
-    def get_correlation_callable(self, pars, **kwargs):
+    def set_model_callable(self, pars, f, **opts):
 
-        def model_callable(s):
-            xiells = lpt.combine_bias_terms_xiell(pars,**kwargs)
-            return np.array([interpolate.interp1d(xiell[0],xiell[1],kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(s) for xiell in xiells])
-
-        return model_callable
-
-    def get_power_callable(self, pars, **kwargs):
-
-        def model_callable(k):
-            kl, p0, p2, p4 = self.theory.combine_bias_terms_pkell(pars,**kwargs)
-            p0 += self.data_shotnoise
-            pkells = np.array([p0,p2,p4]).T
-            return interpolate.interp1d(kl,pkells,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k)
-
-        return model_callable
-
-    def execute(self):
-        if self.set_primordial():
-            self.set_theory()
-        pars = []
-        for par in self.required_params:
-            pars.append(self.data_block.get(section_names.galaxy_bias,par))
-        opts = {}
-        for par in self.optional_params:
-            opts[par] = self.data_block.get(section_names.galaxy_bias,par,self.optional_params[par])
-        if self.derive_fsig:
-            fsig = self.growth_rate*self.sigma8
-        else:
-            fsig = self.data_block[section_names.galaxy_rsd,'fsig']
-        f = fsig/self.sigma8
         self.theory.make_pltable(f,apar=1,aperp=1,**self.optional_kw)
 
-        #model_collection = ModelCollection()
         if self.with_correlation:
-            self.model_correlation.eval = self.get_correlation_callable(pars,**opts)
-            #model_collection.set(self.model_correlation)
+
+            def _make_model_callable(pars, f, **kwargs):
+
+                def model_callable(s):
+                    xiells = lpt.combine_bias_terms_xiell(pars,**opts)
+                    return np.array([interpolate.interp1d(xiell[0],xiell[1],kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(s) for xiell in xiells])
+
+                return model_callable
+
+            self.correlation_model.eval = _make_model_callable(pars,f,**opts)
+
         if self.with_power:
-            self.model_power.eval = self.get_power_callable(pars,**opts)
-            #model_collection.set(self.model_power)
-        #self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + model_collection
+
+            def _make_model_callable(pars, f, **kwargs):
+
+                def model_callable(k):
+                    kl, p0, p2, p4 = self.theory.combine_bias_terms_pkell(pars,**opts)
+                    p0 += self.data_shotnoise
+                    pkells = np.array([p0,p2,p4]).T
+                    return interpolate.interp1d(kl,pkells,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k)
+
+                return model_callable
+
+            self.power_model.eval = _make_model_callable(pars,f,**opts)

@@ -11,7 +11,7 @@ from .data_vector import _format_index_kwargs as _format_single_index_kwargs
 from .data_vector import _reduce_index_kwargs as _reduce_single_index_kwargs
 from .data_vector import _getstate_index_kwargs as _getstate_single_index_kwargs
 from .data_vector import _setstate_index_kwargs as _setstate_single_index_kwargs
-from .binned_statistic import BinnedProjection, _title_template, read_header_txt
+from .binned_statistic import BinnedProjection, get_title_label, read_title_label, read_header_txt
 
 
 NDIM = 2
@@ -31,11 +31,21 @@ def _format_index_kwargs(first=None, second=None,  **kwargs):
     return [first,second]
 
 
+class RegisteredCovarianceMatrix(type):
 
-class CovarianceMatrix(BaseClass):
+    _registry = {}
+
+    def __new__(meta, name, bases, class_dict):
+        cls = super().__new__(meta, name, bases, class_dict)
+        meta._registry['.'.join((class_dict['__module__'],name))] = cls
+        return cls
+
+
+class CovarianceMatrix(BaseClass,metaclass=RegisteredCovarianceMatrix):
 
     logger = logging.getLogger('CovarianceMatrix')
 
+    _title_template = '### {} ###'
     _default_mapping_header = {'kwargs_view':'.*?#kwview = (.*)$'}
 
     def __init__(self, covariance, first, second=None, attrs=None):
@@ -202,6 +212,7 @@ class CovarianceMatrix(BaseClass):
             state[key] = getattr(self,key)
         state['_x'] = [x.__getstate__() for x in self._x]
         state['_kwargs_view'] = _getstate_index_kwargs(self._kwargs_view) if self._kwargs_view is not None else None
+        state['__class__'] = '.'.join((self.__class__.__module__,self.__class__.__name__))
         return state
 
     def __setstate__(self, state):
@@ -222,28 +233,36 @@ class CovarianceMatrix(BaseClass):
 
     @classmethod
     def load_txt(cls, filename, data=None, mapping_header=None, comments='#', usecols=None, columns=None, skip_rows=0, max_rows=None, attrs=None, **kwargs):
+
+        def get_file(file_):
+            file = []
+            for iline,line in enumerate(file_):
+                if max_rows is not None and iline >= skip_rows + max_rows:
+                    break
+                if iline >= skip_rows:
+                    file.append(line)
+            return file
+
         if isinstance(filename,str):
             cls.log_info('Loading {}.'.format(filename),rank=0)
-            file = []
             with open(filename,'r') as file_:
-                for line in file_:
-                    file.append(line)
+                file = get_file(file_)
         else:
-            file = [line for line in filename]
+            file = get_file(filename)
 
-        self_format = file[skip_rows].strip() == '{}{}'.format(comments,cls.get_title_label())
-        if max_rows is None: max_rows = len(file)
+        tmpcls = cls.read_title_label(file[0][len(comments):])
+        self_format = tmpcls is not None
         if self_format:
-            iline_seps = [skip_rows]
-            for iline,line in enumerate(file):
-                if iline > max_rows:
-                    break
-                if iline >= skip_rows and line.startswith(comments):
-                    if line[len(comments):-1] == DataVector.get_title_label(): # -1 because last character is \n
-                        iline_seps.append(iline)
-            iline_seps.append(iline+1)
+            cls = tmpcls
+            iline_seps = [0]
+            for iline,line in enumerate(file[1:]):
+                if line.startswith(comments):
+                    if DataVector.read_title_label(line[len(comments):]):
+                        iline_seps.append(iline+1)
+            iline_seps.append(len(file))
         else:
-            iline_seps = [skip_rows,max_rows]
+            cls.log_info('Not in {} standard format.'.format(cls.__class__.__name__),rank=0)
+            iline_seps = [0,len(file)]
         attrs = (attrs or {}).copy()
 
         def str_to_float(e):
@@ -360,14 +379,11 @@ class CovarianceMatrix(BaseClass):
                         start = stop
                     x.append(DataVector(binnedprojs))
 
-        new = cls(cov,first=x[0],second=x[1],attrs=attrs)
+        new = cls.__new__(cls)
+        CovarianceMatrix.__init__(new,cov,first=x[0],second=x[1],attrs=attrs)
         #print(x[0].size,x[1].size,cov.shape)
         if kwargs_view is not None: new._kwargs_view = _setstate_index_kwargs(kwargs_view)
         return new
-
-    @classmethod
-    def get_title_label(cls):
-        return _title_template.format(cls.__name__)
 
     def get_header_txt(self, comments='#', ignore_json_errors=True):
         header = ['{}{}'.format(comments,self.get_title_label())]
@@ -406,8 +422,9 @@ class CovarianceMatrix(BaseClass):
         style.plot()
 
 
+CovarianceMatrix.get_title_label = get_title_label
+CovarianceMatrix.read_title_label = read_title_label
 CovarianceMatrix.read_header_txt = read_header_txt
-
 
 class MockCovarianceMatrix(CovarianceMatrix):
 

@@ -22,15 +22,15 @@ class HankelTransform(object):
         self.model_collection = self.data_block[section_names.model,'collection']
         tmp = self.model_collection.select(*model_attrs)
         collection = ModelCollection()
-        for base,model in tmp.items():
+        for model in tmp:
             if not isinstance(model,hankel_transform.HankelTransform):
-                collection.set(model,base=base)
+                collection.set(model)
         if len(collection) > 1 and model_names is None:
             raise ConfigError('Found several models that can be Hankel-transformed: {}; specify the one(s) of interest with "model_names"'.format(collection))
 
         hankel_collection = ModelCollection()
-        for base,model in collection.items():
-            ht = hankel_transform.HankelTransform(model=model,base=base,**options)
+        for model in collection:
+            ht = hankel_transform.HankelTransform(model=model,**options)
             hankel_collection.set(ht)
 
         self.model_collection += hankel_collection

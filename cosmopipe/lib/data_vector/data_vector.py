@@ -7,7 +7,7 @@ from scipy import linalg
 
 from cosmopipe.lib.utils import BaseClass, savefile
 from cosmopipe.lib import utils
-from .binned_statistic import BinnedProjection, _title_template, read_header_txt
+from .binned_statistic import BinnedProjection, get_title_label, read_title_label, read_header_txt
 from .projection import ProjectionName, ProjectionNameCollection
 
 
@@ -74,10 +74,21 @@ def _setstate_index_kwargs(**kwargs):
     return kwargs
 
 
-class DataVector(BaseClass):
+class RegisteredDataVector(type):
+
+    _registry = {}
+
+    def __new__(meta, name, bases, class_dict):
+        cls = super().__new__(meta, name, bases, class_dict)
+        meta._registry['.'.join((class_dict['__module__'],name))] = cls
+        return cls
+
+
+class DataVector(BaseClass,metaclass=RegisteredDataVector):
 
     logger = logging.getLogger('DataVector')
 
+    _title_template = '### {} ###'
     _default_mapping_header = {'kwargs_view':'.*?#kwview = (.*)$'}
 
     def __init__(self, x=None, y=None, proj=None, edges=None, attrs=None, **kwargs):
@@ -115,10 +126,6 @@ class DataVector(BaseClass):
         #    x,y,proj,edges = [x],[y],[proj],[edges]
         for x_,y_,proj_,edges_ in zip(x,y,proj,edges):
             self.set(BinnedProjection(x=x_,y=y_,proj=proj_,edges=edges_,**kwargs))
-
-    @classmethod
-    def get_title_label(cls):
-        return '### {} ###'.format(cls.__name__)
 
     def get_index(self, permissive=True, index_in_view=False, **kwargs):
 
@@ -325,19 +332,20 @@ class DataVector(BaseClass):
         data = []
         for projection in self.data:
             data.append(projection.__getstate__())
-        state = {'__class__':self.__class__.__name__,'data':data,'attrs':self.attrs}
+        state = {'data':data,'attrs':self.attrs}
         state['_kwargs_view'] = _getstate_index_kwargs(**self._kwargs_view) if self._kwargs_view is not None else None
+        state['__class__'] = '.'.join((self.__class__.__module__,self.__class__.__name__))
         return state
 
     def __setstate__(self, state):
-        if state['__class__'] != self.__class__.__name__:
-            binned_projection = BinnedProjection.from_state(state['__class__'])
-            self.set(binned_projection)
-            self._kwargs_view = None
-        else:
+        if isinstance(state['data'],list):
             self.data = [BinnedProjection.from_state(binned_projection) for binned_projection in state['data']]
             self.attrs = state['attrs']
             self._kwargs_view = _setstate_index_kwargs(**state['_kwargs_view']) if state['_kwargs_view'] is not None else None
+        else:
+            binned_projection = BinnedProjection.from_state(state['data'])
+            self.set(binned_projection)
+            self._kwargs_view = None
 
     @classmethod
     def concatenate(cls, *others):
@@ -438,28 +446,36 @@ class DataVector(BaseClass):
 
     @classmethod
     def load_txt(cls, filename, comments='#', usecols=None, skip_rows=0, max_rows=None, mapping_header=None, mapping_proj=None, columns=None, attrs=None, **kwargs):
+
+        def get_file(file_):
+            file = []
+            for iline,line in enumerate(file_):
+                if max_rows is not None and iline >= skip_rows + max_rows:
+                    break
+                if iline >= skip_rows:
+                    file.append(line)
+            return file
+
         if isinstance(filename,str):
             cls.log_info('Loading {}.'.format(filename),rank=0)
-            file = []
             with open(filename,'r') as file_:
-                for line in file_:
-                    file.append(line)
+                file = get_file(file_)
         else:
-            file = [line for line in filename]
+            file = get_file(filename)
 
-        self_format = file[skip_rows].strip() == '{}{}'.format(comments,cls.get_title_label())
-        if max_rows is None: max_rows = len(file)
+        tmpcls = cls.read_title_label(file[0][len(comments):])
+        self_format = tmpcls is not None
         if self_format:
-            iline_seps = [skip_rows]
-            for iline,line in enumerate(file):
-                if iline > max_rows:
-                    break
-                if iline > skip_rows and line.startswith(comments):
+            cls = tmpcls
+            iline_seps = [0]
+            for iline,line in enumerate(file[1:]):
+                if line.startswith(comments):
                     if BinnedProjection.read_title_label(line[len(comments):]):
-                        iline_seps.append(iline)
-            iline_seps.append(iline+1)
+                        iline_seps.append(iline+1)
+            iline_seps.append(len(file))
         else:
-            iline_seps = [skip_rows,max_rows]
+            cls.log_info('Not in {} standard format.'.format(cls.__class__.__name__),rank=0)
+            iline_seps = [0,len(file)]
         attrs = (attrs or {}).copy()
         kwargs_view = None
 
@@ -469,7 +485,8 @@ class DataVector(BaseClass):
         if self_format:
             iline_seps = iline_seps[1:]
 
-        new = cls(attrs=attrs)
+        new = cls.__new__(cls)
+        DataVector.__init__(new,attrs=attrs)
         new._kwargs_view = _setstate_index_kwargs(**kwargs_view) if kwargs_view is not None else None
         for start,stop in zip(iline_seps[:-1],iline_seps[1:]):
             projection_format = BinnedProjection.read_title_label(file[start][len(comments):])
@@ -518,4 +535,6 @@ class DataVector(BaseClass):
             return lines
 
 
+DataVector.get_title_label = get_title_label
+DataVector.read_title_label = read_title_label
 DataVector.read_header_txt = read_header_txt

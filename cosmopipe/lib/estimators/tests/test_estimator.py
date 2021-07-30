@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from cosmopipe.lib import setup_logging
-from cosmopipe.lib.data_vector import BinnedProjection
+from cosmopipe.lib.data_vector import BinnedProjection, DataVector
 from cosmopipe.lib.estimators.correlation_function import PairCount, NaturalEstimator, LandySzalayEstimator
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -48,6 +48,8 @@ def test_landy_szalay_estimator():
     estimator = BinnedProjection.load_txt(data_fn)
     assert estimator.__class__.__name__ == 'LandySzalayEstimator'
     assert estimator.shape == shape
+    estimator = DataVector.load_txt(data_fn)
+    assert estimator.__class__.__name__ == 'DataVector'
 
 
 if __name__ == '__main__':

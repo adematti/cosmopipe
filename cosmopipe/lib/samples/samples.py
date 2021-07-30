@@ -67,6 +67,7 @@ class Samples(BaseCatalog):
 
     def columns(self, include=None, exclude=None, **kwargs):
         toret = super(Samples,self).columns(include=include,exclude=exclude)
+        toret = [ParamName(name) for name in toret]
 
         if kwargs and self.is_mpi_root():
             parameter_selection = self.parameters.select(**kwargs)

@@ -102,7 +102,7 @@ class BaseCatalog(ScatteredBaseClass):
         toret = None
 
         if self.is_mpi_root():
-            toret = allcols = list(self.data.keys())
+            toret = allcols = [str(name) for name in self.data]
 
             def toregex(name):
                 return name.replace('.','\.').replace('*','(.*)')

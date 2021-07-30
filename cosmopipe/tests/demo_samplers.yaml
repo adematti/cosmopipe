@@ -14,7 +14,7 @@ fitting:
   $module_name: pypescript
   $module_class: BasePipeline
   #$modules: [emcee, zeus, dynesty, cobaya, plotting]
-  $modules: [emcee, zeus, plotting]
+  $execute: [emcee, zeus, plotting]
   #$modules: [plotting]
 
 one:

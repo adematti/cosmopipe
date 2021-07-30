@@ -77,18 +77,22 @@ class PyBird(PTModule):
 
         model_collection = self.data_block.get(section_names.model,'collection',ModelCollection())
         if self.with_correlation:
-            self.model_correlation = BaseModel(base=ProjectionBase(x=self.co.s,space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs))
+            base = ProjectionBase(x=self.co.s,space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs)
+            self.model_correlation = BaseModel(base=base)
             model_collection.set(self.model_correlation)
 
         if self.with_power:
-            self.model_power = BaseModel(base=ProjectionBase(x=self.co.k,space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs))
+            base = ProjectionBase(x=self.co.k,space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs)
+            self.model_power = BaseModel(base=base)
             model_collection.set(self.model_power)
 
         self.data_block[section_names.model,'collection'] = model_collection
 
     def execute(self):
+        fsig = self.data_block[section_names.galaxy_rsd,'fsig']
         if self.set_primordial():
-            cosmo = {'k11':self.klin,'P11':self.pklin,'f':self.growth_rate,'DA':1.,'H':1.}
+            f = fsig/self.sigma
+            cosmo = {'k11':self.klin,'P11':self.pklin,'f':f,'DA':1.,'H':1.}
             self.bird = pybird.Bird(cosmo,with_bias=True,with_stoch=self.with_stoch,with_nnlo_counterterm=self.with_nnlo_counterterm,co=self.co)
             self.nonlinear.PsCf(self.bird)
 
@@ -100,10 +104,8 @@ class PyBird(PTModule):
         bias = {}
         for name in self.required_params:
             bias[name] = self.data_block.get(section_names.galaxy_bias,name)
-
-        fsig = self.data_block[section_names.galaxy_rsd,'fsig']
-        f = fsig/self.sigma
         #if f != self._cache.get('f',None):
+        f = fsig/self.sigma
         self.bird.f = f
         self.bird.setPsCf(bias)
         if self.with_resum:
