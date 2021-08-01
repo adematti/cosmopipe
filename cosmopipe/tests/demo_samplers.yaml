@@ -17,7 +17,7 @@ fitting:
   $execute: [emcee, zeus, plotting]
   #$modules: [plotting]
 
-one:
+evaluate:
   $module_name: cosmopipe.samplers.evaluate
   $module_class: EvaluateSampler
   $modules: [like]

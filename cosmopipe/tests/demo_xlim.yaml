@@ -21,8 +21,8 @@ mpi:
   $module_class: MPIPipeline
   $nprocs_per_task: 2
   #$execute: [cobaya]
-  $execute: [emcee]
-  #$execute: [zeus]
+  #$execute: [emcee]
+  $execute: [zeus:setup, zeus:execute]
   #$execute: [dynesty]
   $configblock_iter:
     mockdata.xlim: [{'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.2], 'ell_4': [0.02, 0.2]}, {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}]
@@ -46,7 +46,7 @@ zeus:
   $module_name: cosmopipe.samplers.ensemble.zeus
   $module_class: ZeusSampler
   $modules: [like]
-  eigen_gr_stop: 0.02
+  eigen_gr_stop: 0.5
   save: f'${samples_dir}/samples_zeus.txt'
 
 dynesty:
@@ -129,7 +129,7 @@ plotting:
 like:
   $module_name: cosmopipe.likelihood.likelihood
   $module_class: GaussianLikelihood
-  $setup: [model.execute, xdata.execute, mockcov.execute, projection.execute, mockdata.execute]
+  $setup: [model:execute, xdata:execute, mockcov:execute, projection:execute, mockdata:execute]
   $execute: [model, projection]
 
 model:

@@ -15,7 +15,7 @@ mpi:
   $module_name: pypescript
   $module_class: MPIPipeline
   $nprocs_per_task: 1
-  $execute: [survey_estimator]
+  $execute: [survey_estimator:setup, survey_estimator:execute]
   $configblock_iter:
     survey_estimator.data_load: e'["{}/lognormal_data_{:d}.fits".format(${catalog_dir},i+1) for i in range(${num_mocks})]'
     survey_estimator.save: e'["{}/lognormal_power_spectrum_{:d}.txt".format(${data_dir},i+1) for i in range(${num_mocks})]'

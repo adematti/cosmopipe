@@ -71,23 +71,21 @@ class SumLikelihood(BasePipeline):
     def __init__(self, *args, **kwargs):
         super(SumLikelihood,self).__init__(*args,**kwargs)
         like = self.options.get_list('like',None)
+        self.like_modules = []
         if like is None:
-            self.like_modules = []
             for module in self.modules.values():
                 if isinstance(module,BaseLikelihood):
                     self.log_info('Found likelihood {}.'.format(module.name))
                     self.like_modules.append(module)
         else:
-            self.like_modules = self.get_modules(like)
             from pypescript.pipeline import ModuleTodo, syntax
-            for module in self.like_modules:
-                self.setup_todos.append(ModuleTodo(self,module,funcnames=syntax.setup_function))
-                self.execute_todos.append(ModuleTodo(self,module,funcnames=syntax.execute_function))
-                self.cleanup_todos.append(ModuleTodo(self,module,funcnames=syntax.cleanup_function))
+            for module in like:
+                module = self.add_module(module)
+                self.like_modules.append(module)
+                self.setup_todos.append(ModuleTodo(self,module,step=syntax.setup_function))
+                self.execute_todos.append(ModuleTodo(self,module,step=syntax.execute_function))
+                self.cleanup_todos.append(ModuleTodo(self,module,step=syntax.cleanup_function))
                 self.config_block.update(module.config_block)
-            self.modules.update(dict(zip([module.name for module in self.like_modules],self.like_modules)))
-            for module in self.modules.values():
-                module.set_config_block(config_block=self.config_block)
         if not self.like_modules:
             raise ValueError('No likelihood found')
 
@@ -123,16 +121,14 @@ class JointGaussianLikelihood(SumLikelihood,GaussianLikelihood):
     def __init__(self, *args, **kwargs):
         super(JointGaussianLikelihood,self).__init__(*args,**kwargs)
         after = self.options.get_list('after',[])
-        self.after_modules = self.get_modules(after)
         self.after_setup_todos = []
         from pypescript.pipeline import ModuleTodo, syntax
+        self.after_modules = []
         for module in self.after_modules:
-            self.after_setup_todos.append(ModuleTodo(self,module,funcnames=[syntax.setup_function,syntax.execute_function]))
-            self.cleanup_todos.append(ModuleTodo(self,module,funcnames=syntax.cleanup_function))
-            self.config_block.update(module.config_block)
-        self.modules.update(dict(zip([module.name for module in self.after_modules],self.after_modules)))
-        for module in self.modules.values():
-            module.set_config_block(config_block=self.config_block)
+            module = self.add_module(module)
+            self.after_modules.append(module)
+            self.after_setup_todos.append(ModuleTodo(self,module,step=syntax.execute_function))
+            self.cleanup_todos.append(ModuleTodo(self,module,step=syntax.cleanup_function))
 
     def setup(self):
         #join = {(section_names.data,'data_vector'):[],(section_names.data,'y'):[],(section_names.model,'collection'):[]}
