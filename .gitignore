@@ -20,6 +20,7 @@ doc/_build/
 **/bak
 **/old
 **/.ipynb_checkpoints
+**/_autosummary
 
 # Unit test / coverage reports
 **/.coverage

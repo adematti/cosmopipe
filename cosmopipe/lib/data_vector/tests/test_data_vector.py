@@ -101,7 +101,6 @@ def test_multipole_data_vector():
 
 
 def test_multipole_covariance_matrix():
-
     proj = ['ell_0','ell_2','ell_4']
     list_data,cov_ref = make_data_covariance(ndata=60,proj=proj)
 
@@ -143,7 +142,7 @@ def test_multipole_covariance_matrix():
     filename = os.path.join(data_dir,'covariance_view.txt')
     cov.save_txt(filename)
     cov = CovarianceMatrix.load_txt(filename)
-    #print(cov._kwargs_view)
+
     assert cov.get_x()[0][0].min() > 0.1
 
 
@@ -218,9 +217,10 @@ def test_set_y():
     #print(data.kwview)
 
 
-
 if __name__ == '__main__':
+
     setup_logging()
+
     test_misc()
     test_multipole_data_vector()
     test_muwedge_data_vector()

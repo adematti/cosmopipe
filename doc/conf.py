@@ -28,11 +28,14 @@ from _version import __version__, __docker_image__
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
     'sphinx.ext.napoleon',
     'sphinx_rtd_theme'
 ]
+
+autosummary_generate = True  # Turn on sphinx.ext.autosummary
 
 # -- Project information -----------------------------------------------------
 
@@ -45,7 +48,7 @@ release = __version__
 
 html_theme = 'sphinx_rtd_theme'
 
-autodoc_mock_imports = []
+autodoc_mock_imports = ['pypescript','cosmopipe']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

@@ -72,7 +72,7 @@ class PowerWindowMatrix(BaseMatrix):
     base = ProjectionBase(space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE)
     regularin = True
 
-    def __init__(self, window=None, krange=None, srange=(1e-4,1e4), ns=1024*16, rebin_k=1, q=1.5, sum_wa=True):
+    def __init__(self, window=None, krange=None, srange=(1e-4,1e4), ns=1024*16, rebin_k=1, q=0, sum_wa=True):
         if krange is not None:
             srange = (1./krange[1],1./krange[0])
         self.s = np.logspace(np.log10(srange[0]),np.log10(srange[1]),ns)

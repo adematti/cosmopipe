@@ -1,3 +1,5 @@
+"""Definition of projection."""
+
 import re
 
 import numpy as np
@@ -6,7 +8,30 @@ from cosmopipe.lib.utils import BaseNameSpace, BaseOrderedCollection
 
 
 class ProjectionName(BaseNameSpace):
+    """
+    Class describing a projection.
+    All attributes default to ``None`` (not specified or not relevant).
 
+    Attributes
+    ----------
+    name : string
+        Name of projection.
+
+    fields : tuple
+        Tracer field(s).
+
+    space : string
+        Projection space, e.g. power spectrum ('power')? Correlation function ('correlation')?
+
+    mode : string
+        Projection mode, e.g. 'multipole'? 'muwedge'?
+
+    proj : tuple, int
+        Projection number or identifier (e.g. order of Legendre polynomial, lower and upper limit of :math:`\mu`-wedge)
+
+    wa_order : int
+        Wide-angle order.
+    """
     MULTIPOLE = 'multipole'
     MUWEDGE = 'muwedge'
     MUBIN = 'mubin'
@@ -19,6 +44,16 @@ class ProjectionName(BaseNameSpace):
     _attrs = ['name','fields','space','mode','proj','wa_order']
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize :class:`ProjectionName`.
+
+        Example
+        -------
+        ``ProjectionName('ell_2') == Projection(mode='multipole',proj=2)``
+        ``ProjectionName('multipole',2) == Projection(mode='multipole',proj=2)``
+        ``ProjectionName(('multipole',2)) == Projection(mode='multipole',proj=2)``
+
+        """
         for name in self._attrs:
             setattr(self,name,None)
         if not len(args):
@@ -65,6 +100,7 @@ class ProjectionName(BaseNameSpace):
         self.set(**kwargs)
 
     def set(self, **kwargs):
+        """Set projection attributes in ``kwargs``."""
         for name,value in kwargs.items():
             setattr(self,name,value)
         if np.ndim(self.proj):
@@ -72,6 +108,7 @@ class ProjectionName(BaseNameSpace):
 
     @property
     def latex(self):
+        """Return *latex* (e.g., for the quadrupole, :math:`\ell = 2`)."""
         base = self._latex[self.mode]
         isscalar = np.ndim(self.proj) == 0
         proj = (self.proj,) if isscalar else self.proj
@@ -81,43 +118,65 @@ class ProjectionName(BaseNameSpace):
         return '{} = {}'.format(base,label)
 
     def get_projlabel(self):
+        """If :attr:`mode` is specified (i.e. not ``None``), return *latex* surrounded by '$' signs, else ``None``."""
         if self.mode is None:
             return None
         return '${}$'.format(self.latex)
 
     def get_xlabel(self):
+        """Return x-coordinate label."""
         if self.space == self.POWER:
             return '$k$ [$h \ \\mathrm{Mpc}^{-1}$]'
         if self.space == self.CORRELATION:
             return '$s$ [$\\mathrm{Mpc} / h$]'
 
     def get_ylabel(self):
+        """Return y-coordinate label."""
         if self.space == self.POWER:
             return '$P(k)$ [$(\\mathrm{Mpc} \ h)^{-1})^{3}$]'
         if self.space == self.CORRELATION:
             return '$\\xi(s)$'
 
-    """
-    def __str__(self):
-        proj = (self.proj,) if np.ndim(self.proj) == 0 else self.proj
-        proj = '_'.join([str(p) for p in proj])
-        tmp = '{}_{}'.format(self._mode_shorts[self.mode],proj)
-        if self.name is not None:
-            tmp = '{}_{}'.format(self.name,tmp)
-        return tmp
-    """
     def __gt__(self, other):
+        # Used for sorting
         return np.mean(self.proj) > np.mean(other.proj)
 
     def __lt__(self, other):
+        # Used for sorting
         return np.mean(self.proj) < np.mean(other.proj)
 
 
 class ProjectionNameCollection(BaseOrderedCollection):
+    """
+    Class describing a collection of projections.
 
+    Note
+    ----
+    This does not behave as a list, rather a set: when adding a projection equal
+    to another already in the collection, the latter will be replace by the former.
+    Insertion order is conserved.
+    """
     _cast = lambda x: x if isinstance(x,ProjectionName) else ProjectionName(x)
 
     def index(self, proj, ignore_none=False):
+        """
+        Return index of :class:`ProjectionName` ``proj``.
+
+        Parameters
+        ----------
+        proj : string, tuple, dict
+            Arguments to initialize :class:`ProjectionName`.
+
+        ignore_none : bool, default=False
+            When comparing :class:`ProjectionName` instances,
+            ignore ``None`` (unspecified) attributes.
+
+        Returns
+        -------
+        index : int, list
+            If ``ignore_none`` is ``True``, return list of all matches.
+            Else return index of ``proj``.
+        """
         proj = self.__class__._cast(proj)
         if ignore_none:
             return [iproj_ for iproj_,proj_ in enumerate(self.data) if proj.eq_ignore_none(proj_)]
@@ -126,11 +185,52 @@ class ProjectionNameCollection(BaseOrderedCollection):
         return self.data.index(proj)
 
     def get(self, proj, ignore_none=True):
+        """
+        Return ``proj`` instance in ``self`` corresponding to :class:`ProjectionName` ``proj``.
+
+        Parameters
+        ----------
+        proj : string, tuple, dict
+            Arguments to initialize :class:`ProjectionName`.
+
+        ignore_none : bool, default=False
+            When comparing :class:`ProjectionName` instances,
+            ignore ``None`` (unspecified) attributes.
+
+        Returns
+        -------
+        proj : ProjectionName, list
+            If ``ignore_none`` is ``True``, return list of all matching projections.
+            Else return :class:`ProjectionName` instance matching ``proj``.
+        """
         if ignore_none:
             return [self.data[ii] for ii in self.index(proj,ignore_none=ignore_none)]
         return self.data[self.data.index(proj)]
 
     def group_by(self, include=None, exclude=None):
+        """
+        Group :class:`ProjectionName` by similar attributes.
+
+        Example
+        -------
+        ``collection.group_by(include=['space'])`` will group projections by space.
+        ``collection.group_by(excluding=['mode'])`` will group projections ignoring differences in ``mode``.
+
+        Parameters
+        ----------
+        include : list, default=None
+            List of :class:`ProjectionName` attributes to form a group.
+
+        exclude : list, default=None
+            List of :class:`ProjectionName` attributes to ignore when forming a group.
+
+        Returns
+        -------
+        toret : dict
+            Dictionary of ``proj: collection``,
+            with ``proj`` the :class:`ProjectionName` instance with attributes common
+            to all projections in :class:`ProjectionNameCollection` ``collection``.
+        """
         if not len(self):
             return {}
         include = include or []
@@ -141,6 +241,6 @@ class ProjectionNameCollection(BaseOrderedCollection):
         for proj in self.data:
             base = proj.copy(**exclude)
             if base not in toret:
-                toret[base] = []
-            toret[base].append(proj)
+                toret[base] = ProjectionNameCollection()
+            toret[base].extend(proj)
         return toret

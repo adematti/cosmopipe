@@ -12,7 +12,7 @@ from cosmopipe.lib.theory import hankel_transform
 class HankelTransform(object):
 
     def setup(self):
-        options = dict(nx=1024,q=1.5,ells=(0,2,4),integration=None)
+        options = dict(nx=1024,q=0,ells=(0,2,4),integration=None)
         for name,value in options.items():
             options[name] = self.options.get(name,value)
         model_names = self.options.get_list('model_names',None)

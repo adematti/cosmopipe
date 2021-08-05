@@ -11,8 +11,7 @@ from pypescript.syntax import Decoder
 
 from . import utils
 from .utils import BaseClass, BaseOrderedCollection
-from cosmopipe import section_names
-from cosmopipe.lib import mpi
+from . import mpi
 
 
 def decode_name(name, size=None):

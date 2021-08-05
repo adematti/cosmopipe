@@ -27,7 +27,7 @@ options:
     description: number of log-spaced points for Hankel transform
   q:
     type: float
-    default: 1.5
+    default: 0.0
     description: power-law tilt to regularise Hankel transform
   window_load:
     type: string

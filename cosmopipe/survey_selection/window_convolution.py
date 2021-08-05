@@ -8,7 +8,7 @@ from cosmopipe.lib.survey_selection import WindowFunction, PowerWindowMatrix
 class WindowConvolution(object):
 
     def setup(self):
-        options = dict(krange=None,srange=None,ns=1024,q=1.5)
+        options = dict(krange=None,srange=None,ns=1024,q=0)
         for name,value in options.items():
             options[name] = self.options.get(name,value)
 

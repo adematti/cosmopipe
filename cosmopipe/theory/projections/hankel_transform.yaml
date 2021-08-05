@@ -23,5 +23,5 @@ options:
     description: number of log-spaced points
   q:
     type: float
-    default: 1.5
+    default: 0.0
     description: power-law tilt(s) to regularise integration

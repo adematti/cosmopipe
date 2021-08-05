@@ -22,34 +22,34 @@ options:
   usecols:
     type: list
     default: None
-    description: if not ``None``, list of columns to read the covariance matrix from. Last column must ve the covariance value.
-  columns:
-    type: [list, tuple]
-    default: None
-    description: column names corresponding to ``usecols``. Can be a tuple of column lists for two different data vectors.
-                Columns 'x' and 'y' are used as x- and y-coordinates for each data vector.
+    description: which columns to read, with 0 being the first. If ``None``, reads all columns. Last column must be the covariance value.
   skip_rows:
     type: int
     default: 0
-    description: skip the first skiprows lines, including comments
+    description: skip the first skip_rows lines, including comments
   max_rows:
     type: int
     default: None
-    description: read max_rows lines of content after skiprows lines. The default is to read all the lines
+    description: read max_rows lines of content after skip_rows lines. The default is to read all the lines
   mapping_header:
     type: dict
     default: None
     description: dictionary holding keyword:regex mapping or (regex, type) to provide the type.
                 The corresponding values will be saved in the :attr:`attrs` dictionary
+  columns:
+    type: [list, tuple]
+    default: None
+    description: column names corresponding to ``usecols``. Can be a tuple of column lists for two different data vectors.
+                Columns 'x' and 'y' are used as x- and y-coordinates for each data vector.
   mapping_proj:
     type: [dict, list]
     default: None
-    description: "dictionary holding a mapping from projection to length of corresponding vector, or a list or projections (assumed the same length)"
+    description: list of projection names (considered of the same size), or dictionary holding a mapping from projection specifier (e.g. 'ell_0')
+          to the number of points for this projection (e.g. ``{'ell_0':10, 'ell_2':4}`` for a matrix of total size 14 x 14).
   data:
     type: dict
     default: None
-    description: dictionary to load the data vector matching the provided covariance matrix (in which case 'x' columns of the covariance file are expected to be indices
-                of the data vector.
+    description: dictionary to load the data vector matching the provided covariance matrix, in which case 'x' columns of the covariance file are expected to be indices of the data vector.
   attrs:
     type: dict
     default: {}

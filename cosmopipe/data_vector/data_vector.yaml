@@ -34,27 +34,27 @@ options:
     type: string
     default: '#'
     description: the characters used to indicate the start of a comment
-  skip_rows:
-    type: int
-    default: 0
-    description: skip the first skiprows lines, including comments
-  max_rows:
-    type: int
-    default: None
-    description: read max_rows lines of content after skiprows lines. The default is to read all the lines
   usecols:
     type: list
     default: None
-    description: if not ``None``, list of columns to read the data vector from
-  columns:
-    type: list
+    description: which columns to read, with 0 being the first. If ``None``, reads all columns.
+  skip_rows:
+    type: int
+    default: 0
+    description: skip the first skip_rows lines, including comments
+  max_rows:
+    type: int
     default: None
-    description: column names corresponding to ``usecols``. Columns 'x' and 'y' are used as x- and y-coordinates.
+    description: read max_rows lines of content after skip_rows lines. The default is to read all the lines
   mapping_header:
     type: dict
     default: None
     description: dictionary holding keyword:regex mapping or (regex, type) to provide the type.
                 The corresponding values will be saved in the :attr:`attrs` dictionary
+  columns:
+    type: list
+    default: None
+    description: column names corresponding to ``usecols``. Columns 'x' and 'y' are used as x- and y-coordinates.
   mapping_proj:
     type: [dict, list]
     default: None
