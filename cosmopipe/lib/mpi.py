@@ -6,7 +6,8 @@ from numpy.core.numeric import normalize_axis_tuple
 from mpi4py import MPI
 from mpi4py.MPI import COMM_SELF
 
-from pypescript.mpi import *
+from pypescript.mpi import (CurrentMPIComm, CurrentMPIState, MPIError, MPIInit, MPIScatter, MPIGather, MPIBroadcast,
+                            split_ranks, MPITaskManager, gather_array, broadcast_array, scatter_array)
 from . import utils
 
 
