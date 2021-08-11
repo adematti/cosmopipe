@@ -42,7 +42,8 @@ def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z'
             catalog['position'] = utils.sky_to_cartesian(catalog['distance'],catalog['ra'],catalog['dec'],degree=True)
     else:
         from_origin(position,'position')
-        catalog['distance'] = utils.distance(catalog['position'])
+        for name,catalog in catalogs.items():
+            catalog['distance'] = utils.distance(catalog['position'])
 
     if isinstance(nbar,dict):
         if 'z' in randoms:

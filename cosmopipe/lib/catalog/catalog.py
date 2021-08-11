@@ -53,16 +53,17 @@ class RandomBoxCatalog(Catalog):
         boxsize[:] = BoxSize
         boxcenter = np.empty(3,dtype='f8')
         boxcenter[:] = BoxCenter
-        if rng is None:
-            rng = mpi.MPIRandomState(seed=seed,mpicomm=self.mpicomm)
         self.rng = rng
         if size is None:
+            if rng is None: rng = np.random.RandomState(seed=seed)
             size = rng.poisson(nbar*np.prod(boxsize))
-        size = mpi.local_size(size,mpicomm=self.mpicomm)
+            size = mpi.local_size(size,mpicomm=self.mpicomm)
+        if self.rng is None:
+            self.rng = mpi.MPIRandomState(size=size,seed=seed,mpicomm=self.mpicomm)
         position = np.array([rng.uniform(-boxsize[i]/2.+boxcenter[i],boxsize[i]/2.+boxcenter[i],size=size) for i in range(3)]).T
         attrs = attrs or {}
         attrs['BoxSize'] = boxsize
         attrs['BoxCenter'] = boxcenter
         mpistate = self.mpistate
-        super(RandomCatalog,self).__init__(data={'Position':position},mpicomm=self.mpicomm,mpistate='scattered',mpiroot=self.mpiroot,attrs=attrs)
+        super(RandomBoxCatalog,self).__init__(data={'Position':position},mpicomm=self.mpicomm,mpistate='scattered',mpiroot=self.mpiroot,attrs=attrs)
         self.mpi_to_state(mpistate=mpistate)
