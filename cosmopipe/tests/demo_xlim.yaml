@@ -1,3 +1,5 @@
+#requires at least 3 mpi processes
+
 data_dir: _data
 samples_dir: _samples
 plots_dir: _plots
