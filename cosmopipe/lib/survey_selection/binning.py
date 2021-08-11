@@ -1,3 +1,5 @@
+"""Classes defining final projection onto the data points."""
+
 import logging
 
 import numpy as np
@@ -10,35 +12,64 @@ from .base import BaseMatrix
 
 class BaseBinning(BaseMatrix):
 
+    """Class handling base binning scheme, i.e. evaluation right at the data points."""
     logger = logging.getLogger('BaseBinning')
 
-    """Base binning scheme: evaluation right at the data points."""
-
     def setup(self, data, projs=None):
+        """
+        Set up projection.
+
+        Parameters
+        ----------
+        data : DataVector
+            Data vector to project onto.
+
+        projs : list, ProjectionNameCollection, default=None
+            Projection names.
+            If ``None``, defaults to ``data.get_projs()``, i.e. projections within data view.
+        """
         self.data = data
         self.projsin = self.projsout = ProjectionNameCollection(projs) if projs is not None else data.get_projs()
         self.xin = self.xout = [self.data.get_x(proj=proj) for proj in self.projsout]
         sout = sin = sum([len(x) for x in self.xin])
         self.matrix = np.eye(sout,sin,dtype='f8')
 
-    def compute(self, array):
-        return self.matrix.dot(array)
-
     def propose_out(self, projsin):
+        """Propose input and output projection names: exactly those of data vector."""
         return self.projsin,self.projsin
 
 
 class InterpBinning(BaseBinning):
 
-    """Interpolate on the data points."""
+    """Class handling model interpolation at the data points."""
     logger = logging.getLogger('InterpBinning')
     regularin = True
     regularout = False
 
-    def __init__(self, xin=None):
+    def __init__(self, xin):
+        """
+        Initialize :class:`InterpBinning`.
+
+        Parameters
+        ----------
+        xin : array
+            x-coordinates to evaluate model at (before interpolation).
+        """
         self.xin = np.asarray(xin)
 
     def setup(self, data, projs=None):
+        """
+        Set up projection.
+
+        Parameters
+        ----------
+        data : DataVector
+            Data vector to project onto.
+
+        projs : list, ProjectionNameCollection, default=None
+            Projection names.
+            If ``None``, defaults to ``data.get_projs()``, i.e. projections within data view.
+        """
         self.data = data
         self.projsin = self.projsout = ProjectionNameCollection(projs) if projs is not None else data.get_projs()
         self.xout = [self.data.get_x(proj=proj) for proj in self.projsout]
@@ -59,17 +90,14 @@ class InterpBinning(BaseBinning):
         self.matrix = np.bmat(matrix).A
 
 
-class ModeAverageBinning(BaseBinning):
+#class ModeAverageBinning(BaseBinning):
     # one way is to get full data vector here, then average given nmodes
     # in case of pk, better use mesh definition?
-    pass
 
 
-class IntegBinning(BaseBinning):
+#class IntegBinning(BaseBinning):
     # integrate over edge span
-    pass
 
 
-class MeshBinning(BaseBinning):
+#class MeshBinning(BaseBinning):
     # count modes on mesh
-    pass

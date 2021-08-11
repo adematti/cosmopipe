@@ -33,18 +33,18 @@ def test_parameter():
     assert param.name == 'parameters.a'
 
 
-def test_sugar():
+def test_decode():
     from cosmopipe.lib.parameter import yield_names_latex, find_names_latex, find_names
 
     name = 'test'
     toret = []
-    for name in yield_names_latex(name, size=1):
+    for name in yield_names_latex(name, default_stop=1):
         toret.append(name)
     assert toret == [name]
 
     name = 'test_[-1:3]_[:2]_test'
     toret = []
-    for name in yield_names_latex(name, latex='t_[]_[]', size=1):
+    for name in yield_names_latex(name, latex='t_[]_[]', default_stop=1):
         toret.append(name[0])
     assert toret == ['test_-1_0_test', 'test_-1_1_test', 'test_0_0_test', 'test_0_1_test',
                     'test_1_0_test', 'test_1_1_test', 'test_2_0_test', 'test_2_1_test']
@@ -79,5 +79,5 @@ if __name__ == '__main__':
     test_paramname()
     test_prior()
     test_parameter()
-    test_sugar()
+    test_decode()
     test_collection()

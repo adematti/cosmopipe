@@ -21,7 +21,7 @@ options:
                 set thin_by to an integer greater than 1. To compensate, the number of proposals will be multiplied thin_by
   check_every:
     type: int
-    default: 100
+    default: 200
     description: run diagnostics every ``check_every`` samples
   light_mode:
     type: bool

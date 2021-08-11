@@ -1,13 +1,45 @@
+"""Implementation of wide-angle expansion."""
+
 import logging
 
 import numpy as np
 
-from cosmopipe.lib.theory import ProjectionBase
+from cosmopipe.lib.theory import ProjectionBasis
 from cosmopipe.lib.data_vector import ProjectionNameCollection
 from .base import BaseRegularMatrix
 
 
 def odd_wide_angle_coefficients(ell, wa_order=1, los='firspoint'):
+    """
+    Compute coefficients of odd wide-angle expansion.
+
+    Parameters
+    ----------
+    ell : int
+        Multipole order.
+
+    wa_order : int, default=1
+        Wide-angle expansion order.
+        So far only order 1 is supported.
+
+    los : string
+        Choice of line-of-sight, either:
+
+        - 'firstpoint': the separation vector starts at the end of the line-of-sight
+        - 'endpoint': the separation vector ends at the end of the line-of-sight.
+
+    Returns
+    -------
+    ells : list
+        List of multipole orders of correlation function.
+
+    coeffs : list
+        List of coefficients to apply to correlation function multipoles corresponding to output ``ells``.
+
+    Reference
+    ---------
+    https://fr.overleaf.com/read/hpgbwqzmtcxn
+    """
     if wa_order != 1:
         raise NotImplementedError('Only wide-angle order 1 supported')
 
@@ -21,12 +53,36 @@ def odd_wide_angle_coefficients(ell, wa_order=1, los='firspoint'):
 
 
 class PowerOddWideAngle(BaseRegularMatrix):
-
+    """
+    Class computing matrix for wide-angle expansion.
+    Adapted from https://github.com/fbeutler/pk_tools/blob/master/wide_angle_tools.py
+    """
     logger = logging.getLogger('PowerOddWideAngle')
-
-    base = ProjectionBase(space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE)
+    basis = ProjectionBasis(space=ProjectionBasis.POWER,mode=ProjectionBasis.MULTIPOLE)
 
     def __init__(self, d=1., wa_orders=1, los='firstpoint', sum_wa=True):
+        """
+        Initialize :class:`PowerOddWideAngle`.
+
+        Parameters
+        ----------
+        d : float, default=1
+            Distance at the effective redshift. Use :math:`1` if already included in window functions.
+
+        wa_orders : int, list
+            Wide-angle expansion orders.
+            So far only order 1 is supported.
+
+        los : string
+            Choice of line-of-sight, either:
+
+            - 'firstpoint': the separation vector starts at the end of the line-of-sight
+            - 'endpoint': the separation vector ends at the end of the line-of-sight.
+
+        sum_wa : bool, default=True
+            Whether to perform summation over wide-angle orders.
+            Must be ``False`` if coupling to the window function is to be accounted for.
+        """
         self.d = d
         self.wa_orders = wa_orders
         if np.ndim(wa_orders) == 0:
@@ -38,9 +94,24 @@ class PowerOddWideAngle(BaseRegularMatrix):
 
     @property
     def k(self):
+        """x-coordinates are k-wavenumbers."""
         return self.x
 
     def setup(self, k, projsin, projsout=None):
+        """
+        Set up transform.
+
+        Parameters
+        ----------
+        k : array
+            Input (and ouput) wavenumbers.
+
+        projsin : list, ProjectionNameCollection
+            Input projections.
+
+        projsout : list, ProjectionNameCollection, default=None
+            Output projections. Defaults to ``propose_out(projsin)[-1]``.
+        """
         self.projsin = ProjectionNameCollection(projsin)
         if projsout is None:
             self.projsout = self.propose_out(projsin)[-1]
@@ -90,30 +161,19 @@ class PowerOddWideAngle(BaseRegularMatrix):
                             tmp[-1,-2] = -2.*coeff / deltak[-1]
                             line[iprojin] += tmp
             matrix.append(line)
-        """
-        for projout in self.projsout:
-            line = []
-            for projin in self.projsin:
-                if projin == projout:
-                    tmp = np.eye(len(self.k),dtype=self.k.dtype)
-                else:
-                    tmp = 0.*np.eye(len(self.k),dtype=self.k.dtype)
-                line.append(tmp)
-            matrix.append(line)
-        """
-        #print([[tmp.shape for tmp in line] for line in matrix])
         self.matrix = np.bmat(matrix).A # (out,in)
 
     def propose_out(self, projsin):
-        projsin = ProjectionNameCollection(projsin).select(**self.base.as_dict(drop_none=True))
+        """Propose input and output projection names given proposed input projection names ``projsin``."""
+        projsin = ProjectionNameCollection(projsin).select(**self.basis.as_dict(drop_none=True)) # restrict to power spectrum multipoles
         #projsin = ProjectionNameCollection([proj.copy(wa_order=proj.wa_order or 0) for proj in projsin if proj.wa_order is None or proj.wa_order % 2 == 0])
         projsin = ProjectionNameCollection([proj for proj in projsin if proj.wa_order is not None])
-        ellsin = [proj.proj for proj in projsin if proj.wa_order is not None and proj.wa_order % 2 == 0]
+        ellsin = [proj.proj for proj in projsin if proj.wa_order is not None and proj.wa_order % 2 == 0] # only use input wa_order = 0 multipoles
 
         projsout = projsin.copy()
         for wa_order in self.wa_orders:
             for ellout in range(1,max(ellsin),2):
-                if all(ell in ellsin for ell in odd_wide_angle_coefficients(ellout,wa_order=wa_order)[0]):
+                if all(ell in ellsin for ell in odd_wide_angle_coefficients(ellout,wa_order=wa_order)[0]): # check input multipoles are provided
                     projsout.set(projsin[0].copy(wa_order=wa_order,proj=ellout))
 
         return projsin, projsout

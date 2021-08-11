@@ -90,7 +90,7 @@ class MinuitProfiler(BasePipeline):
             profiles.set_covariance(results[ibest]['covariance'])
 
         #if self.profiles_key:
-        #    profiles = self.data_block[self.profiles_key].append(profiles)
+        #    profiles = self.data_block[self.profiles_key].extend(profiles)
 
         if 'minos' in self.torun:
 

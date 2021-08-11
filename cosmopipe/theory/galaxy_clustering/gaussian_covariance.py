@@ -6,7 +6,7 @@ from cosmopipe import section_names
 from cosmopipe.lib import syntax, utils
 from cosmopipe.lib.data_vector import DataVector
 from cosmopipe.lib.theory import gaussian_covariance
-from cosmopipe.lib.theory.base import ProjectionBase
+from cosmopipe.lib.theory.base import ProjectionBasis
 from cosmopipe.data_vector.data_vector import get_kwview
 
 
@@ -19,7 +19,7 @@ class GaussianCovariance(object):
         self.kwview = {}
         data = self.data_block[section_names.data,'data_vector']
         model_bases = self.data_block[section_names.model,'collection'].bases()
-        self.covariance = gaussian_covariance.GaussianCovarianceMatrix(data=data,model_base=model_bases,**options)
+        self.covariance = gaussian_covariance.GaussianCovarianceMatrix(data=data,model_bases=model_bases,**options)
 
     def execute(self):
         collection = self.data_block[section_names.model,'collection']

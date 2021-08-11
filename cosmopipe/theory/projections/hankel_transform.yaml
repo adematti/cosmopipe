@@ -24,4 +24,4 @@ options:
   q:
     type: float
     default: 0.0
-    description: power-law tilt(s) to regularise integration
+    description: power-law tilt to regularize Hankel transforms.

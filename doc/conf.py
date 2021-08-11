@@ -98,7 +98,7 @@ ultimate_replacements = {
 def setup(app):
     try:
         from pypescript.libutils import write_pype_modules_rst_doc
-        write_pype_modules_rst_doc(os.path.join('api','modules.rst'),max_line_len=150,base_dir=lib_dir)
+        write_pype_modules_rst_doc(os.path.join('api','modules.rst'),header='.. _api-modules:\n\n',max_line_len=150,base_dir=lib_dir)
     except ImportError:
         pass
     app.add_config_value('ultimate_replacements', {}, True)

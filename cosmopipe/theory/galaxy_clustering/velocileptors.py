@@ -3,7 +3,7 @@ from scipy import interpolate
 
 from cosmoprimo import Cosmology, PowerSpectrumBAOFilter
 
-from cosmopipe.lib.theory.base import BaseModel, ProjectionBase, ModelCollection
+from cosmopipe.lib.theory.base import BaseModel, ProjectionBasis, ModelCollection
 from cosmopipe.lib.parameter import ParamName
 from cosmopipe import section_names
 
@@ -25,12 +25,12 @@ class Velocileptors(PTModule):
             self.data_shotnoise = self.data_block[section_names.data,'data_vector'].get(self.data_shotnoise,permissive=True)[0].attrs['shotnoise']
         self.theory_options = options
 
-    def set_model(self, space=ProjectionBase.POWER, mode=ProjectionBase.MUWEDGE, projs=None):
+    def set_model(self, space=ProjectionBasis.POWER, mode=ProjectionBasis.MUWEDGE, projs=None):
         include = [ParamName(section_names.galaxy_bias,name) for name in self.required_params if name not in self.default_required_params]
         include += [ParamName(section_names.galaxy_bias,name) for name in self.optional_params]
         self.set_parameters(include=include + [(section_names.galaxy_rsd,'fsig')])
-        base = ProjectionBase(x=self.theory.kv if space == ProjectionBase.POWER else self.theory.rint,space=space,mode=mode,projs=projs,wa_order=0,**self.model_attrs)
-        self.model = BaseModel(base=base)
+        basis = ProjectionBasis(x=self.theory.kv if space == ProjectionBasis.POWER else self.theory.rint,space=space,mode=mode,projs=projs,wa_order=0,**self.model_attrs)
+        self.model = BaseModel(basis=basis)
         model_collection = self.data_block.get(section_names.model,'collection',[])
         model_collection += ModelCollection([self.model])
         self.data_block[section_names.model,'collection'] = model_collection
@@ -214,7 +214,7 @@ class LPTGaussianStreaming(Velocileptors):
         self.optional_kw = dict(rwidth=100,Nint=10000,ngauss=4,update_cumulants=False)
         self.set_primordial()
         self.set_theory()
-        self.set_model(space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE,projs=(0,2,4))
+        self.set_model(space=ProjectionBasis.CORRELATION,mode=ProjectionBasis.MULTIPOLE,projs=(0,2,4))
 
     def set_theory(self):
         from velocileptors.LPT.gaussian_streaming_model_fftw import GaussianStreamingModel
@@ -258,10 +258,10 @@ class LPTDirect(Velocileptors):
         self.set_primordial()
         self.set_theory()
         if self.with_correlation:
-            self.set_model(space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE,projs=(0,2,4),**self.model_attrs)
+            self.set_model(space=ProjectionBasis.CORRELATION,mode=ProjectionBasis.MULTIPOLE,projs=(0,2,4),**self.model_attrs)
             self.model_correlation = self.model
         if self.with_power:
-            self.set_model(space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE,projs=(0,2,4),**self.model_attrs)
+            self.set_model(space=ProjectionBasis.POWER,mode=ProjectionBasis.MULTIPOLE,projs=(0,2,4),**self.model_attrs)
             self.model_power = self.model
 
     def set_theory(self):

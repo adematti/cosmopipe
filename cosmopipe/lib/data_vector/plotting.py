@@ -1,4 +1,4 @@
-"""Utilities for plotting data vectors and covariance matrices."""
+"""Utilities to plot data vectors and covariance matrices."""
 
 import re
 import logging
@@ -16,11 +16,10 @@ from .projection import ProjectionName, ProjectionNameCollection
 class BaseDataPlotStyle(plotting.BasePlotStyle):
     """
     Base data plotting class.
-    It contains many default attributes (:attr:`xlabel`, :attr:`ylabel`, :attr:`color`, etc.)
-    that can be set at inititialization (``style = BaseDataPlotStyle(color='r')``) or at any
+    It holds default attributes (:attr:`xlabel`, :attr:`ylabel`, :attr:`colors`, etc.)
+    that can be set at initialization (``style = BaseDataPlotStyle(colors='r')``) or at any
     time using :meth:`update`.
     """
-
     def __init__(self, style=None, **kwargs):
         """
         Initialize :class:`BaseDataPlotStyle`.
@@ -37,7 +36,7 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
         self.projs = None
         self.xlabel = None
         self.ylabel = None
-        self.color = None
+        self.colors = None
         self.linestyles = '-'
         self.xscale = 'linear'
         self.yscale = 'linear'
@@ -60,7 +59,7 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
     def get_color(self, proj, projs=None):
         """
         Return color corresponding to projection name ``proj``.
-        If :attr:`color` is a list, return color at index that of ``proj`` list of projection names ``projs``.
+        If :attr:`colors` is a list, return colors at index of ``proj`` in list of projection names ``projs``.
         """
         if projs is None:
             projs = self.projs
@@ -68,14 +67,14 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
         else:
             index = proj
             proj = projs[index]
-        if self.color is None:
+        if self.colors is None:
             color = 'C{:d}'.format(index)
-        elif isinstance(self.color,str):
-            color = self.color
-        elif isinstance(self.color,dict):
-            color = self.color[proj]
+        elif isinstance(self.colors,str):
+            color = self.colors
+        elif isinstance(self.colors,dict):
+            color = self.colors[proj]
         else:
-            color = self.color[index]
+            color = self.colors[index]
         return color
 
     @staticmethod
@@ -130,15 +129,15 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
         error_mean : int, default=None
             If not ``None``, index of data vector in ``data_vectors`` to use as mean when plotting error bars.
 
-        ax : plt.axes.Axes
-            Axis where to plot data vectors.
+        ax : matplotlib.axes.Axes, default=None
+            Axes where to plot data vectors. If ``None``, takes current axes.
 
         filename : string, default=None
             If not ``None``, file name where to save figure.
 
         Returns
         -------
-        ax : plt.axes.Axes
+        ax : matplotlib.axes.Axes
         """
         if ax is None: ax = plt.gca()
         self._set_ax_attrs(ax)
@@ -321,7 +320,14 @@ class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
 
         Returns
         -------
-        ax : plt.axes.Axes
+        fig : matplotlib.figure.Figure
+            Figure.
+
+        lax : array
+            Array of axes.
+
+        cbar_ax : matplotlib.axes.Axes
+            Color bar axes.
         """
         covariance = self.get('covariance',covariance)
         mat = self.get_mat(covariance)
@@ -367,7 +373,7 @@ class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
         cbar.set_label(self.barlabel,fontsize=styles[0].labelsize,rotation=90)
         filename = filename or self.filename
         if filename: self.savefig(filename)
-        return lax,cbar_ax
+        return fig, lax, cbar_ax
 
 
 class CorrelationMatrixPlotStyle(CovarianceMatrixPlotStyle):

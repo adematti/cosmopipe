@@ -1,7 +1,7 @@
 import numpy as np
 
 from cosmopipe.lib import theory
-from cosmopipe.lib.theory.base import ProjectionBase, ModelCollection
+from cosmopipe.lib.theory.base import ProjectionBasis, ModelCollection
 from cosmopipe import section_names
 
 from .module import PTModule
@@ -14,14 +14,14 @@ class LinearModel(PTModule):
         self.set_primordial()
         model_attrs = self.options.get_dict('model_attrs',{})
         self.model = theory.LinearModel(klin=self.pklin.k,pklin=self.pklin,FoG=self.options.get('FoG','gaussian'))
-        self.model.base.set(**model_attrs)
+        self.model.basis.set(**model_attrs)
         self.eval = self.model.eval
         self.data_shotnoise = self.options.get('data_shotnoise',None)
         try:
             self.data_shotnoise = 1. * self.data_shotnoise
         except TypeError:
             self.data_shotnoise = self.data_block[section_names.data,'data_vector'].get(self.data_shotnoise,permissive=True)[0].attrs['shotnoise']
-        self.model.base.set(shotnoise=self.data_shotnoise,**self.options.get('model_attrs',{}))
+        self.model.basis.set(shotnoise=self.data_shotnoise,**self.options.get('model_attrs',{}))
         self.model.eval = None # just to make sure it is not called without execute
         model_collection = self.data_block.get(section_names.model,'collection',[])
         model_collection += ModelCollection([self.model])

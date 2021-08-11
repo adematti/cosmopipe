@@ -14,10 +14,10 @@ def test_mpi_sum():
         broadcast = mpi.broadcast_array(array)
         scattered = mpi.scatter_array(array)
         for axis in [(0,),(0,1)]:
-            with MemoryMonitor(other='serial  ') as mem:
+            with MemoryMonitor(msg='serial  ') as mem:
                 for i in range(100):
                     ref = npfun(broadcast,axis=axis)
-            with MemoryMonitor(other='parallel') as mem:
+            with MemoryMonitor(msg='parallel') as mem:
                 for i in range(100):
                     val = mpifun(scattered,axis=axis)
             assert np.allclose(val,ref), '{} {}, {} {}'.format(npfun,mpifun,ref,val)
@@ -34,11 +34,11 @@ def test_mpi_argmin():
         broadcast = mpi.broadcast_array(array)
         scattered = mpi.scatter_array(array)
         axis = 0
-        with MemoryMonitor(other='serial  ') as mem:
+        with MemoryMonitor(msg='serial  ') as mem:
             for i in range(100):
                 ref = npfun(broadcast,axis=axis)
         minref = np.take_along_axis(broadcast,np.expand_dims(ref,axis=axis),axis=axis)[0]
-        with MemoryMonitor(other='parallel') as mem:
+        with MemoryMonitor(msg='parallel') as mem:
             for i in range(100):
                 argmin,rank = mpifun(scattered,axis=axis)
         mask = rank == comm.rank
@@ -49,11 +49,11 @@ def test_mpi_argmin():
             assert np.all(min == minref), '{} {}'.format(minref, min)
 
         axis = None
-        with MemoryMonitor(other='serial  ') as mem:
+        with MemoryMonitor(msg='serial  ') as mem:
             for i in range(100):
                 ref = npfun(broadcast,axis=axis)
         minref = broadcast[np.unravel_index(ref,broadcast.shape)]
-        with MemoryMonitor(other='parallel') as mem:
+        with MemoryMonitor(msg='parallel') as mem:
             for i in range(100):
                 argmin,rank = mpifun(scattered,axis=axis)
         min = scattered[np.unravel_index(argmin,scattered.shape)] if comm.rank == rank else None
@@ -71,11 +71,11 @@ def test_mpi_sort():
     scattered = mpi.scatter_array(array)
 
     axis = 0
-    with MemoryMonitor(other='serial  ') as mem:
+    with MemoryMonitor(msg='serial  ') as mem:
         for i in range(10):
             ref = np.sort(broadcast,axis=axis)
 
-    with MemoryMonitor(other='parallel') as mem:
+    with MemoryMonitor(msg='parallel') as mem:
         for i in range(10):
             toret = mpi.sort_array(scattered,axis=axis)
 
@@ -130,7 +130,7 @@ def test_mpi_algebra():
             assert np.allclose(toret,ref), '{} {}'.format(ref, toret)
 
         ref = np.var(ba)
-        toret = mpi.var_array(sa)
+        toret = mpi.var_array(sa,ddof=0)
         if comm.rank == 0:
             assert np.allclose(toret,ref), '{} {}'.format(ref, toret)
 
@@ -138,7 +138,7 @@ def test_mpi_algebra():
 if __name__ == '__main__':
 
     setup_logging(level='debug')
-    #test_mpi_sum()
-    #test_mpi_argmin()
-    #test_mpi_sort()
+    test_mpi_sum()
+    test_mpi_argmin()
+    test_mpi_sort()
     test_mpi_algebra()

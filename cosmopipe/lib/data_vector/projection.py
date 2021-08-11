@@ -8,7 +8,7 @@ from cosmopipe.lib.utils import BaseNameSpace, BaseOrderedCollection
 
 
 class ProjectionName(BaseNameSpace):
-    """
+    r"""
     Class describing a projection.
     All attributes default to ``None`` (not specified or not relevant).
 
@@ -42,6 +42,7 @@ class ProjectionName(BaseNameSpace):
     _space_shorts = {POWER:'power',CORRELATION:'corr'}
     _latex = {MULTIPOLE:'\ell',MUWEDGE:'\mu',MUBIN:'\mu',PIWEDGE:'\pi'}
     _attrs = ['name','fields','space','mode','proj','wa_order']
+    sep = '_'
 
     def __init__(self, *args, **kwargs):
         """
@@ -53,6 +54,19 @@ class ProjectionName(BaseNameSpace):
         ``ProjectionName('multipole',2) == Projection(mode='multipole',proj=2)``
         ``ProjectionName(('multipole',2)) == Projection(mode='multipole',proj=2)``
 
+        Parameters
+        ----------
+        args : tuple, list, string, dict, ProjectionName
+            Can be:
+
+            - a tuple or list of (mode, proj), (space, mode, proj) or (name, space, mode, proj)
+            - string of mode_proj, space_mode_proj, or name_space_mode_proj
+            - a dictionary of attribute values
+            - a :class:`ProjectionName` instance, which is copied.
+
+        kwargs : dict
+            Dictionary of attribute values.
+            If ``args`` is dictionary, is updated by ``kwargs``.
         """
         for name in self._attrs:
             setattr(self,name,None)
@@ -61,16 +75,18 @@ class ProjectionName(BaseNameSpace):
         elif len(args) > 1:
             if len(args) == 2:
                 self.mode,self.proj = args
+            elif len(args) == 3:
+                self.space,self.mode,self.proj = args
             else:
-                self.name,self.mode,self.projs = args
+                self.name,self.space,self.mode,self.proj = args
         elif isinstance(args[0],self.__class__):
             self.__dict__.update(args[0].__dict__)
         elif isinstance(args[0],dict):
-            kwargs = args[0]
+            kwargs = {**args[0],**kwargs}
         elif isinstance(args[0],(list,tuple)):
             self.__init__(*args[0],**kwargs)
         elif isinstance(args[0],str):
-            args = args[0].split('_')
+            args = args[0].split(self.sep)
             self.name, self.space, self.mode = None, None, None
             for name,short in self._space_shorts.items():
                 if args[0] == short:
@@ -108,7 +124,7 @@ class ProjectionName(BaseNameSpace):
 
     @property
     def latex(self):
-        """Return *latex* (e.g., for the quadrupole, :math:`\ell = 2`)."""
+        r"""Return *latex* (e.g., for the quadrupole, :math:`\ell = 2`)."""
         base = self._latex[self.mode]
         isscalar = np.ndim(self.proj) == 0
         proj = (self.proj,) if isscalar else self.proj
@@ -118,7 +134,7 @@ class ProjectionName(BaseNameSpace):
         return '{} = {}'.format(base,label)
 
     def get_projlabel(self):
-        """If :attr:`mode` is specified (i.e. not ``None``), return *latex* surrounded by '$' signs, else ``None``."""
+        """If :attr:`mode` is specified (i.e. not ``None``), return :attr:`latex` surrounded by '$' signs, else ``None``."""
         if self.mode is None:
             return None
         return '${}$'.format(self.latex)
@@ -152,8 +168,7 @@ class ProjectionNameCollection(BaseOrderedCollection):
 
     Note
     ----
-    This does not behave as a list, rather a set: when adding a projection equal
-    to another already in the collection, the latter will be replace by the former.
+    When adding a projection equal to another already in the collection, the latter will be replaced by the former.
     Insertion order is conserved.
     """
     _cast = lambda x: x if isinstance(x,ProjectionName) else ProjectionName(x)

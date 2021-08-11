@@ -325,8 +325,8 @@ class CovarianceMatrix(BaseClass,metaclass=RegisteredCovarianceMatrix):
         ----------
         filename : string
             File name of covariance matrix.
-            If ends with '.txt', call :meth:`load_txt`
-            Else (numpy binary format), call :meth:`load`
+            If ends with '.txt', calls :meth:`load_txt`
+            Else (numpy binary format), calls :meth:`load`
 
         args : list
             Arguments for load function.
@@ -346,8 +346,8 @@ class CovarianceMatrix(BaseClass,metaclass=RegisteredCovarianceMatrix):
         ----------
         filename : string
             File name of covariance matrix.
-            If ends with '.txt', call :meth:`save_txt`
-            Else (numpy binary format), call :meth:`save`
+            If ends with '.txt', calls :meth:`save_txt`
+            Else (numpy binary format), calls :meth:`save`
 
         args : list
             Arguments for save function.

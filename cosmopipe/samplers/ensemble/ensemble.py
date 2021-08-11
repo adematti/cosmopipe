@@ -18,7 +18,7 @@ class EnsembleSampler(BasePipeline):
         self.seed = self.options.get('seed',None)
         self.nwalkers = self.options.get('nwalkers',None)
         self.thin_by = self.options.get('thin_by',1)
-        self.check_every = self.options.get('check_every',100)
+        self.check_every = self.options.get('check_every',200)
         self.min_iterations = self.options.get('min_iterations',0)
         self.max_iterations = self.options.get('max_iterations',sys.maxsize)
         self.max_tries = self.options.get('max_tries',1000)

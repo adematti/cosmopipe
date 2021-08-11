@@ -5,7 +5,7 @@ from pypescript.config import ConfigError
 
 from cosmopipe import section_names
 from cosmopipe.lib import utils
-from cosmopipe.lib.theory.base import ProjectionBase, ModelCollection
+from cosmopipe.lib.theory.base import ProjectionBasis, ModelCollection
 from cosmopipe.lib.theory import hankel_transform
 
 
@@ -16,7 +16,7 @@ class HankelTransform(object):
         for name,value in options.items():
             options[name] = self.options.get(name,value)
         model_names = self.options.get_list('model_names',None)
-        model_attrs = [{'space':ProjectionBase.POWER},{'space':ProjectionBase.CORRELATION}]
+        model_attrs = [{'space':ProjectionBasis.POWER},{'space':ProjectionBasis.CORRELATION}]
         if model_names is not None:
             model_attrs['name'] = set(model_names)
         self.model_collection = self.data_block[section_names.model,'collection']

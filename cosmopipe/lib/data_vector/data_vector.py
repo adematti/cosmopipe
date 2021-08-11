@@ -316,7 +316,7 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
 
     @property
     def size(self):
-        """Equivalent for :meth:len."""
+        """Equivalent for :meth:`__length__`."""
         return len(self)
 
     @property
@@ -485,7 +485,7 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
         return new
 
     def __copy__(self):
-        """Return copy (without copying each projection)."""
+        """Return copy, including shallow-copy of internal list of projections (but without copying each projection)."""
         new = super(DataVector,self).__copy__()
         for name in ['data','attrs']:
             setattr(new,name,getattr(new,name).copy())
@@ -587,10 +587,15 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
         self.__dict__.update(new.__dict__)
 
     def __radd__(self, other):
-        """Operation corresponding to ``other + self``"""
+        """Operation corresponding to ``other + self``."""
         if other in [[],0,None]:
             return self.copy()
         return self.concatenate(self,other)
+
+    def __iadd__(self, other):
+        """Operation corresponding to ``self + other``."""
+        self.extend(other)
+        return self
 
     def __add__(self, other):
         """Addition of two data vectors is defined as concatenation."""
@@ -605,7 +610,7 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
     @classmethod
     def load_auto(cls, filename, *args, **kwargs):
         """
-        Load data vector.
+        Load data vector from disk.
 
         Note
         ----
@@ -615,8 +620,8 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
         ----------
         filename : string
             File name of data vector.
-            If ends with '.txt', call :meth:`load_txt`
-            Else (numpy binary format), call :meth:`load`
+            If ends with '.txt', calls :meth:`load_txt`
+            Else (numpy binary format), calls :meth:`load`
 
         args : list
             Arguments for load function.
@@ -636,8 +641,8 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
         ----------
         filename : string
             File name of data vector.
-            If ends with '.txt', call :meth:`save_txt`
-            Else (numpy binary format), call :meth:`save`
+            If ends with '.txt', calls :meth:`save_txt`
+            Else (numpy binary format), calls :meth:`save`
 
         args : list
             Arguments for save function.

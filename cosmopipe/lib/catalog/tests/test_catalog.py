@@ -22,6 +22,7 @@ def test_catalog():
     catalog.save_auto(fits_fn)
     catalog2 = Catalog.load_auto(fits_fn)
     assert catalog2 == catalog
+    print(catalog2.to_stats(columns=['RA','DEC','Z']))
 
 
 if __name__ == '__main__':

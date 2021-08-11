@@ -1,3 +1,5 @@
+"""Some plotting utilities."""
+
 import os
 import re
 import logging
@@ -13,15 +15,37 @@ logger = logging.getLogger('Plotting')
 
 
 def make_list(obj, length=1):
+    """
+    Return list from ``obj``.
+
+    Parameters
+    ----------
+    obj : object, tuple, list, array
+        If tuple, list or array, cast to list.
+        Else return list of ``obj`` with length ``length``.
+
+    length : int, default=1
+        Length of list to return, if ``obj`` not already tuple, list or array.
+
+    Returns
+    -------
+    toret : list
+    """
     if isinstance(obj,tuple):
         return list(obj)
-    if not isinstance(obj,(list,np.ndarray)):
+    if isinstance(obj,np.ndarray):
+        return obj.tolist()
+    if not isinstance(obj,list):
         return [obj for i in range(length)]
     return obj
 
 
 class BasePlotStyle(utils.BaseClass):
-
+    """
+    Base class to represent a plotting style.
+    It holds attributes that can be set at initialization (``style = BaseDataPlotStyle(color='r')``) or at any
+    time using :meth:`update`.
+    """
     logger = logging.getLogger('BasePlotStyle')
 
     @mpi.MPIInit
@@ -34,14 +58,41 @@ class BasePlotStyle(utils.BaseClass):
         self.update(**kwargs)
 
     def update(self, **kwargs):
+        """Update attibutes with those in ``kwargs``."""
         for key,val in kwargs.items():
             setattr(self,key,val)
 
     def savefig(self, filename, fig=None):
+        """
+        Save figure to ``filename``.
+
+        Parameters
+        ----------
+        filename : string
+            Path where to save figure.
+
+        fig : matplotlib.figure.Figure, default=None
+            Figure to save. Defaults to current figure.
+        """
         if self.is_mpi_root():
             savefig(filename,fig=fig,**self.kwfig)
 
     def get(self, name, value=None, default=None):
+        """
+        Return ``value`` if not ``None``, else attribute ``name`` if not ``None``,
+        else ``default``.
+
+        Parameters
+        ----------
+        name : string
+            Attribute name. If ``None``, defaults to ``default``.
+
+        value : object, default=None
+            Value. If ``None``, returns attribute ``name``.
+
+        default : object, default=None
+            Default value.
+        """
         if value is not None:
             return value
         value = getattr(self,name,None)
@@ -50,9 +101,12 @@ class BasePlotStyle(utils.BaseClass):
         return value
 
     def get_list(self, name, value=None, default=None):
+        """
+        Same as :meth:`get`, but ensuring returned value is a list.
+        Default length (see :func:`make_list`) is taken as ``default`` length.
+        """
         if value is not None:
-            value = make_list(value,length=len(default) if default is not None else 1)
-            return value
+            return make_list(value,length=len(default) if default is not None else 1)
         value = getattr(self,name,None)
         if value is None:
             return default
@@ -60,7 +114,20 @@ class BasePlotStyle(utils.BaseClass):
 
 
 def savefig(filename, fig=None, bbox_inches='tight', pad_inches=0.1, dpi=200, **kwargs):
-    """Save matplotlib figure to ``filename``."""
+    """
+    Save figure to ``filename``.
+
+    Parameters
+    ----------
+    filename : string
+        Path where to save figure.
+
+    fig : matplotlib.figure.Figure, default=None
+        Figure to save. Defaults to current figure.
+
+    kwargs : dict
+        Arguments for :meth:`matplotlib.figure.Figure.savefig`.
+    """
     utils.mkdir(os.path.dirname(filename))
     logger.info('Saving figure to {}.'.format(filename))
     if fig is None:
@@ -69,27 +136,33 @@ def savefig(filename, fig=None, bbox_inches='tight', pad_inches=0.1, dpi=200, **
     plt.close(fig)
 
 
-def suplabel(axis,label,shift=0,labelpad=5,ha='center',va='center',**kwargs):
+def suplabel(axis, label, shift=0, labelpad=5, ha='center', va='center', **kwargs):
     """
-    Add super ylabel or xlabel to the figure. Similar to matplotlib.suptitle.
+    Add global x-coordinate or y-coordinate label to the figure. Similar to matplotlib.suptitle.
     Taken from https://stackoverflow.com/questions/6963035/pyplot-axes-labels-for-subplots.
 
     Parameters
     ----------
     axis : str
         'x' or 'y'.
-    label : str
-        label.
+
+    label : string
+        Label string.
+
     shift : float, optional
-        shift.
+        Shift along ``axis``.
+
     labelpad : float, optional
-        padding from the axis.
+        Padding perpendicular to ``axis``.
+
     ha : str, optional
-        horizontal alignment.
+        Label horizontal alignment.
+
     va : str, optional
-        vertical alignment.
+        Label vertical alignment.
+
     kwargs : dict
-        kwargs for :meth:`matplotlib.pyplot.text`
+        Arguments for :func:`matplotlib.pyplot.text`.
     """
     fig = plt.gcf()
     xmin = []

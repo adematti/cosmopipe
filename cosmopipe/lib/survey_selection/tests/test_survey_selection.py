@@ -3,7 +3,7 @@ import os
 import numpy as np
 from cosmoprimo import Cosmology
 
-from cosmopipe.lib.theory import LinearModel, ModelEvaluation, ModelCollection
+from cosmopipe.lib.theory import ProjectionBasis, LinearModel, ModelEvaluation, ModelCollection
 from cosmopipe.lib.data_vector import ProjectionName, DataVector
 from cosmopipe.lib.data_vector.plotting import PowerSpectrumPlotStyle
 from cosmopipe.lib.survey_selection import PowerOddWideAngle, PowerWindowMatrix, ModelProjection, ModelProjectionCollection, WindowFunction
@@ -209,10 +209,10 @@ def test_window_convolution():
     wm.setup(k,projsin=data.projs,projsout=data.projs)
 
     datanow = data.deepcopy()
-    datanow.set_y(ModelEvaluation(data=data,model_base=model.base)(model,remove_shotnoise=True))
+    datanow.set_y(ModelEvaluation(data=data,model_bases=model.basis)(model,remove_shotnoise=True))
 
     x = DataVector(x=wm.xin,proj=wm.projsin)
-    y = wm.compute(ModelEvaluation(data=x,model_base=model.base)(model,remove_shotnoise=True))
+    y = wm.compute(ModelEvaluation(data=x,model_bases=model.basis)(model,remove_shotnoise=True))
     dataw = data.deepcopy()
     dataw.set_y(y)
 
@@ -229,7 +229,7 @@ def test_model_projection():
     data = DataVector(x=k,proj=['ell_0','ell_1','ell_2','ell_4'])
     list_data_vector = []
 
-    model_projection = ModelProjection(data,model_base=model.base)
+    model_projection = ModelProjection(data,model_bases=model.basis)
     model_projection.setup()
     #list_data_vector.append(model_projection.to_data_vector(model))
     # add BaseBinning
@@ -250,10 +250,10 @@ def test_model_projection():
     model_projection.setup()
     list_data_vector.append(model_projection.to_data_vector(model))
     """
-    model_projection = ModelProjection(data,model_base=model.base)
+    model_projection = ModelProjection(data,model_bases=model.basis)
     wa = PowerOddWideAngle(d=10.,wa_orders=1,los='firstpoint')
     model_projection.insert(0,wa)
-    xin = model.base.x
+    xin = model.basis.x
     model_projection.append(InterpBinning(xin=xin))
     model_projection.setup()
     list_data_vector.append(model_projection.to_data_vector(model))
@@ -267,19 +267,20 @@ def test_pkell_projection():
 
     pk = Cosmology().get_fourier('eisenstein_hu').pk_interpolator().to_1d()
     model = LinearModel(pklin=pk)
-    data = DataVector(x=model.base.x,proj=['ell_0','ell_2','ell_4'])
-    projection = ModelProjection(data,model_base=model.base)
+    data = DataVector(x=model.basis.x,proj=['ell_0','ell_2','ell_4'])
+    projection = ModelProjection(data,model_bases=model.basis)
     projection.setup()
     pkell = projection(model,concatenate=False)
     from scipy import interpolate
-    interp = interpolate.interp1d(model.base.x,np.array(pkell).T,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)
-    model = ModelCollection([interp],bases=[{'x':model.base.x,'space':'power','mode':'multipole','projs':[0,2,4],'wa_order':0}])
+    interp = interpolate.interp1d(model.basis.x,np.array(pkell).T,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)
+    interp.basis = ProjectionBasis({'x':model.basis.x,'space':'power','mode':'multipole','projs':[0,2,4],'wa_order':0})
+    model = ModelCollection([interp])
 
     k = np.linspace(0.02,0.2,20)
     data = DataVector(x=k,proj=['ell_0','ell_1','ell_2','ell_4'])
     list_data_vector = []
 
-    model_projection = ModelProjection(data,model_base=model.bases())
+    model_projection = ModelProjection(data,model_bases=model.bases())
     model_projection.setup()
     #list_data_vector.append(model_projection.to_data_vector(model))
     # add BaseBinning
@@ -313,7 +314,7 @@ def test_model_projection_collection():
     model = LinearModel(pklin=pk)
     k = np.linspace(0.02,0.2,20)
     data = DataVector(x=k,proj=['ell_0','ell_2','ell_4'])
-    mc = ModelProjectionCollection(data,model_base=model.base)
+    mc = ModelProjectionCollection(data,model_bases=model.basis)
     mc.setup()
     data_vector = mc.to_data_vector(model)
     filename = os.path.join(plot_dir,'projection_collection.png')
@@ -328,7 +329,7 @@ def test_copy():
     data = DataVector(x=k,proj=['ell_0','ell_1','ell_2','ell_4'])
     data_fine = DataVector(x=np.linspace(0.02,0.2,60),proj=['ell_0','ell_1','ell_2','ell_4'])
 
-    model_projection = ModelProjection(data,model_base=model.base)
+    model_projection = ModelProjection(data,model_bases=model.basis)
     # add window function
     wm = get_window_matrix()
     model_projection.insert(0,wm)
@@ -344,7 +345,7 @@ def test_copy():
     style.plot(list_data_vector,filename=filename)
 
     # now with model collection
-    mc = ModelProjectionCollection(data,model_base=model.base)
+    mc = ModelProjectionCollection(data,model_bases=model.basis)
     mc_fine = mc.copy()
     mc_fine.setup(data_fine)
     mc.setup()
@@ -360,12 +361,12 @@ def test_copy():
 if __name__ == '__main__':
 
     setup_logging()
-    #test_deriv()
+    test_deriv()
     #test_power_odd_wideangle()
     #test_window_matrix()
-    #save_window_function()
-    #test_window_convolution()
-    #test_model_projection()
+    save_window_function()
+    test_window_convolution()
+    test_model_projection()
     test_pkell_projection()
-    #test_model_projection_collection()
-    #test_copy()
+    test_model_projection_collection()
+    test_copy()

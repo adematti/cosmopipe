@@ -3,7 +3,7 @@ from scipy import special, interpolate
 from pybird_dev import pybird
 
 from cosmopipe.lib import utils, theory
-from cosmopipe.lib.theory.base import BaseModel, ProjectionBase, ModelCollection
+from cosmopipe.lib.theory.base import BaseModel, ProjectionBasis, ModelCollection
 from cosmopipe import section_names
 
 from .module import PTModule
@@ -77,13 +77,13 @@ class PyBird(PTModule):
 
         model_collection = self.data_block.get(section_names.model,'collection',ModelCollection())
         if self.with_correlation:
-            base = ProjectionBase(x=self.co.s,space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs)
-            self.model_correlation = BaseModel(base=base)
+            basis = ProjectionBasis(x=self.co.s,space=ProjectionBasis.CORRELATION,mode=ProjectionBasis.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs)
+            self.model_correlation = BaseModel(basis=basis)
             model_collection.set(self.model_correlation)
 
         if self.with_power:
-            base = ProjectionBase(x=self.co.k,space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs)
-            self.model_power = BaseModel(base=base)
+            basis = ProjectionBasis(x=self.co.k,space=ProjectionBasis.POWER,mode=ProjectionBasis.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs)
+            self.model_power = BaseModel(basis=basis)
             model_collection.set(self.model_power)
 
         self.data_block[section_names.model,'collection'] = model_collection

@@ -16,7 +16,7 @@ options:
   srange:
     type: list
     default: None
-    description: :math:`s`-range for Hankel transform
+    description: :math:`s`-range for Hankel transforms
   krange:
     type: list
     default: None
@@ -24,11 +24,11 @@ options:
   ns:
     type: int
     default: 1024
-    description: number of log-spaced points for Hankel transform
+    description: number of log-spaced points for Hankel transforms
   q:
     type: float
     default: 0.0
-    description: power-law tilt to regularise Hankel transform
+    description: power-law tilt to regularize Hankel transforms
   window_load:
     type: string
     default: window_function

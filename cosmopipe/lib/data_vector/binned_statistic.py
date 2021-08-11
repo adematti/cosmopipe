@@ -17,7 +17,7 @@ def _apply_matrices(array, matrices, axes=None):
 
     Parameters
     ----------
-    array : N-D array
+    array : ND array
         Array to apply matrices to.
 
     matrices : list of N 2D matrices
@@ -28,7 +28,7 @@ def _apply_matrices(array, matrices, axes=None):
 
     Returns
     -------
-    array : N-D array
+    array : ND array
     """
     if axes is None:
         axes = range(len(matrices))
@@ -292,6 +292,9 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
         else:
             weights = np.ones(self.shape,dtype='f8')
 
+        if np.ndim(dims) == 0:
+            edges = [edges]
+            dims = [dims]
         matrices, self.edges, dims = self._matrix_new_edges(edges,dims=dims,flatten=False,weights=None)
 
         axes = [self.dims.index(dim) for dim in dims]
@@ -362,8 +365,7 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
         """
         if dims is None:
             dims = [dim for idim,dim in enumerate(self.dims) if self.shape[idim] <= 1]
-        if np.ndim(dims) == 0:
-            dims = [dims]
+        if np.ndim(dims) == 0: dims = [dims]
         axes = tuple([self.dims.index(dim) for dim in dims])
         for col in self.data:
             self.data[col] = np.squeeze(self.data[col],axis=axes)

@@ -1,7 +1,7 @@
 from cosmopipe import section_names
 from cosmopipe.data_vector.data_vector import get_data_from_options
 
-from cosmopipe.lib.theory.base import ProjectionBase
+from cosmopipe.lib.theory.base import ProjectionBasis
 from cosmopipe.lib.survey_selection import WindowFunction, PowerWindowMatrix
 
 
@@ -21,7 +21,7 @@ class WindowConvolution(object):
         if options['krange'] is None:
             # try get model base
             model_bases = self.data_block[section_names.model,'collection'].bases()
-            k = model_bases.select(space=ProjectionBase.POWER)[0].x
+            k = model_bases.select(space=ProjectionBasis.POWER)[0].x
             options['krange'] = (k.min(),k.max())
 
         matrix = PowerWindowMatrix(window=window,**options)

@@ -1,3 +1,5 @@
+"""Implementation of window function effect."""
+
 import math
 from fractions import Fraction
 import logging
@@ -7,27 +9,60 @@ from scipy import special
 from cosmoprimo import CorrelationToPower
 
 from cosmopipe.lib.utils import BaseClass
-from cosmopipe.lib.theory import ProjectionBase
+from cosmopipe.lib.theory import ProjectionBasis
 from cosmopipe.lib.theory.integration import weights_trapz
 from cosmopipe.lib.data_vector import ProjectionNameCollection
 from .base import BaseRegularMatrix, BaseMatrix
 
 
 class CorrelationWindowMatrix(BaseRegularMatrix):
+    """
+    Class computing matrix for window product in configuration space.
 
+    Attributes
+    ----------
+    projmatrix : array
+        Array of shape ``(len(self.projsout),len(self.projsin),len(self.x))``
+        to convert input array from one basis to another (e.g. multipoles to wedges).
+    """
     logger = logging.getLogger('CorrelationWindowMatrix')
-
-    base = ProjectionBase(space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE)
+    basis = ProjectionBasis(space=ProjectionBasis.CORRELATION,mode=ProjectionBasis.MULTIPOLE)
 
     def __init__(self, window=None, sum_wa=True):
+        """
+        Initialize :class:`CorrelationWindowMatrix`.
+
+        Parameters
+        ----------
+        window : WindowFunction
+            Window function to multiply correlation function with.
+
+        sum_wa : bool, default=True
+            Whether to perform summation over wide-angle orders.
+        """
         self.window = window
         self.sum_wa = sum_wa
 
     @property
     def s(self):
+        """x-coordinates are s-separations."""
         return self.x
 
     def setup(self, s, projsin, projsout=None):
+        """
+        Set up transform.
+
+        Parameters
+        ----------
+        s : array
+            Input (and ouput) separations.
+
+        projsin : list, ProjectionNameCollection
+            Input projections.
+
+        projsout : list, ProjectionNameCollection, default=None
+            Output projections. Defaults to ``propose_out(projsin)[-1]``.
+        """
         self.projsin = projsin
         self.projsout = projsout
         if projsout is None:
@@ -47,7 +82,7 @@ class CorrelationWindowMatrix(BaseRegularMatrix):
                 if sum_wa or projout.wa_order == projin.wa_order:
                     ellsw,coeffs = wigner3j_square(projout.proj,projin.proj)
                     for ell,coeff in zip(ellsw,coeffs):
-                        proj = projin.copy(space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE,proj=ell)
+                        proj = projin.copy(space=ProjectionBasis.CORRELATION,mode=ProjectionBasis.MULTIPOLE,proj=ell)
                         tmp += coeff*self.window(proj,self.s)
                 line.append(tmp)
             matrix.append(line)
@@ -55,9 +90,14 @@ class CorrelationWindowMatrix(BaseRegularMatrix):
 
     @property
     def matrix(self):
-        return np.bmat([[np.diag(tmp) for tmp in line] for line in matrix]).A
+        """
+        Return 2D array of shape ``(len(self.projsout)*len(self.x),len(self.projsin)*len(self.x))``
+        corresponding to :attr:`projmatrix`.
+        """
+        return np.bmat([[np.diag(tmp) for tmp in line] for line in self.projmatrix]).A
 
     def propose_out(self, projsin):
+        """Propose input and output projection names given proposed input projection names ``projsin``."""
         projsin, projsout = super(PowerWindowMatrix,self).propose_out(projsin)
         if self.sum_wa:
             projsin = ProjectionNameCollection([proj for proj in projsout if proj.wa_order is not None])
@@ -67,12 +107,39 @@ class CorrelationWindowMatrix(BaseRegularMatrix):
 
 class PowerWindowMatrix(BaseMatrix):
 
-    logger = logging.getLogger('PowerWindowMatrix')
+    """Class computing matrix for window convolution in Fourier space."""
 
-    base = ProjectionBase(space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE)
+    logger = logging.getLogger('PowerWindowMatrix')
+    basis = ProjectionBasis(space=ProjectionBasis.POWER,mode=ProjectionBasis.MULTIPOLE)
     regularin = True
 
-    def __init__(self, window=None, krange=None, srange=(1e-4,1e4), ns=1024*16, rebin_k=1, q=0, sum_wa=True):
+    def __init__(self, window=None, srange=(1e-4,1e4), krange=None, ns=1024*16, q=0, rebin_k=1, sum_wa=True):
+        """
+        Initialize :class:`PowerWindowMatrix`.
+
+        Parameters
+        ----------
+        window : WindowFunction
+            Window function to convolve power spectrum with.
+
+        srange : tuple, default=(1e-4,1e4)
+            :math:`s`-range for Hankel transforms.
+
+        krange : tuple, default=None
+            If ``srange`` not provided, equivalent :math:`k`-range (taking :math:`s = 1/k`).
+
+        ns : int, default=1024*16
+             Number of log-spaced points for Hankel transforms.
+
+        q : int, default=0
+            Power-law tilt to regularize Hankel transforms.
+
+        rebin_k : int, default=1
+            Rebin matrix aling input :math:`k` by factor ``rebin_k``.
+
+        sum_wa : bool, default=True
+            Whether to perform summation over wide-angle orders.
+        """
         if krange is not None:
             srange = (1./krange[1],1./krange[0])
         self.s = np.logspace(np.log10(srange[0]),np.log10(srange[1]),ns)
@@ -84,13 +151,29 @@ class PowerWindowMatrix(BaseMatrix):
 
     @property
     def kout(self):
+        """Input x-coordinates are k-wavenumbers."""
         return self.xout
 
     @property
     def kin(self):
+        """Output x-coordinates are k-wavenumbers."""
         return self.xin
 
     def setup(self, kout, projsin, projsout=None):
+        """
+        Set up transform.
+
+        Parameters
+        ----------
+        kout : array
+            Output wavenumbers.
+
+        projsin : list, ProjectionNameCollection
+            Input projections.
+
+        projsout : list, ProjectionNameCollection, default=None
+            Output projections. Defaults to ``propose_out(projsin)[-1]``.
+        """
         self.projsin = ProjectionNameCollection(projsin)
         if projsout is None:
             self.projsout = self.propose_out(projsin)[-1]
@@ -131,6 +214,7 @@ class PowerWindowMatrix(BaseMatrix):
         self.matrix = np.bmat(matrix).A
 
     def propose_out(self, projsin):
+        """Propose input and output projection names given proposed input projection names ``projsin``."""
         projsin, projsout = super(PowerWindowMatrix,self).propose_out(projsin)
         if self.sum_wa:
             projsin = ProjectionNameCollection([proj for proj in projsout if proj.wa_order is not None])
@@ -138,22 +222,46 @@ class PowerWindowMatrix(BaseMatrix):
         return projsin, projsout
 
 
-def wigner3j_square(ellout, ellin, prefactor=True, as_string=False):
+def wigner3j_square(ellout, ellin, prefactor=True):
+    r"""
+    Return the coefficients corresponding to the product of two Legendre polynomials.
 
-    coeffs = []
-    qvals = []
-    retstr = []
+    Parameters
+    ----------
+    ellout : int
+        Output order.
+
+    ellin : int
+        Input order.
+
+    prefactor : bool, default=True
+        Whether to include prefactor :math:`(2 \ell + 1)/(2 q + 1)` for window convolution.
+
+    Returns
+    -------
+    ells : list
+        List of mulipole orders.
+
+    coeffs : list
+        List of corresponding window coefficients.
+    """
+    qvals, coeffs = [], []
 
     def G(p):
-        """Return the function G(p), as defined in Wilson et al 2015.
+        """
+        Return the function G(p), as defined in Wilson et al 2015.
         See also: WA Al-Salam 1953
         Taken from https://github.com/nickhand/pyRSD.
+
+        Parameters
+        ----------
+        p : int
+            Order.
 
         Returns
         -------
         numer, denom: int
-            the numerator and denominator
-
+            The numerator and denominator.
         """
         toret = 1
         for p in range(1,p+1): toret *= (2*p - 1)
@@ -183,12 +291,7 @@ def wigner3j_square(ellout, ellin, prefactor=True, as_string=False):
 
         numer = Fraction(np.prod(numer))
         denom = Fraction(np.prod(denom))
-        if not as_string:
-            coeffs.append(numer*1./denom)
-            qvals.append(q)
-        else:
-            retstr.append('l{:d} {}'.format(q,numer/denom))
+        coeffs.append(numer*1./denom)
+        qvals.append(q)
 
-    if not as_string:
-        return qvals[::-1], coeffs[::-1]
-    return retstr[::-1]
+    return qvals[::-1], coeffs[::-1]
