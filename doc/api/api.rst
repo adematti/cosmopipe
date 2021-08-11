@@ -1,8 +1,11 @@
-API
-===
+.. _api-lib:
 
-Main library
-------------
-.. automodule:: cosmopipe.lib
-  :members:
-  :show-inheritance:
+Library
+=======
+
+.. autosummary::
+  :toctree: _autosummary
+  :template: custom-module-template.rst
+  :recursive:
+
+  lib

@@ -1,19 +1,25 @@
+# This an end-to-end analysis example in configuration space:
+# - setup fiducial cosmology
+# - run correlation function estimation of the input skycut catalog
+# - plot correlation function
+# - apply cuts to the data vector
+# - setup template cosmology
+# - compute Gaussian covariance matrix
+# - fit measured correlation function with Kaiser model
+# WARNING: to run quickly we just estimate the correlation function at small s, and thus do no expect a good fit
+# WARNING: requires running prepare_e2e.py first (sets input catalogs)
+
 data_dir: _data
 samples_dir: _samples
 plots_dir: _plots
 catalog_dir: _catalog
 
 main:
-  #$execute: [fiducial, box_estimator, data_plotting]
-  #$execute: [fiducial, survey_estimator, data_plotting]
-  #$execute: [data, data_plotting]
-  #$execute: [fiducial, survey_estimator, data_plotting]
-  $execute: [fiducial, box_estimator, data_plotting, data, params, primordial, model, mockcov, compare]
-  #$execute: [data, params, primordial, model, hankel, mockcov, compare]
-  #$execute: [fiducial, box_estimator, data_plotting]
-  #$execute: [data_plotting]
+  $execute: [fiducial, survey_estimator, data_plotting, data, primordial, model, hankel, mockcov, fitting]
+  #$execute: [data, primordial, model, hankel, mockcov, fitting]
+  $[survey_selection.zeff]: 1.0
 
-compare:
+fitting:
   $module_name: pypescript
   $module_class: BasePipeline
   $modules: [minuit, plotting]
@@ -24,56 +30,6 @@ minuit:
   $modules: [like]
   migrad:
     n_iterations: 10
-
-params:
-  $module_name: cosmopipe.parameters.parameterisation
-  common_parameters:
-    ${cosmological_parameters.yaml:}:
-    galaxy_bias:
-      b1:
-        value: 2.
-        fixed: false
-        prior:
-          dist: uniform
-          limits: [1.0, 3.0]
-        ref:
-          dist: uniform
-          limits: [1.5, 2.5]
-        proposal: 0.01
-        latex: b_{1}
-      As:
-        value: 0.0
-        fixed: True
-        prior:
-          dist: uniform
-          limits: [-2, 2]
-        ref:
-          dist: uniform
-          limits: [-0.1, 0.1]
-        proposal: 0.005
-        latex: A_{s}
-      sigmav:
-        value: 4.0
-        fixed: false
-        prior:
-          dist: uniform
-          limits: [1, 20]
-        ref:
-          dist: uniform
-          limits: [3.8, 4.2]
-        proposal: 0.5
-        latex: \sigma_{v}
-    galaxy_rsd.fsig:
-      value: 0.5
-      fixed: False
-      prior:
-        dist: uniform
-        limits: [0.2, 0.8]
-      latex: 'f\sigma_{8}'
-    survey_geometry:
-      zeff:
-        value: 1.0
-        fixed: True
 
 fiducial:
   $module_name: cosmopipe.theory.primordial.fiducial
@@ -147,9 +103,13 @@ model:
   $module_name: cosmopipe.theory.galaxy_clustering.linear_model
   FoG: gaussian
   data_shotnoise: 1e3
+  update_parameters:
+    galaxy_bias.As:
+      value: 0.
+      fixed: True
 
 hankel:
   $module_name: cosmopipe.theory.projections.hankel_transform
 
 projection:
-  $module_name: cosmopipe.theory.projections.projection
+  $module_name: cosmopipe.survey_selection.projection

@@ -18,31 +18,32 @@ class EnsembleSampler(BasePipeline):
         self.seed = self.options.get('seed',None)
         self.nwalkers = self.options.get('nwalkers',None)
         self.thin_by = self.options.get('thin_by',1)
-        self.check_every = self.options.get('check_every',100)
+        self.check_every = self.options.get('check_every',200)
         self.min_iterations = self.options.get('min_iterations',0)
         self.max_iterations = self.options.get('max_iterations',sys.maxsize)
         self.max_tries = self.options.get('max_tries',1000)
         diagnostics_options = ['nsplits','stable_over','burnin','eigen_gr_stop','diag_gr_stop','cl_diag_gr_stop','nsigmas_cl_diag_gr_stop','geweke_stop','iact_stop','dact_stop']
         self.diagnostics = {key:self.options.get(key) for key in diagnostics_options if key in self.options}
 
-    def execute(self):
         super(EnsembleSampler,self).setup()
+        self.parameters = self.pipe_block[section_names.parameters,'list']
+
+    def execute(self):
         self._data_block = self.data_block.copy().mpi_distribute(dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
 
         self.pool = None
         if self.mpicomm.size > 1:
             self.pool = mpi.MPIPool(mpicomm=self.mpicomm,check_tasks=True)
 
-        parameters = self.pipe_block[section_names.parameters,'list']
-        self.varied = parameters.select(fixed=False)
+        self.varied = self.parameters.select(varied=True)
         self.log_info('Varying parameters {}.'.format([str(param.name) for param in self.varied]),rank=0)
-        self.fixed = parameters.select(fixed=True)
+        self.fixed = self.parameters.select(varied=False)
 
         if self.nwalkers is None:
             self.nwalkers = 2 * ((int(2.5 * len(self.varied)) + 1)//2)
         self.init_sampler()
 
-        samples = Samples(parameters=parameters,attrs={'nwalkers':self.nwalkers},mpicomm=self.mpicomm,mpiroot=0,mpistate='gathered')
+        samples = Samples(parameters=self.parameters,attrs={'nwalkers':self.nwalkers},mpicomm=self.mpicomm,mpiroot=0,mpistate='gathered')
         start = None
 
         if self.samples_load:

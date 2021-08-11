@@ -13,15 +13,15 @@ class EvaluateSampler(BasePipeline):
 
     def setup(self):
         self.max_tries = self.options.get('max_tries',1000)
+        super(EvaluateSampler,self).setup()
+        self.parameters = self.pipe_block[section_names.parameters,'list']
 
     def execute(self):
-        super(OneSampler,self).setup()
         self._data_block = self.data_block.copy().mpi_distribute(dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
 
-        parameters = self.pipe_block[section_names.parameters,'list']
-        self.varied = parameters.select(fixed=False)
+        self.varied = self.parameters.select(varied=True)
         self.log_info('Varying parameters {}.'.format([str(param.name) for param in self.varied]),rank=0)
-        self.fixed = parameters.select(fixed=True)
+        self.fixed = self.parameters.select(varied=False)
 
         def get_start():
             toret = []

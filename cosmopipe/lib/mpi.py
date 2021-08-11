@@ -1,3 +1,11 @@
+"""
+Collection of classes and functions to perform MPI operations.
+
+Note
+----
+Arrays are assumed to scatter along the first dimension.
+"""
+
 import atexit
 import random
 
@@ -6,12 +14,30 @@ from numpy.core.numeric import normalize_axis_tuple
 from mpi4py import MPI
 from mpi4py.MPI import COMM_SELF
 
-from pypescript.mpi import *
+from pypescript.mpi import (CurrentMPIComm, CurrentMPIState, MPIError, MPIInit, MPIScatter, MPIGather, MPIBroadcast,
+                            split_ranks, MPITaskManager, gather_array, broadcast_array, scatter_array)
 from . import utils
 
 
 @CurrentMPIComm.enable
 def set_common_seed(seed=None, mpicomm=None):
+    """
+    Set same global :mod:`np.random` and :mod:`random` seed for all MPI processes.
+
+    Parameters
+    ----------
+    seed : int, default=None
+        Random seed to broadcast on all processes.
+        If ``None``, draw random seed.
+
+    mpicomm : MPI communicator, default=None
+        Communicator to use for broadcasting. Defaults to current communicator.
+
+    Returns
+    -------
+    seed : int
+        Seed used to initialize :mod:`np.random` and :mod:`random` global states.
+    """
     if seed is None:
         if mpicomm.rank == 0:
             seed = np.random.randint(0,high=0xffffffff)
@@ -23,6 +49,25 @@ def set_common_seed(seed=None, mpicomm=None):
 
 @CurrentMPIComm.enable
 def bcast_seed(seed=None, mpicomm=None, size=10000):
+    """
+    Generate array of seeds.
+
+    Parameters
+    ---------
+    seed : int, default=None
+        Random seed to use when generating seeds.
+
+    mpicomm : MPI communicator, default=None
+        Communicator to use for broadcasting. Defaults to current communicator.
+
+    size : int, default=10000
+        Number of seeds to be generated.
+
+    Returns
+    -------
+    seeds : array
+        Array of seeds.
+    """
     if mpicomm.rank == 0:
         seeds = np.random.RandomState(seed=seed).randint(0,high=0xffffffff,size=size)
     return broadcast_array(seeds if mpicomm.rank == 0 else None,root=0,mpicomm=mpicomm)
@@ -30,6 +75,27 @@ def bcast_seed(seed=None, mpicomm=None, size=10000):
 
 @CurrentMPIComm.enable
 def set_independent_seed(seed=None, mpicomm=None, size=10000):
+    """
+    Set independent global :mod:`np.random` and :mod:`random` seed for all MPI processes.
+
+    Parameters
+    ---------
+    seed : int, default=None
+        Random seed to use when generating seeds.
+
+    mpicomm : MPI communicator, default=None
+        Communicator to use for broadcasting. Defaults to current communicator.
+
+    size : int, default=10000
+        Number of seeds to be generated.
+        To ensure random draws are independent of the number of ranks,
+        this should be larger than the total number of processes that will ever be used.
+
+    Returns
+    -------
+    seed : int
+        Seed used to initialize :mod:`np.random` and :mod:`random` global states.
+    """
     seed = bcast_seed(seed=seed,mpicomm=mpicomm,size=size)[mpicomm.rank]
     np.random.seed(seed)
     random.seed(int(seed))
@@ -39,7 +105,7 @@ def set_independent_seed(seed=None, mpicomm=None, size=10000):
 @CurrentMPIComm.enable
 def front_pad_array(array, front, mpicomm=None):
     """
-    Padding an array in the front with items before this rank.
+    Pad an array in the front with items before this rank.
 
     Taken from https://github.com/bccp/nbodykit/blob/master/nbodykit/utils.py
     """
@@ -53,11 +119,10 @@ def front_pad_array(array, front, mpicomm=None):
     torecv[torecv > N] = N[torecv > N] # fully enclosed
 
     if mpicomm.allreduce(torecv.sum() != front, MPI.LOR):
-        raise ValueError("cannot work out a plan to padd items. Some front values are too large. %d %d"
-            % (torecv.sum(), front))
+        raise ValueError('Cannot work out a plan to padd items. Some front values are too large. {:d} {:d}'.format(torecv.sum(), front))
 
     tosend = mpicomm.alltoall(torecv)
-    sendbuf = [ array[-items:] if items > 0 else array[0:0] for i, items in enumerate(tosend)]
+    sendbuf = [array[-items:] if items > 0 else array[0:0] for i, items in enumerate(tosend)]
     recvbuf = mpicomm.alltoall(sendbuf)
     return np.concatenate(list(recvbuf) + [array], axis=0)
 
@@ -68,11 +133,11 @@ class MPIRandomState(object):
     when the total size of random number requested is kept the same.
     The algorithm here assumes the random number generator from numpy
     produces uncorrelated results when the seeds are sampled from a single
-    RNG.
+    random generator.
     The sampler methods are collective calls; multiple calls will return
-    uncorrerlated results.
-    The result is only invariant under diif mpicomm.size when allreduce(size)
-    and chunksize are kept invariant.
+    uncorrelated results.
+    The result is only invariant under different ``mpicomm.size`` when ``mpicomm.allreduce(size)``
+    and ``chunksize`` are kept invariant.
 
     Taken from https://github.com/bccp/nbodykit/blob/master/nbodykit/mpirng.py
     """
@@ -99,8 +164,9 @@ class MPIRandomState(object):
 
     def _prepare_args_and_result(self, args, itemshape, dtype):
         """
-        pad every item in args with values from previous ranks,
+        Pad every item in args with values from previous ranks,
         and create an array for holding the result with the same length.
+
         Returns
         -------
         padded_r, padded_args
@@ -125,21 +191,21 @@ class MPIRandomState(object):
         return padded[0], padded[1:]
 
     def poisson(self, lam, itemshape=(), dtype='f8'):
-        """ Produce `self.size` poissons, each of shape itemshape. This is a collective MPI call. """
+        """Produce :attr:`size` poissons, each of shape itemshape. This is a collective MPI call. """
         def sampler(rng, args, size):
             lam, = args
             return rng.poisson(lam=lam, size=size)
         return self._call_rngmethod(sampler, (lam,), itemshape, dtype)
 
     def normal(self, loc=0, scale=1, itemshape=(), dtype='f8'):
-        """ Produce `self.size` normals, each of shape itemshape. This is a collective MPI call. """
+        """Produce :attr:`size` normals, each of shape itemshape. This is a collective MPI call. """
         def sampler(rng, args, size):
             loc, scale = args
             return rng.normal(loc=loc, scale=scale, size=size)
         return self._call_rngmethod(sampler, (loc, scale), itemshape, dtype)
 
     def uniform(self, low=0., high=1.0, itemshape=(), dtype='f8'):
-        """ Produce `self.size` uniforms, each of shape itemshape. This is a collective MPI call. """
+        """Produce :attr:`size` uniforms, each of shape itemshape. This is a collective MPI call. """
         def sampler(rng, args, size):
             low, high = args
             return rng.uniform(low=low, high=high,size=size)
@@ -147,13 +213,12 @@ class MPIRandomState(object):
 
     def _call_rngmethod(self, sampler, args, itemshape, dtype='f8'):
         """
-            Loop over the seed table, and call sampler(rng, args, size)
-            on each rng, with matched input args and size.
-            the args are padded in the front such that the rng is invariant
-            no matter how self.size is distributed.
-            truncate the return value at the front to match the requested `self.size`.
+        Loop over the seed table, and call ``sampler(rng, args, size)``
+        on each rng, with matched input args and size.
+        the args are padded in the front such that the rng is invariant
+        no matter how :attr:`size` is distributed.
+        Truncate the return value at the front to match the requested :attr:`size`.
         """
-
         seeds = self._serial_rng.randint(0, high=0xffffffff, size=self.nchunks)
 
         padded_r, running_args = self._prepare_args_and_result(args, itemshape, dtype)
@@ -185,23 +250,31 @@ class MPIRandomState(object):
 
 
 class MPIPool(object):
-    """A processing pool that distributes tasks using MPI.
+    """
+    A processing pool that distributes tasks using MPI.
     With this pool class, the master process distributes tasks to worker
     processes using an MPI communicator.
+
     This implementation is inspired by @juliohm in `this module
     <https://github.com/juliohm/HUM/blob/master/pyhum/utils.py#L24>`_
     and was adapted from schwimmbad.
-    Parameters
-    ----------
-    mpicomm : :class:`mpi4py.MPI.Comm`, optional
-        An MPI communicator to distribute tasks with. If ``None``, this uses
-        ``MPI.COMM_WORLD`` by default.
     """
 
     @CurrentMPIComm.enable
     def __init__(self, mpicomm=None, check_tasks=False):
+        """
+        initialize :class:`MPIPool`.
 
-        self.mpicomm = MPI.COMM_WORLD if mpicomm is None else mpicomm
+        Parameters
+        ----------
+        mpicomm : MPI communicator, default=None
+            Communicator. Defaults to current communicator.
+
+        check_tasks : bool, default=False
+            Check that same tasks are input for all processes,
+            if not, raises a :class:`ValueError`.
+        """
+        self.mpicomm = mpicomm
 
         self.master = 0
         self.rank = self.mpicomm.Get_rank()
@@ -219,12 +292,13 @@ class MPIPool(object):
         self.check_tasks = check_tasks
 
         if self.size == 0:
-            raise ValueError("Tried to create an MPI pool, but there "
-                             "was only one MPI process available. "
-                             "Need at least two.")
+            raise ValueError('Tried to create an MPI pool, but there '
+                             'was only one MPI process available. '
+                             'Need at least two.')
 
     def wait(self):
-        """Tell the workers to wait and listen for the master process. This is
+        """
+        Tell the workers to wait and listen for the master process. This is
         called automatically when using :meth:`MPIPool.map` and doesn't need to
         be called by the user.
         """
@@ -244,24 +318,26 @@ class MPIPool(object):
             self.mpicomm.ssend(result, self.master, status.tag)
 
     def map(self, function, tasks):
-        """Evaluate a function or callable on each task in parallel using MPI.
+        """
+        Evaluate a function or callable on each task in parallel using MPI.
         The callable, ``worker``, is called on each element of the ``tasks``
         iterable. The results are returned in the expected order.
+
         Parameters
         ----------
-        worker : callable
+        function : callable
             A function or callable object that is executed on each element of
-            the specified ``tasks`` iterable. This object must be picklable
-            (i.e. it can't be a function scoped within a function or a
-            ``lambda`` function). This should accept a single positional
+            the specified ``tasks`` iterable. This should accept a single positional
             argument and return a single object.
+
         tasks : iterable
             A list or iterable of tasks. Each task can be itself an iterable
             (e.g., tuple) of values or data to pass in to the worker function.
+
         Returns
         -------
         results : list
-            A list of results from the output of each ``worker()`` call.
+            A list of results from the output of each ``function`` call.
         """
 
         # If not the master just wait for instructions.
@@ -320,7 +396,7 @@ class MPIPool(object):
         return self.mpicomm.bcast(results,root=self.master)
 
     def close(self):
-        """ Tell all the workers to quit."""
+        """Tell all the workers to quit."""
         if self.is_worker():
             return
 
@@ -328,20 +404,57 @@ class MPIPool(object):
             self.mpicomm.send(None, worker, 0)
 
     def is_master(self):
+        """
+        Is the current process the master process?
+        Master is responsible for distributing the tasks to the other available ranks.
+        """
         return self.rank == self.master
 
     def is_worker(self):
+        """
+        Is the current process a valid worker?
+        Workers wait for instructions from the master.
+        """
         return self.rank != self.master
 
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        """Exit gracefully by closing and freeing the MPI-related variables."""
+
+        if exc_value is not None:
+            from . import utils
+            utils.exception_handler(exc_type, exc_value, exc_traceback)
+        # wait and exit
+        self.logger.debug('Rank {:d} process finished'.format(self.rank))
+        self.basecomm.Barrier()
+
+        if self.is_root():
+            self.logger.debug('Master is finished; terminating')
+
         self.close()
 
 
 @CurrentMPIComm.enable
 def send_array(data, dest, tag=0, mpicomm=None):
+    """
+    Send input array ``data`` to process ``dest``.
+
+    Parameters
+    ----------
+    data : array
+        Array to send.
+
+    dest : int
+        Rank of process to send array to.
+
+    tag : int, default=0
+        Message identifier.
+
+    mpicomm : MPI communicator, default=None
+        Communicator. Defaults to current communicator.
+    """
     if not data.flags['C_CONTIGUOUS']:
         data = np.ascontiguousarray(data)
     shape_and_dtype = (data.shape, data.dtype)
@@ -351,24 +464,90 @@ def send_array(data, dest, tag=0, mpicomm=None):
 
 @CurrentMPIComm.enable
 def recv_array(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, mpicomm=None):
+    """
+    Receive array from process ``source``.
+
+    Parameters
+    ----------
+    source : int, default=MPI.ANY_SOURCE
+        Rank of process to receive array from.
+
+    tag : int, default=0
+        Message identifier.
+
+    mpicomm : MPI communicator, default=None
+        Communicator. Defaults to current communicator.
+
+    Returns
+    -------
+    data : array
+    """
     shape, dtype = mpicomm.recv(source=source,tag=tag)
     data = np.empty(shape, dtype=dtype)
     mpicomm.Recv(data,source=source,tag=tag)
     return data
 
 
+@CurrentMPIComm.enable
 def local_size(size, mpicomm=None):
+    """
+    Divide global ``size`` into local (process) size.
+
+    Parameters
+    ----------
+    size : int
+        Global size.
+
+    mpicomm : MPI communicator, default=None
+        Communicator. Defaults to current communicator.
+
+    Returns
+    -------
+    localsize : int
+        Local size. Sum of local sizes over all processes equals global size.
+    """
     localsize = size // mpicomm.size
     if mpicomm.rank < size % mpicomm.size: localsize += 1
     return localsize
 
 
 def _reduce_array(data, npop, mpiop, *args, mpicomm=None, axis=None, **kwargs):
+    """
+    Apply operation ``npop`` on input array ``data`` and reduce the result
+    with MPI operation ``mpiop``(e.g. sum).
+
+    Parameters
+    ----------
+    data : array
+        Input array to reduce with operations ``npop`` and ``mpiop``.
+
+    npop : callable
+        Function that takes ``data``, ``args``, ``axis`` and ``kwargs`` as argument,
+        and keyword arguments and return (array) value.
+
+    mpiop : MPI operation
+        MPI operation to apply on ``npop`` result.
+
+    mpicomm : MPI communicator
+        Communicator. Defaults to current communicator.
+
+    axis : int, list, default=None
+        Array axis (axes) on which to apply operations.
+        If ``0`` not in ``axis``, ``mpiop`` is not used.
+        Defaults to all axes.
+
+    Returns
+    -------
+    toret : scalar, array
+        Result of reduce operations ``npop`` and ``mpiop``.
+        If ``0`` in ``axis``, result is broadcast on all ranks.
+        Else, result is local.
+    """
     toret = npop(data,*args,axis=axis,**kwargs)
     if axis is None: axis = tuple(range(data.ndim))
     else: axis = normalize_axis_tuple(axis,data.ndim)
     if 0 in axis:
-        if np.isscalar(toret):
+        if np.ndim(toret) == 0:
             return mpicomm.allreduce(toret,op=mpiop)
         total = np.empty_like(toret)
         mpicomm.Allreduce(toret,total,op=mpiop)
@@ -378,11 +557,13 @@ def _reduce_array(data, npop, mpiop, *args, mpicomm=None, axis=None, **kwargs):
 
 @CurrentMPIComm.enable
 def size_array(data, mpicomm=None):
+    """Return global size of ``data`` array."""
     return mpicomm.allreduce(data.size,op=MPI.SUM)
 
 
 @CurrentMPIComm.enable
 def shape_array(data, mpicomm=None):
+    """Return global shape of ``data`` array (scattered along the first dimension)."""
     shapes = mpicomm.allgather(data.shape)
     shape0 = sum(s[0] for s in shapes)
     return (shape0,) + shapes[0][1:]
@@ -390,11 +571,13 @@ def shape_array(data, mpicomm=None):
 
 @CurrentMPIComm.enable
 def sum_array(data, *args, mpicomm=None, axis=None, **kwargs):
+    """Return sum of input array ``data`` along ``axis``."""
     return _reduce_array(data,np.sum,MPI.SUM,*args,mpicomm=mpicomm,axis=axis,**kwargs)
 
 
 @CurrentMPIComm.enable
 def mean_array(data, *args, mpicomm=None, axis=-1, **kwargs):
+    """Return mean of array ``data`` along ``axis``."""
     if axis is None: axis = tuple(range(data.ndim))
     else: axis = normalize_axis_tuple(axis,data.ndim)
     if 0 not in axis:
@@ -405,22 +588,66 @@ def mean_array(data, *args, mpicomm=None, axis=-1, **kwargs):
         toret /= N
     return toret
 
+
 @CurrentMPIComm.enable
 def prod_array(data, *args, mpicomm=None, axis=None, **kwargs):
+    """Return product of input array ``data`` along ``axis``."""
     return _reduce_array(data,np.prod,MPI.PROD,*args,mpicomm=mpicomm,axis=axis,**kwargs)
 
 
 @CurrentMPIComm.enable
 def min_array(data, *args, mpicomm=None, axis=None, **kwargs):
+    """Return minimum of input array ``data`` along ``axis``."""
     return _reduce_array(data,np.min,MPI.MIN,*args,mpicomm=mpicomm,axis=axis,**kwargs)
 
 
 @CurrentMPIComm.enable
 def max_array(data, *args, mpicomm=None, axis=None, **kwargs):
+    """Return maximum of input array ``data`` along ``axis``."""
     return _reduce_array(data,np.max,MPI.MAX,*args,mpicomm=mpicomm,axis=axis,**kwargs)
 
 
 def _reduce_arg_array(data, npop, mpiargop, mpiop, *args, mpicomm=None, axis=None, **kwargs):
+    """
+    Apply operation ``npop`` on input array ``data`` and reduce the result
+    with MPI operation ``mpiargop``.
+    Contrary to :func:`_reduce_array`, ``npop`` is expected to return index in array.
+    (e.g. index of minimum).
+
+    Parameters
+    ----------
+    data : array
+        Input array to reduce with operations ``npop`` and ``mpiop``.
+
+    npop : callable
+        Function that takes ``data``, ``args``, ``axis`` and ``kwargs`` as argument,
+        and keyword arguments, and returns array index.
+
+    mpiargop : MPI operation
+        MPI operation to select index returned by ``npop`` among all processes
+        (takes as input ``(value,rank)`` with ``value`` array value at index returned by ``npop``).
+
+    mpiop : MPI operation
+        MPI operation to apply on array value at index returned by ``npop``.
+
+    mpicomm : MPI communicator
+        Communicator. Defaults to current communicator.
+
+    axis : int, list, default=None
+        Array axis (axes) on which to apply operations.
+        If ``0`` not in ``axis``, ``mpiop`` is not used.
+        Defaults to all axes.
+
+    Returns
+    -------
+    arg : scalar, array
+        If ``0`` in ``axis``, index in global array; result is broadcast on all ranks.
+        Else, result is local.
+
+    rank : int, None
+        If ``0`` in ``axis``, rank where index resides in.
+        Else, ``None``.
+    """
     arg = npop(data,*args,axis=axis,**kwargs)
     if axis is None:
         val = data[np.unravel_index(arg,data.shape)]
@@ -432,7 +659,7 @@ def _reduce_arg_array(data, npop, mpiargop, mpiop, *args, mpicomm=None, axis=Non
     if 0 in axis:
         if np.isscalar(arg):
             rank = mpicomm.allreduce((val,mpicomm.rank),op=mpiargop)[1]
-            argmin = mpicomm.bcast(arg,root=rank)
+            arg = mpicomm.bcast(arg,root=rank)
             return arg,rank
         #raise NotImplementedError('MPI argmin/argmax with non-scalar output is not implemented.')
         total = np.empty_like(val)
@@ -457,72 +684,43 @@ def _reduce_arg_array(data, npop, mpiargop, mpiop, *args, mpicomm=None, axis=Non
 
 @CurrentMPIComm.enable
 def argmin_array(data, *args, mpicomm=None, axis=None, **kwargs):
+    """Return index of minimum in input array ``data`` along ``axis``."""
     return _reduce_arg_array(data,np.argmin,MPI.MINLOC,MPI.MIN,*args,mpicomm=mpicomm,axis=axis,**kwargs)
 
 
 @CurrentMPIComm.enable
 def argmax_array(data, *args, mpicomm=None, axis=None, **kwargs):
+    """Return index of maximum in input array ``data`` along ``axis``."""
     return _reduce_arg_array(data,np.argmax,MPI.MAXLOC,MPI.MAX,*args,mpicomm=mpicomm,axis=axis,**kwargs)
-
-
-def _bitonic_sort(data, axis=-1, kind=None, mpicomm=None, merge=None):
-    # bitonic algorithm, inspired from https://stackoverflow.com/questions/13673507/bitonic-sort-mpi4py
-    # number of ranks = power of 2, same data size on each rank
-    d = mpicomm.size.bit_length() - 1
-
-    def get_partner(rank, j):
-        # Partner process is process with j_th bit of rank flipped
-        j_mask = 1 << j
-        return rank ^ j_mask
-
-    for i in range(1, d+1):
-        window_id = mpicomm.rank >> i
-        for j in reversed(range(0, i)):
-            bitj = (mpicomm.rank >> j) & 1
-            mpicomm.Barrier()
-            partner = get_partner(mpicomm.rank, j)
-            new_data = np.empty_like(data)
-            mpicomm.Send(data, dest = partner, tag=55)
-            mpicomm.Recv(new_data, source = partner, tag=55)
-            if (window_id%2 == bitj):
-                #mpicomm.Recv(new_data, source = partner, tag=55)
-                #mpicomm.Send(data, dest = partner, tag=55)
-                data = np.split(merge(data, new_data), 2)[0]
-            else:
-                #mpicomm.Send(data, dest = partner, tag=55)
-                #mpicomm.Recv(new_data, source = partner, tag=55)
-                data = np.split(merge(data, new_data), 2)[1]
-            mpicomm.Barrier()
-    return data
-
-
-def _transposition_sort(data, axis=-1, kind=None, mpicomm=None, merge=None):
-    # number of ranks = multiple of 2, same data size on each rank
-    size = mpicomm.size & ~1
-    for step in range(0, size):
-        if (step % 2 == 0):
-            if (mpicomm.rank % 2 == 0):
-                des = mpicomm.rank + 1
-            else:
-                des = mpicomm.rank - 1
-        else:
-            if (mpicomm.rank % 2 == 0):
-                des = mpicomm.rank - 1
-            else:
-                des = mpicomm.rank + 1
-        if (des >= 0 and des < size):
-            new_data = np.empty_like(data)
-            mpicomm.Send(data, dest = des, tag=55)
-            mpicomm.Recv(new_data, source = des, tag=55)
-            if mpicomm.rank < des:
-                data = np.split(merge(data, new_data), 2)[0]
-            else:
-                data = np.split(merge(data, new_data), 2)[1]
-    return data
 
 
 @CurrentMPIComm.enable
 def sort_array(data, axis=-1, kind=None, mpicomm=None):
+    """
+    Sort input array ``data`` along ``axis``.
+    Naive implementation: array is gathered, sorted, and scattered again.
+    Faster than naive distributed sorts (bitonic, transposition)...
+
+    Parameters
+    ----------
+    data : array
+        Array to be sorted.
+
+    axis : int, default=-1
+        Sorting axis.
+
+    kind : string, default=None
+        Sorting algorithm. The default is ‘quicksort’.
+        See :func:`numpy.sort`.
+
+    mpicomm : MPI communicator
+        Communicator. Defaults to current communicator.
+
+    Returns
+    -------
+    toret : array
+        Sorted array (scattered).
+    """
     toret = np.sort(data,axis=axis,kind=kind)
     if mpicomm.size == 1:
         return toret
@@ -540,36 +738,13 @@ def sort_array(data, axis=-1, kind=None, mpicomm=None):
         toret = np.sort(gathered,axis=axis,kind=kind)
     return scatter_array(toret,root=0,mpicomm=mpicomm)
 
-    """
-    # Algorithms below are slower than the serial implementation on my laptop + they would need array padding, etc. Drop it for now.
-    def merge(a, b):
-        if a.ndim == 1:
-            ii = np.searchsorted(a,b)
-            return np.insert(a,ii,b,axis=0)
-        # because search sorted does not take an "axis" argument...
-        toret = np.concatenate([a,b],axis=0)
-        toret.sort(axis=0,kind=kind)
-        return toret
-
-    sizepow2 = 2**(mpicomm.size.bit_length() - 1)
-    sizex2 = mpicomm.size & ~1
-
-    niterbitonic = mpicomm.size.bit_length()*(mpicomm.size.bit_length()-1)//2
-    nitertrans = sizex2
-
-    #if niterbitonic > nitertrans:
-    if mpicomm.size == sizepow2:
-        #toret = redistribute_array(toret, size=sizepow2)
-        toret = _bitonic_sort(toret, axis=axis, kind=kind, mpicomm=mpicomm, merge=merge)
-
-    #toret = redistribute_array(toret, size=sizex2)
-    toret = _transposition_sort(toret, axis=axis, kind=kind, mpicomm=mpicomm, merge=merge)
-
-    return toret
-    """
 
 @CurrentMPIComm.enable
 def quantile_array(data, q, axis=None, overwrite_input=False, interpolation='linear', keepdims=False, mpicomm=None):
+    """
+    Return array quantiles. See :func:`numpy.quantile`.
+    Naive implementation: array is gathered before taking quantile.
+    """
     if axis is None or 0 in normalize_axis_tuple(axis,data.ndim):
         gathered = gather_array(data,root=0,mpicomm=mpicomm)
         toret = None
@@ -580,21 +755,29 @@ def quantile_array(data, q, axis=None, overwrite_input=False, interpolation='lin
 
 
 @CurrentMPIComm.enable
-def weighted_quantile_array(data, q, weights=None, mpicomm=None):
-    # TODO extend to other axes
-    axis = 0
+def weighted_quantile_array(data, q, weights=None, axis=None, interpolation='linear', mpicomm=None):
+    """
+    Return weighted array quantiles. See :func:`utils.weighted_quantile`.
+    Naive implementation: array is gathered before taking quantile.
+    """
     if axis is None or 0 in normalize_axis_tuple(axis,data.ndim):
         gathered = gather_array(data,root=0,mpicomm=mpicomm)
-        weights = gather_array(weights,root=0,mpicomm=mpicomm)
+        isnoneweights = all(mpicomm.allgather(weights is None))
+        if not isnoneweights: weights = gather_array(weights,root=0,mpicomm=mpicomm)
         toret = None
         if mpicomm.rank == 0:
-            toret = utils.weighted_quantile(gathered,q,weights=weights)
+            toret = utils.weighted_quantile(gathered,q,weights=weights,axis=axis,interpolation=interpolation)
         return broadcast_array(toret,root=0,mpicomm=mpicomm)
-    return utils.weighted_quantile(data,q,weights=weights)
+    return utils.weighted_quantile(data,q,weights=weights,axis=axis,interpolation=interpolation)
 
 
 @CurrentMPIComm.enable
 def dot_array(a, b, mpicomm=None):
+    """
+    Return dot product of input arrays ``a`` and ``b``.
+    Currently accepts one-dimensional ``b`` or two-dimensional ``a`` and ``b``.
+    ``b`` must be scattered along first axis, hence ``a`` scattered along last axis.
+    """
     # scatter axis is b first axis
     if b.ndim == 1:
         return sum_array(a*b,mpicomm=mpicomm)
@@ -605,7 +788,11 @@ def dot_array(a, b, mpicomm=None):
 
 @CurrentMPIComm.enable
 def average_array(a, axis=None, weights=None, returned=False, mpicomm=None):
-    # TODO: allow several axes
+    """
+    Return weighted average of input array ``a`` along axis ``axis``.
+    See :func:`numpy.average`.
+    TODO: allow several axes.
+    """
     if axis is None: axis = tuple(range(a.ndim))
     else: axis = normalize_axis_tuple(axis,a.ndim)
     if 0 not in axis:
@@ -658,7 +845,44 @@ def average_array(a, axis=None, weights=None, returned=False, mpicomm=None):
 
 
 @CurrentMPIComm.enable
-def var_array(a, axis=-1, fweights=None, aweights=None, ddof=0, mpicomm=None):
+def var_array(a, axis=-1, fweights=None, aweights=None, ddof=1, mpicomm=None):
+    """
+    Estimate variance, given data and weights.
+    See :func:`numpy.var`.
+    TODO: allow several axes.
+
+    Parameters
+    ----------
+    a : array
+        Array containing numbers whose variance is desired.
+        If a is not an array, a conversion is attempted.
+
+    axis : int, default=-1
+        Axis along which the variance is computed.
+
+    fweights : array, int, default=None
+        1D array of integer frequency weights; the number of times each
+        observation vector should be repeated.
+
+    aweights : array, default=None
+        1D array of observation vector weights. These relative weights are
+        typically large for observations considered "important" and smaller for
+        observations considered less "important". If ``ddof=0`` the array of
+        weights can be used to assign probabilities to observation vectors.
+
+    ddof : int, default=1
+        Note that ``ddof=1`` will return the unbiased estimate, even if both
+        `fweights` and `aweights` are specified, and ``ddof=0`` will return
+        the simple average.
+
+    mpicomm : MPI communicator
+        Current MPI communicator.
+
+    Returns
+    -------
+    out : array
+        The variance of the variables.
+    """
     X = np.array(a)
     w = None
     if fweights is not None:
@@ -721,11 +945,65 @@ def var_array(a, axis=-1, fweights=None, aweights=None, ddof=0, mpicomm=None):
 
 @CurrentMPIComm.enable
 def std_array(*args, **kwargs):
+    """
+    Return weighted standard deviation of input array along axis ``axis``.
+    Simply take square root of :func:`var_array` result.
+    TODO: allow for several axes.
+    """
     return np.sqrt(var_array(*args,**kwargs))
 
 
 @CurrentMPIComm.enable
 def cov_array(m, y=None, ddof=1, rowvar=True, fweights=None, aweights=None, dtype=None, mpicomm=None):
+    """
+    Estimate a covariance matrix, given data and weights.
+    See :func:`numpy.cov`.
+
+    Parameters
+    ----------
+    m : array
+        A 1D or 2D array containing multiple variables and observations.
+        Each row of ``m`` represents a variable, and each column a single
+        observation of all those variables. Also see ``rowvar`` below.
+
+    y : array, default=None
+        An additional set of variables and observations. ``y`` has the same form
+        as that of ``m``.
+
+    rowvar : bool, default=True
+        If ``rowvar`` is ``True`` (default), then each row represents a
+        variable, with observations in the columns. Otherwise, the relationship
+        is transposed: each column represents a variable, while the rows
+        contain observations.
+
+    fweights : array, int, default=None
+        1D array of integer frequency weights; the number of times each
+        observation vector should be repeated.
+
+    aweights : array, default=None
+        1D array of observation vector weights. These relative weights are
+        typically large for observations considered "important" and smaller for
+        observations considered less "important". If ``ddof=0`` the array of
+        weights can be used to assign probabilities to observation vectors.
+
+    ddof : int, default=1
+        Number of degrees of freedom.
+        Note that ``ddof=1`` will return the unbiased estimate, even if both
+        ``fweights`` and `aweights` are specified, and ``ddof=0`` will return
+        the simple average.
+
+    dtype : data-type, default=None
+        Data-type of the result. By default, the return data-type will have
+        at least ``numpy.float64`` precision.
+
+    mpicomm : MPI communicator
+        Current MPI communicator.
+
+    Returns
+    -------
+    out : array
+        The covariance matrix of the variables.
+    """
     # scatter axis is data second axis
     # data (nobs, ndim)
     # Check inputs
@@ -822,6 +1100,10 @@ def cov_array(m, y=None, ddof=1, rowvar=True, fweights=None, aweights=None, dtyp
 
 @CurrentMPIComm.enable
 def corrcoef_array(x, y=None, rowvar=True, fweights=None, aweights=None, dtype=None, mpicomm=None):
+    """
+    Return weighted correlation matrix of input arrays ``m`` (``y``).
+    See :func:`cov_array`.
+    """
     c = cov_array(x, y, rowvar, fweights=None, aweights=None, dtype=dtype, mpicomm=mpicomm)
     try:
         d = np.diag(c)

@@ -42,9 +42,10 @@ class CosmosisSampler(BasePipeline):
             ini = Inifile(self.options.get_string('config_cosmosis'))
             override.update(**ini)
         self.cosmosis_ini = Inifile(filename=None,override=override)
+        super(CosmosisSampler,self).setup()
+        self.parameters = self.pipe_block[section_names.parameters,'list']
 
     def execute(self):
-        super(CosmosisSampler,self).setup()
         self.cosmosis_pipeline = get_cosmosis_likelihood_pipeline(self)
         output = InMemoryOutput()
         pool = False
@@ -77,7 +78,7 @@ class CosmosisSampler(BasePipeline):
         #    pool.close()
         mpicomm.Barrier()
         self.data_block = self._data_block
-        samples = Samples(parameters=self.pipe_block[section_names.parameters,'list'],attrs={**output.meta,**output.final_meta},mpicomm=mpicomm,mpiroot=0)
+        samples = Samples(parameters=self.parameters,attrs={**output.meta,**output.final_meta},mpicomm=mpicomm,mpiroot=0)
 
         values = np.array(output.rows)
         if not self.cosmosis_sampler_class.is_parallel_sampler:
@@ -119,7 +120,7 @@ def get_cosmosis_likelihood_pipeline(pipeline):
     if values_file is not None:
         priors_file = pipeline.cosmosis_ini.get(cosmosis_pipeline_name,'priors',fallback='')
         self.parameters += parameter.Parameter.load_parameters(values_file,priors_file)
-    self.parameters += [get_cosmosis_parameter(param) for param in pipeline.data_block[section_names.parameters,'list']]
+    self.parameters += [get_cosmosis_parameter(param) for param in pipeline.parameters]
     self.reset_fixed_varied_parameters()
     self.print_priors()
     self.extra_saves = pipeline.extra_output
@@ -137,7 +138,7 @@ def get_cosmosis_parameter(parameter):
     self.start = parameter.value
     for key in ['limits','prior']:
         setattr(self,key,getattr(parameter,key))
-    if parameter.fixed:
+    if not parameter.varied:
         self.limits = (parameter.value,)*2
     return self
 

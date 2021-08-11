@@ -1,3 +1,5 @@
+"""Global utilities."""
+
 import os
 import sys
 import time
@@ -9,20 +11,50 @@ from collections import UserDict
 import numpy as np
 from numpy.linalg import LinAlgError
 
-from pypescript.utils import setup_logging, mkdir, savefile, snake_to_pascal_case, ScatteredBaseClass, TaskManager, MemoryMonitor
+from pypescript.utils import setup_logging, mkdir, savefile, snake_to_pascal_case, ScatteredBaseClass, TaskManager, MemoryMonitor, exception_handler
 from pypescript.utils import BaseClass as _BaseClass
 from pypescript.utils import ScatteredBaseClass as _ScatteredBaseClass
 from pypescript import mpi
 
 
 def dict_nonedefault(d1, **d2):
+    """
+    Set ``d1`` dictionary entries to those in ``d2`` if do not exist or ``None``.
+    Returns updated ``d1``. This is an in-place operation (input ``d1`` is modified).
+    """
     for key,value in d2.items():
         if d1.get(key,None) is None:
             d1[key] = value
     return d1
 
 
-def customspace(min=0., max=1., step=None, nbins=None, scale='linear'):
+def customspace(min=0., max=1., nbins=None, step=None, scale='linear'):
+    """
+    Return regularly-spaced array.
+
+    Parameters
+    ----------
+    min : float, default=0
+        Minimum array value.
+
+    max : float, default=1
+        Maximum array value.
+
+    nbins : int, default=None
+        Number of bins, i.e. array size - 1.
+        If ``None``, number of bins determined as nearest integer to ``(max - min)/step``.
+
+    step : int, default=None
+        Separation between array values. Used only if ``nbins`` is not ``None``.
+
+    scale : string, default='linear'
+        Scaling relation between array values.
+        If ``log10`` (or ``log``), ``min``, ``max`` and ``step`` are considered in log10-space.
+
+    Returns
+    -------
+    toret : array
+    """
     if nbins is None:
         nbins = np.rint((max - min)/step).astype(int)
     toret = np.linspace(min,max,nbins+1)
@@ -31,13 +63,16 @@ def customspace(min=0., max=1., step=None, nbins=None, scale='linear'):
     return toret
 
 
-
 class ScatteredBaseClass(_ScatteredBaseClass):
 
     @classmethod
     @mpi.CurrentMPIComm.enable
     def load(cls, filename, mpiroot=0, mpistate=mpi.CurrentMPIState.GATHERED, mpicomm=None):
-        """Load class from disk."""
+        """
+        Load class in *numpy* binary format from disk.
+        If the loaded state contains ``__class__`` and that exists in ``cls._registry``,
+        return instance of ``cls._registry[__class__]`` (instead of ``cls``).
+        """
         cls.log_info('Loading {}.'.format(filename),rank=0)
         new = cls.__new__(cls)
         new.mpicomm = mpicomm
@@ -60,15 +95,21 @@ class ScatteredBaseClass(_ScatteredBaseClass):
 class BaseClass(_BaseClass):
 
     def save_auto(self, *args, **kwargs):
+        """If different formats are possible, this method should between them based on file name extension."""
         return self.save(*args,**kwargs)
 
     def load_auto(self, *args, **kwargs):
+        """If different formats are possible, this method should between them based on file name extension."""
         return self.load(*args,**kwargs)
 
     @classmethod
     @mpi.CurrentMPIComm.enable
     def load(cls, filename, mpiroot=0, mpicomm=None):
-        """Load class from disk."""
+        """
+        Load class in numpy binary format from disk.
+        If the loaded state contains ``__class__`` and that exists in ``cls._registry``,
+        return instance of ``cls._registry[__class__]`` (instead of ``cls``).
+        """
         cls.log_info('Loading {}.'.format(filename))
         new = cls.__new__(cls)
         new.mpicomm = mpicomm
@@ -80,103 +121,276 @@ class BaseClass(_BaseClass):
             clsname = state['__class__']
             if isinstance(clsname,str):
                 if hasattr(cls,'_registry'):
-                    cls = cls._registry[clsname]
+                    try:
+                        cls = cls._registry[clsname]
+                    except KeyError:
+                        pass
             else:
                 cls = clsname
         new = cls.from_state(state,mpiroot=mpiroot,mpicomm=mpicomm)
         return new
 
 
-class MappingArray(BaseClass):
+def _drop_none(di):
+    return {key:value for key,value in di.items() if value is not None}
 
-    def __init__(self, array, mapping=None, dtype=None):
 
-        if isinstance(array,self.__class__):
-            self.__dict__.update(array.__dict__)
-            return
+class BaseNameSpace(BaseClass):
 
-        if mapping is None:
-            mapping = np.unique(array).tolist()
-            mapping = {m:m for m in mapping}
+    """Class holding a bunch of attributes."""
 
-        self.keys = mapping
-        if dtype is None:
-            nbytes = 2**np.ceil(np.log2(np.ceil((np.log2(len(self.keys)+1) + 1.)/8.)))
-            dtype = 'i{:d}'.format(int(nbytes))
+    _attrs = ['name']
 
-        try:
-            self.array = - np.ones_like(array,dtype=dtype)
-            array = np.array(array)
-            keys = []
-            for key,value in mapping.items():
-                keys.append(value)
-                self.array[array.astype(type(key)) == key] = keys.index(value)
-            self.keys = keys
-        except AttributeError:
-            self.array = np.array(array,dtype=dtype)
+    def set(self, **kwargs):
+        """Set attributes ``kwargs``."""
+        for name,value in kwargs.items():
+            if name in self._attrs:
+                setattr(self,name,value)
+            else:
+                raise ValueError('Cannot set (unknown) attribute {} (available: {})'.format(name,self._attrs))
+
+    def get(self, name, default=None):
+        """Return attribute ``name``, defaulting to ``default``."""
+        toret = getattr(self,name,default)
+        if toret is None:
+            return default
+        return toret
+
+    def copy(self, **kwargs):
+        """Return copy, setting attributes ``kwargs`` on-the-fly."""
+        new = self.__copy__()
+        new.set(**kwargs)
+        return new
+
+    def __repr__(self):
+        """String representation including only attributes with non-``None`` values."""
+        toret = ['{}={}'.format(name,value) for name,value in self.as_dict(drop_none=True).items()]
+        return '{}({})'.format(self.__class__.__name__,','.join(toret))
 
     def __eq__(self, other):
-        if other in self.keys:
-            return self.array == self.keys.index(other)
-        return self.array == other
+        """Is ``self`` equal to ``other``, i.e. same type and attributes?"""
+        return type(other) == self.__class__ and all(getattr(self,name) == getattr(other,name) for name in self._attrs)
 
-    def __getitem__(self, name):
-        try:
-            return self.keys[self.array[name]]
-        except TypeError:
-            new = self.copy()
-            new.keys = self.keys.copy()
-            new.array = self.array[name]
-            return new
+    def eq_ignore_none(self, other):
+        """Is ``self`` equal to ``other``, i.e. same type and attributes, ignoring attributes set to ``None``?"""
+        return isinstance(other,self.__class__) and all(getattr(self,name) is None or getattr(other,name) is None or getattr(self,name) == getattr(other,name) for name in self._attrs)
 
-    def __setitem__(self, name, item):
-        self.array[name] = self.keys.index(item)
+    def __hash__(self):
+        return hash(self.name)
 
-    def __contains__(self, item):
-        return self.keys.index(item) in self.array
+    def __gt__(self, other):
+        raise NotImplementedError
 
-    @property
-    def shape(self):
-        return self.array.shape
+    def __lt__(self, other):
+        raise NotImplementedError
 
-    @property
-    def size(self):
-        return self.array.size
+    def as_dict(self, drop_none=True):
+        """Return dictionary of attributes, droping those set to ``None`` if ``drop_none`` is ``True``."""
+        toret = {name:getattr(self,name,None) for name in self._attrs}
+        if drop_none:
+            return _drop_none(toret)
+        return toret
 
-    def __array__(self):
-        return np.array([self.keys[a] for a in self.array.flat]).reshape(self.shape)
-
-    asarray = __array__
-
-    @classmethod
-    def concatenate(cls, *arrays):
-        array = [arrays[0]]
-        keys = arrays[0].keys.copy()
-        for ma in arrays[1:]:
-            a = ma.array.copy()
-            for ikey,key in enumerate(ma.keys):
-                if key not in keys:
-                    keys.append(key)
-                    a[a==ikey] = len(keys)
-            array.append(a)
-        array = np.concatenate(a)
-        return cls(array,keys)
+    def __setstate__(self, state):
+        """Set the class state dictionary."""
+        for name in self._attrs:
+            setattr(self,name,state.get(name,None))
 
     def __getstate__(self):
-        state = super(MappingArray,self).__getstate__()
-        for key in ['array','keys']:
-            state[key] = getattr(self,key)
-        return state
+        """Return this class state dictionary."""
+        return self.as_dict(drop_none=True)
 
 
-def _check_inv(mat, invmat, **kwargs):
+class BaseOrderedCollection(BaseClass):
+    """
+    Class holding an ordered, unique list of items.
+
+    Note
+    ----
+    When adding a item equal to another already in the collection, the latter will be replaced by the former.
+    Insertion order is conserved.
+    """
+    _cast = lambda x: x
+
+    def __init__(self, items=None):
+        """
+        Initialize :class:`BaseOrderedCollection`.
+
+        Parameters
+        ----------
+        items : list, object, BaseOrderedCollection
+            List of elements to add to the collection.
+            If not list, interpreted as single element.
+            If :class:`BaseOrderedCollection` instance, update :attr:`__dict__`.
+        """
+        if isinstance(items,self.__class__):
+            self.__dict__.update(items.__dict__)
+            return
+        if items is None:
+            items = []
+        if not isinstance(items,list):
+            items = [items]
+        self.data = []
+        for item in items:
+            self.set(item)
+
+    def index(self, item):
+        """Return index of ``item`` in collection."""
+        item = self.__class__._cast(item)
+        return self.data.index(item)
+
+    def set(self, item):
+        """
+        Set item in collection.
+        If already in collection (following criteria defined in ``item.__eq__``), replace this stored item by the input one.
+        Else, append item to collection.
+        """
+        item = self.__class__._cast(item)
+        if item in self: # always set the last one
+            self.data[self.data.index(item)] = item
+        else:
+            self.data.append(item)
+
+    def __getitem__(self, index):
+        """Return item by index in collection."""
+        return self.data[index]
+
+    @classmethod
+    def concatenate(cls, *others):
+        """
+        Concatenate input collections.
+        Unique items only are kept.
+        """
+        new = cls(others[0])
+        for other in others[1:]:
+            other = cls(other)
+            for item in other.data:
+                new.set(item)
+        return new
+
+    def extend(self, other):
+        """
+        Extend collection with ``other``.
+        Unique items only are kept.
+        """
+        new = self.concatenate(self,other)
+        self.__dict__.update(new.__dict__)
+
+    def __eq__(self, other):
+        """Is ``self`` equal to ``other``, i.e. same type and list of items?"""
+        return type(other) == self.__class__ and other.data == self.data
+
+    def __radd__(self, other):
+        """Operation corresponding to ``other + self``."""
+        if other in [[],0,None]:
+            return self.copy()
+        return self.__add__(other)
+
+    def __iadd__(self, other):
+        """Operation corresponding to ``self += other``."""
+        self.extend(other)
+        return self
+
+    def __add__(self, other):
+        """Addition of two collections is defined as concatenation."""
+        return self.concatenate(self,other)
+
+    def unique(self, key):
+        """Return list of unique attribute ``key`` of collection items."""
+        return np.unique([getattr(item,key) for item in self]).tolist()
+
+    def __repr__(self):
+        """String representation."""
+        return '{}({})'.format(self.__class__.__name__,repr(self.data))
+
+    def __len__(self):
+        """Collection length, i.e. number of items."""
+        return len(self.data)
+
+    def __contains__(self, item):
+        """Whether collection contains this item."""
+        return self.__class__._cast(item) in self.data
+
+    def __iter__(self):
+        """Iterator on collection."""
+        return iter(self.data)
+
+    def __copy__(self):
+        """Return copy, including shallow-copy of internal list of items."""
+        new = super(BaseOrderedCollection,self).__copy__()
+        new.data = self.data.copy()
+        return new
+
+    def select(self, *args, **kwargs):
+        """
+        Return new collection, after selection of items whose attribute match input values::
+
+            collection.select(name1=value1,name2=value2)
+
+        returns collection of items whose attributes ``name1`` and `name2`` are ``value1``, ``value2``, respectively. Also::
+
+            collection.select(dict(name1=value1,name2=value2),dict(name2=value3))
+
+        returns collection of items whose attributes ``name1`` and `name2`` are ``value1``, ``value2``, respectively or attribute ``name2`` is ``value3``.
+        """
+        new = self.__class__()
+        if args:
+            if kwargs:
+                raise ValueError('Cannot provide both an expanded dictionary and a list of dictionaries')
+            kwargs = args
+        if not isinstance(kwargs,tuple):
+            kwargs = [kwargs]
+        for item in self.data:
+            for kw in kwargs:
+                if all(getattr(item,key) == value for key,value in kw.items()):
+                    new.data.append(item)
+        return new
+
+    def __getstate__(self):
+        """Return this class state dictionary."""
+        return {'data':[item.__getstate__() if hasattr(item,'__getstate__') else item for item in self]}
+
+    def __setstate__(self, state):
+        """Set this class state dictionary."""
+        self.data = [self.__class__._cast(item) for item in state['data']]
+
+    def clear(self):
+        """Empty collection."""
+        self.data.clear()
+
+
+def _check_inv(mat, invmat, rtol=1e-04, atol=1e-05):
+    """
+    Check input array ``mat`` and ``invmat`` are matrix inverse.
+    Raise :class:`LinAlgError` if input product of input arrays ``mat`` and ``invmat`` is not close to identity
+    within relative difference ``rtol`` and absolute difference ``atol``.
+    """
     tmp = mat.dot(invmat)
     ref = np.diag(np.ones(tmp.shape[0]))
-    if not np.allclose(tmp,ref,**kwargs):
-        raise LinAlgError('Numerically inacurrate inverse matrix, max absolute diff {:.3f}.'.format(np.max(np.abs(tmp-ref))))
+    if not np.allclose(tmp,ref,rtol=rtol,atol=atol):
+        raise LinAlgError('Numerically inacurrate inverse matrix, max absolute diff {:.6f}.'.format(np.max(np.abs(tmp-ref))))
 
 
 def inv(mat, inv=np.linalg.inv, check=True):
+    """
+    Return inverse of input 2D or 0D (scalar) array ``mat``.
+
+    Parameters
+    ----------
+    mat : 2D array, scalar
+        Input matrix to invert.
+
+    inv : callable, default=np.linalg.inv
+        Function that takes in 2D array and returns its inverse.
+
+    check : bool, default=True
+        If inversion inaccurate, raise a :class:`LinAlgError` (see :func:`_check_inv`).
+
+    Returns
+    -------
+    toret : 2D array, scalar
+        Inverse of ``mat``.
+    """
     mat = np.asarray(mat)
     if mat.ndim == 0:
         return 1./mat
@@ -193,7 +407,25 @@ def inv(mat, inv=np.linalg.inv, check=True):
 
 
 def blockinv(blocks, inv=np.linalg.inv, check=True):
+    """
+    Return inverse of input ``blocks`` matrix.
 
+    Parameters
+    ----------
+    blocks : list of list of arrays
+        Input matrix to invert, in the form of blocks, e.g. ``[[A,B],[C,D]]``.
+
+    inv : callable, default=np.linalg.inv
+        Function that takes in 2D array and returns its inverse.
+
+    check : bool, default=True
+        If inversion inaccurate, raise a :class:`LinAlgError` (see :func:`_check_inv`).
+
+    Returns
+    -------
+    toret : 2D array
+        Inverse of ``blocks`` matrix.
+    """
     def _inv(mat):
         if check:
             toret = inv(mat)
@@ -223,6 +455,13 @@ def blockinv(blocks, inv=np.linalg.inv, check=True):
 
 
 def interleave(*a):
+    """
+    Interleave input arrays ``a``, i.e. return array with, in order:
+    First elements of all arrays (with size > 0), then second elements of all arrays with size > 1, etc.
+
+    >>> interleave([0,1,2],[3,4])
+    [0, 3, 1, 4, 2]
+    """
     fill_shape = a[0].shape[1:]
     lens = np.array(list(map(len,a)))
     total_len = sum(lens)
@@ -246,6 +485,10 @@ def interleave(*a):
 
 
 def cov_to_corrcoef(cov):
+    """
+    Return correlation matrix corresponding to input covariance matrix ``cov``.
+    If ``cov`` is scalar, return 1.
+    """
     if np.ndim(cov) == 0:
         return 1.
     stddev = np.sqrt(np.diag(cov).real)
@@ -259,46 +502,50 @@ def weighted_quantile(x, q, weights=None, axis=None, interpolation='lower'):
 
     Parameters
     ----------
-    a : array_like
+    a : array
         Input array or object that can be converted to an array.
-    q : array_like of float
+
+    q : tuple, list, array
         Quantile or sequence of quantiles to compute, which must be between
         0 and 1 inclusive.
-    weights : array_like, optional
-        An array of weights associated with the values in `a`. Each value in
-        `a` contributes to the average according to its associated weight.
-        The weights array can either be 1-D (in which case its length must be
-        the size of `a` along the given axis) or of the same shape as `a`.
-        If `weights=None`, then all data in `a` are assumed to have a
-        weight equal to one.  The 1-D calculation is::
-            avg = sum(a * weights) / sum(weights)
-        The only constraint on `weights` is that `sum(weights)` must not be 0.
-    axis : {int, tuple of int, None}, optional
+
+    weights : array, default=None
+        An array of weights associated with the values in ``a``. Each value in
+        ``a`` contributes to the cumulative distribution according to its associated weight.
+        The weights array can either be 1D (in which case its length must be
+        the size of ``a`` along the given axis) or of the same shape as ``a``.
+        If ``weights=None``, then all data in ``a`` are assumed to have a
+        weight equal to one.
+        The only constraint on ``weights`` is that ``sum(weights)`` must not be 0.
+
+    axis : int, tuple, default=None
         Axis or axes along which the quantiles are computed. The
         default is to compute the quantile(s) along a flattened
         version of the array.
-    interpolation : {'linear', 'lower', 'higher', 'midpoint', 'nearest'}
+
+    interpolation : {'linear', 'lower', 'higher', 'midpoint', 'nearest'}, default='linear'
         This optional parameter specifies the interpolation method to
         use when the desired quantile lies between two data points
         ``i < j``:
-            * linear: ``i + (j - i) * fraction``, where ``fraction``
-              is the fractional part of the index surrounded by ``i``
-              and ``j``.
-            * lower: ``i``.
-            * higher: ``j``.
-            * nearest: ``i`` or ``j``, whichever is nearest.
-            * midpoint: ``(i + j) / 2``.
+
+        * linear: ``i + (j - i) * fraction``, where ``fraction``
+          is the fractional part of the index surrounded by ``i``
+          and ``j``.
+        * lower: ``i``.
+        * higher: ``j``.
+        * nearest: ``i`` or ``j``, whichever is nearest.
+        * midpoint: ``(i + j) / 2``.
 
     Returns
     -------
-    quantile : scalar or ndarray
-        If `q` is a single quantile and `axis=None`, then the result
+    quantile : scalar, array
+        If ``q`` is a single quantile and ``axis=None``, then the result
         is a scalar. If multiple quantiles are given, first axis of
         the result corresponds to the quantiles. The other axes are
-        the axes that remain after the reduction of `a`. If the input
+        the axes that remain after the reduction of ``a``. If the input
         contains integers or floats smaller than ``float64``, the output
         data-type is ``float64``. Otherwise, the output data-type is the
-        same as that of the input. If `out` is specified, that array is
+        same as that of the input. If ``out`` is specified, that array is
         returned instead.
 
     Note
@@ -378,7 +625,8 @@ def weighted_quantile(x, q, weights=None, axis=None, interpolation='lower'):
 
 
 def rebin_ndarray(ndarray, new_edges, statistic=np.sum, interpolation='linear'):
-    """Bin an ndarray in all axes based on the target shape, by summing or
+    """
+    Bin an ndarray in all axes based on the target shape, by summing or
     averaging. Number of output dimensions must match number of input dimensions and
     new axes must divide old ones.
 
@@ -454,6 +702,30 @@ def rebin_ndarray(ndarray, new_edges, statistic=np.sum, interpolation='linear'):
 
 
 def enforce_shape(x, y, grid=True):
+    """
+    Broadcast ``x`` and ``y`` arrays.
+
+    Parameters
+    ----------
+    x : array_like
+        Input x-array, scalar, 1D or 2D if not ``grid``.
+
+    y : array_like
+        Input y-array, scalar, 1D or 2D if not ``grid``.
+
+    grid : bool, default=True
+        If ``grid``, and ``x``, ``y`` not scalars, add dimension to ``x`` such that ``x`` and ``y`` can be broadcast
+        (e.g. ``x*y``, is shape ``(len(x),) + y.shape``).
+        Else, simply return x,y.
+
+    Returns
+    -------
+    x : array
+        x-array.
+
+    y : array
+        y-array.
+    """
     x,y = np.asarray(x),np.asarray(y)
     if (not grid) or (x.ndim == 0) or (y.ndim == 0):
         return x,y
@@ -474,21 +746,22 @@ def txt_to_latex(txt):
 
 def std_notation(value, sigfigs, extra=None):
     """
-    standard notation (US version)
-    ref: http://www.mathsisfun.com/definitions/standard-notation.html
+    Standard notation (US version).
+    Return a string corresponding to value with the number of significant digits ``sigfigs``.
 
-    returns a string of value with the proper sigfigs
+    >>> std_notation(5, 2)
+    '5.0'
+    >>> std_notation(5.36, 2)
+    '5.4'
+    >>> std_notation(5360, 2)
+    '5400'
+    >>> std_notation(0.05363, 3)
+    '0.0536'
 
-    ex:
-      std_notation(5, 2) => 5.0
-      std_notation(5.36, 2) => 5.4
-      std_notation(5360, 2) => 5400
-      std_notation(0.05363, 3) => 0.0536
-
-      created by William Rusnack
-        github.com/BebeSparkelSparkel
-        linkedin.com/in/williamrusnack/
-        williamrusnack@gmail.com
+    Created by William Rusnack:
+      github.com/BebeSparkelSparkel
+      linkedin.com/in/williamrusnack/
+      williamrusnack@gmail.com
     """
     sig_digits, power, is_neg = _number_profile(value, sigfigs)
     if is_neg and all(d == '0' for d in sig_digits): is_neg = False
@@ -498,21 +771,22 @@ def std_notation(value, sigfigs, extra=None):
 
 def sci_notation(value, sigfigs, filler='e'):
     """
-    scientific notation
-    ref: https://www.mathsisfun.com/numbers/scientific-notation.html
+    Scientific notation.
 
-    returns a string of value with the proper sigfigs and 10s exponent
-    filler is placed between the decimal value and 10s exponent
+    Return a string corresponding to value with the number of significant digits ``sigfigs``,
+    with 10s exponent filler ``filler`` placed between the decimal value and 10s exponent.
 
-    ex:
-      sci_notation(123, 1, 'E') => 1E2
-      sci_notation(123, 3, 'E') => 1.23E2
-      sci_notation(.126, 2, 'E') => 1.3E-1
+    >>> sci_notation(123, 1, 'e')
+    '1e2'
+    >>> sci_notation(123, 3, 'e')
+    '1.23e2'
+    >>> sci_notation(0.126, 2, 'e')
+    '1.3e-1'
 
-      created by William Rusnack
-        github.com/BebeSparkelSparkel
-        linkedin.com/in/williamrusnack/
-        williamrusnack@gmail.com
+    Created by William Rusnack
+      github.com/BebeSparkelSparkel
+      linkedin.com/in/williamrusnack/
+      williamrusnack@gmail.com
     """
     sig_digits, power, is_neg = _number_profile(value, sigfigs)
     if is_neg and all(d == '0' for d in sig_digits): is_neg = False
@@ -524,19 +798,23 @@ def sci_notation(value, sigfigs, filler='e'):
 
 def _place_dot(digits, power):
     """
-    places the dot in the correct spot in the digits
-    if the dot is outside the range of the digits zeros will be added
+    Place dot in the correct spot, given by integer ``power`` (starting from the right of ``digits``)
+    in the string ``digits``.
+    If the dot is outside the range of the digits zeros will be added.
 
-    ex:
-      _place_dot(123, 2) => 12300
-      _place_dot(123, -2) => 1.23
-      _place_dot(123, 3) => 0.123
-      _place_dot(123, 5) => 0.00123
+    >>> _place_dot('123', 2)
+    '12300'
+    >>> _place_dot('123', -2)
+    '1.23'
+    >>> _place_dot('123', 3)
+    '0.123'
+    >>> _place_dot('123', 5)
+    '0.00123'
 
-      created by William Rusnack
-        github.com/BebeSparkelSparkel
-        linkedin.com/in/williamrusnack/
-        williamrusnack@gmail.com
+    Created by William Rusnack
+      github.com/BebeSparkelSparkel
+      linkedin.com/in/williamrusnack/
+      williamrusnack@gmail.com
     """
     if power > 0: out = digits + '0' * power
 
@@ -558,15 +836,31 @@ def _place_dot(digits, power):
 
 def _number_profile(value, sigfigs):
     """
-    returns:
-      string of significant digits
-      10s exponent to get the dot to the proper location in the significant digits
-      bool that's true if value is less than zero else false
+    Return elements to turn number into string representation.
 
-      created by William Rusnack
-        github.com/BebeSparkelSparkel
-        linkedin.com/in/williamrusnack/
-        williamrusnack@gmail.com
+    Created by William Rusnack
+      github.com/BebeSparkelSparkel
+      linkedin.com/in/williamrusnack/
+      williamrusnack@gmail.com
+
+    Parameters
+    ----------
+    value : float
+        Number.
+
+    sigfigs : int
+        Number of significant digits.
+
+    Returns
+    -------
+    sig_digits : string
+        Significant digits.
+
+    power : int
+        10s exponent to get the dot to the proper location in the significant digits
+
+    is_neg : bool
+        ``True`` if value is < 0 else ``False``
     """
     if value == 0:
         sig_digits = '0' * sigfigs
@@ -587,11 +881,40 @@ def _number_profile(value, sigfigs):
 
 
 def round_measurement(x, u=0.1, v=None, sigfigs=2, notation='auto'):
+    """
+    Return string representation of input central value ``x`` with uncertainties ``u`` and ``v``.
+
+    Parameters
+    ----------
+    x : float
+        Central value.
+
+    u : float, default=0.1
+        Upper uncertainty on ``x`` (positive).
+
+    v : float, default=None
+        Lower uncertainty on ``v`` (negative).
+        If ``None``, only returns string representation for ``x`` and ``u``.
+
+    sigfigs : int, default=2
+        Number of digits to keep for the uncertainties (hence fixing number of digits for ``x``).
+
+    Returns
+    -------
+    xr : string
+        String representation for central value ``x``.
+
+    ur : string
+        String representation for upper uncertainty ``u``.
+
+    vr : string
+        If ``v`` is not ``None``, string representation for lower uncertainty ``v``.
+    """
     x,u = float(x),float(u)
     return_v = True
     if v is None:
         return_v = False
-        v = u
+        v = -abs(u)
     else:
         v = float(v)
     logx = 0
@@ -625,3 +948,43 @@ def round_measurement(x, u=0.1, v=None, sigfigs=2, notation='auto'):
 
     if return_v: return xr, ur, vr
     return xr, ur
+
+def match1d(id1, id2):
+    """
+    Match ``id2`` array to ``id1`` array.
+
+    Parameters
+    ----------
+    id1 : array
+        IDs 1, should be unique.
+
+    id2 : array
+        IDs 2, should be unique.
+
+    Returns
+    -------
+    index1 : array
+        Indices of matching ``id1``.
+
+    index2 : array
+        Indices of matching ``id2``.
+
+    Warning
+    -------
+    Makes sense only if ``id1`` and ``id2`` elements are unique.
+
+    References
+    ----------
+    https://www.followthesheep.com/?p=1366
+    """
+    sort1 = np.argsort(id1)
+    sort2 = np.argsort(id2)
+    sortleft1 = id1[sort1].searchsorted(id2[sort2],side='left')
+    sortright1 = id1[sort1].searchsorted(id2[sort2],side='right')
+    sortleft2 = id2[sort2].searchsorted(id1[sort1],side='left')
+    sortright2 = id2[sort2].searchsorted(id1[sort1],side='right')
+
+    ind2 = np.flatnonzero(sortright1-sortleft1 > 0)
+    ind1 = np.flatnonzero(sortright2-sortleft2 > 0)
+
+    return sort1[ind1], sort2[ind2]

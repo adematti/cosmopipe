@@ -1,3 +1,5 @@
+"""Implementation of Gaussian covariance matrix."""
+
 import logging
 import itertools
 
@@ -5,18 +7,36 @@ import numpy as np
 from scipy import special
 
 from cosmopipe.lib.data_vector import CovarianceMatrix
-from .base import ProjectionName, ProjectionBase, ProjectionBaseCollection, ModelCollection
-from .projection import ModelCollectionProjection
+from .base import ProjectionName, ProjectionBasis, ProjectionBasisCollection, ModelCollection
+from .evaluation import ModelEvaluation
 from .hankel_transform import HankelTransform
 
 
-def legendre_product_integral(ells, range=None, norm=False):
+def legendre_product_integral(ells, range=(-1,1), norm=False):
+    r"""
+    Return integral of product of Legendre polynomials.
+
+    Parameters
+    ----------
+    ells : int, list, tuple
+        Order(s) of Legendre polynomials to multiply together.
+
+    range : tuple, default=(-1,1)
+        :math:`\mu`-integration range.
+
+    norm : bool, default=False
+        Whether to normalize integral by the :math:`\mu`-integration range.
+
+    Returns
+    -------
+    toret : float
+        Integral of product of Legendre polynomials.
+    """
     poly = 1
+    if np.ndim(ells) == 0: ells = [ells]
     for ell in ells:
         poly *= special.legendre(ell)
     integ = poly.integ()
-    if range is None:
-        range = (-1,1)
     toret = integ(range[-1]) - integ(range[0])
     if norm:
         toret /= (range[-1] - range[0])
@@ -24,51 +44,86 @@ def legendre_product_integral(ells, range=None, norm=False):
 
 
 def weights_trapz(x):
+    """Return weights for trapezoidal integration."""
     return np.concatenate([[x[1]-x[0]],x[2:]-x[:-2],[x[-1]-x[-2]]])/2.
 
 
-def symproduct_iterator(x,y):
-
+def _symproduct_iterator(x, y):
+    # Yield coefficient (1 and 2) with unique tuples of cartesian product of ``x`` and ``y``?
     for (ix1,x1),(ix2,x2) in itertools.product(x,y):
         if x1 > x2: continue
         coeff = 1 + ix2 != ix1
         yield coeff,(ix1,x1),(ix2,x2)
 
 
-def interval_intersection(*intervals):
+def _interval_intersection(*intervals):
+    # Return intersection of input intervals
     return (max(interval[0] for interval in intervals),min(interval[1] for interval in intervals))
 
 
-def empty_interval(interval):
+def _is_empty_interval(interval):
+    # Return whether input interval is empty, i.e. upper bound lower than lower bound
     return interval[0] >= interval[1]
 
 
 class GaussianCovarianceMatrix(CovarianceMatrix):
 
+    """Class computing Gaussian covariance matrix."""
     logger = logging.getLogger('GaussianCovarianceMatrix')
 
     def __init__(self, data, model_bases=None, volume=None, xnum=3, munum=100, integration=None, kcutoff=(1e-6,1e1), attrs=None):
+        """
+        Initialize :class:`GaussianCovarianceMatrix`.
 
+        Parameters
+        ----------
+        data : DataVector
+            Data vector for which to compute Gaussian covariance matrix.
+            Must have edges.
+
+        model_bases : ProjectionBasis, ProjectionBasisCollection
+            Projection basis of input model(s).
+            If single projection basis, a single model is expected in :meth:`__call__`.
+
+        volume : float, dict
+            Survey effective volume.
+            Can be a dictionary of frozenset(fields): volume, with fields the different combinations of tracer fields.
+
+        xnum : int, default=3
+            Number of points for integration of covariance is evaluated inside each bin.
+
+        munum : int, default=100
+            Number of points for :math:`\mu` integration.
+
+        integration : dict
+            Options for model evaluation / integration, see :class:`ModelEvaluation`.
+
+        kcutoff : tuple, default=(1e-6, 1e1)
+            Cutoff in wavenumbers to apply when computing correlation function covariance matrix.
+            This prevents from oscillatatory patterns.
+
+        attrs : dict, default=None
+            Other attributes.
+        """
         self.projs = data.get_projs()
-        self.model_bases = ProjectionBaseCollection(model_bases)
-        self.power_bases = self.model_bases.select([{'name':proj.name,'space':ProjectionBase.POWER} for proj in self.projs])
+        self.model_bases = ProjectionBasisCollection(model_bases)
+        self.power_bases = self.model_bases.select(*[{'name':proj.name,'space':ProjectionBasis.POWER} for proj in self.projs])
 
         # if no model provided for correlation, compute from power
         correlation_bases = {}
         for proj in self.projs:
             try:
-                base = self.model_bases.get_by_proj(proj)
+                basis = self.model_bases.get_by_proj(proj)
             except IndexError:
-                if proj.space == ProjectionBase.CORRELATION:
-                    proj = proj.copy()
-                    proj.space = ProjectionBase.POWER
+                if proj.space == ProjectionBasis.CORRELATION:
+                    proj = proj.copy(space=ProjectionBasis.POWER)
                     new = self.model_bases.get_by_proj(proj)
                     if new not in correlation_bases:
                         correlation_bases[new] = []
                     correlation_bases[new].append(proj)
 
         self.ells = (0,2,4)
-        ells = [list(base.projs) for base in self.power_bases if base.mode == ProjectionBase.MULTIPOLE]
+        ells = [list(basis.projs) for basis in self.power_bases if basis.mode == ProjectionBasis.MULTIPOLE]
         if ells:
             self.ells = ells[0]
             # intersection of ells
@@ -80,24 +135,25 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
         self.ext_models = ModelCollection()
         for input_base,projs in correlation_bases.items():
             ells = self.ells
-            if input_base.mode == ProjectionBase.MUWEDGE:
+            if input_base.mode == ProjectionBasis.MUWEDGE:
                 poles = [proj.proj for proj in projs if proj.mode == ProjectionName.MULTIPOLE]
                 if poles:
                     ells = range(0,max(poles)+1,2)
-            model = HankelTransform(model=None,base=input_base,ells=ells)
+            model = HankelTransform(model=None,basis=input_base,ells=ells)
             self.ext_models.set(model)
-            self.model_bases.set(model.base)
+            self.model_bases.set(model.basis)
 
         self.edges = []
         for proj in self.projs:
             edges = data.get_edges(proj=proj)[0]
+            #print(proj,edges)
             self.edges.append(np.vstack([edges[:-1],edges[1:]]).T)
 
-        self.projection = ModelCollectionProjection(data,model_bases=self.model_bases,integration=integration)
+        self.evaluation = ModelEvaluation(data,model_bases=self.model_bases,integration=integration)
 
         self.xnum = xnum
         self.munum = munum
-        self.k = np.mean([base.x for base in self.power_bases],axis=0)
+        self.k = np.mean([basis.x for basis in self.power_bases],axis=0)
         self.k = self.k[(self.k > kcutoff[0]) & (self.k < kcutoff[-1])]
 
         self.attrs = attrs or {}
@@ -106,12 +162,13 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
         self.attrs.setdefault('volume',volume)
 
     def compute(self, models):
-
+        """Compute covariance matrix from input models ``models``."""
+        models = ModelCollection(models)
         for extmodel in self.ext_models.models:
             extmodel.input_model = models.get(extmodel.input_base)
 
         models = models + self.ext_models
-        mean = self.projection.to_data_vector(models)
+        mean = self.evaluation.to_data_vector(models)
 
         cov = [[None for proj in self.projs] for proj in self.projs]
         self._sigmak = {}
@@ -126,7 +183,7 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
             else:
                 lfields = [(proj1.fields[0],proj2.fields[0]),(proj1.fields[1],proj2.fields[1]),(proj1.fields[0],proj2.fields[1]),(proj1.fields[1],proj2.fields[0])]
             pks = []
-            self.model_base = ProjectionBase(projs=self.ells)
+            self.model_basis = ProjectionBasis(projs=self.ells)
 
             def dummy(*args,**kwargs):
                 return 0.
@@ -134,22 +191,22 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
             for fields in lfields:
 
                 try:
-                    base = models.bases.get_by_proj(fields=fields,space=ProjectionBase.POWER)
+                    basis = models.bases().get_by_proj(fields=fields,space=ProjectionBasis.POWER)
                 except IndexError:
                     if fields in [proj1.fields,proj2.fields]:
                         raise
                     pk = dummy
                 else:
-                    pk = models.get(base)
+                    pk = models.get(basis)
 
-                if self.model_base.mode is None:
-                    self.model_base.mode = base.mode
-                elif self.model_base.mode != base.mode:
+                if self.model_basis.mode is None:
+                    self.model_basis.mode = basis.mode
+                elif self.model_basis.mode != basis.mode:
                     raise ValueError('Input power spectrum models should all be either multipoles or function of (k,mu)')
                 pks.append(pk)
 
 
-            pk2 = self.get_pk2(pks=pks)
+            pk2 = self._get_pk2(pks=pks)
             volume = self.attrs['volume']
             if isinstance(volume,dict):
                 vol1 = volume[frozenset(proj1.fields)]
@@ -157,7 +214,7 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
                 vol12 = volume[frozenset(proj1.fields + proj2.fields)]
                 volume = vol12/(vol1*vol2)
 
-            cov[iproj1][iproj2] = self.eval(pk2,proj1=proj1,proj2=proj2,edges1=self.edges[iproj1],edges2=self.edges[iproj2],volume=volume)
+            cov[iproj1][iproj2] = self._eval(pk2,proj1=proj1,proj2=proj2,edges1=self.edges[iproj1],edges2=self.edges[iproj2],volume=volume)
 
         self._sigmak = {}
         covariance = np.bmat(cov).A
@@ -165,12 +222,12 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
         super(GaussianCovarianceMatrix,self).__init__(covariance,first=mean,attrs=self.attrs)
 
 
-    def get_pk2(self, pks):
-
+    def _get_pk2(self, pks):
+        # Get product of power spectra
         # arXiv: 2007.09011 eq. 2 and 3.
         auto = len(pks) == 1
 
-        if self.model_base.mode == ProjectionBase.MUWEDGE:
+        if self.model_basis.mode == ProjectionBasis.MUWEDGE:
 
             if auto:
 
@@ -183,26 +240,26 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
                     return 1./2.*(pks[0](k,mu,**kwargs)*pks[1](k,mu,**kwargs) + pks[2](k,mu,**kwargs)*pks[3](k,mu,**kwargs))
 
 
-        if self.model_base.mode == ProjectionBase.MULTIPOLE:
+        if self.model_basis.mode == ProjectionBasis.MULTIPOLE:
 
             if auto:
 
                 def pk2(k, **kwargs):
                     pkell = pks[0](k,**kwargs)
                     return {(ell1,ell2): coeff*pkell[:,ill1]*pkell[:,ill2] for coeff,(ill1,ell1),(ill2,ell2)
-                                in symproduct_iterator(enumerate(self.model_base.projs),enumerate(self.model_base.projs))}
+                                in _symproduct_iterator(enumerate(self.model_basis.projs),enumerate(self.model_basis.projs))}
 
             else:
 
                 def pk2(k, **kwargs):
                     pkells = [pk(k,**kwargs) for pk in pks]
                     return {(ell1,ell2): 1./2.*(pkells[0][:,ill1]*pkells[1][:,ill2] + pkells[2][:,ill1]*pkells[3][:,ill2]) for (ill1,ell1),(ill2,ell2)
-                                in itertools.product(enumerate(self.model_base.projs),enumerate(self.model_base.projs))}
+                                in itertools.product(enumerate(self.model_basis.projs),enumerate(self.model_basis.projs))}
 
         return pk2
 
-    def sigma_k(self, pk2, k=None, proj1=None, proj2=None, volume=None):
-
+    def _sigma_k(self, pk2, k=None, proj1=None, proj2=None, volume=None):
+        # Compute covariance in Fourier space, for projections ``proj1`` and ``proj2``.
         store = k is None
         if store:
             if (proj1.proj,proj2.proj) in self._sigmak:
@@ -214,19 +271,19 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
             if proj.mode == ProjectionName.MULTIPOLE: ells[iproj] = proj.proj
             elif proj.mode == ProjectionName.MUWEDGE: muwedges[iproj] = proj.proj
         dmu2 = np.prod([muwedge[1] - muwedge[0] for muwedge in muwedges])
-        muwedge = interval_intersection(*muwedges)
+        muwedge = _interval_intersection(*muwedges)
         ell1,ell2 = ells
 
-        if empty_interval(muwedge):
+        if _is_empty_interval(muwedge):
             return np.zeros_like(k)
 
-        if self.model_base.mode == ProjectionBase.MUWEDGE:
+        if self.model_basis.mode == ProjectionBasis.MUWEDGE:
 
             mu = np.linspace(muwedge[0],muwedge[1],self.munum)
             integrand = 2.*(2.*ell1+1.)*(2.*ell2+1.)/dmu2 * pk2(k,mu,grid=True) * special.legendre(ell1)(mu) * special.legendre(ell2)(mu)
             toret = np.trapz(integrand,x=mu,axis=-1)
 
-        if self.model_base.mode == ProjectionBase.MULTIPOLE:
+        if self.model_basis.mode == ProjectionBasis.MULTIPOLE:
 
             pk2ell = pk2(k)
             toret = 0.
@@ -235,17 +292,18 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
             toret = 2.*(2.*ell1+1.)*(2.*ell2+1.)/dmu2 * toret
 
         toret *= 1./volume*k**2
-        if store and (proj1.name,proj2.name) == (ProjectionBase.MULTIPOLE,ProjectionBase.MULTIPOLE):
+        if store and (proj1.name,proj2.name) == (ProjectionBasis.MULTIPOLE,ProjectionBasis.MULTIPOLE):
             self._sigmak[proj2,proj1] = self._sigmak[proj1.proj,proj2.proj] = toret
 
         return toret
 
-    def bin_integ(self, proj1=None, proj2=None, edges1=None, edges2=None):
+    def _bin_integ(self, proj1=None, proj2=None, edges1=None, edges2=None):
+        # Return coordinates and weights for integration inside each bin.
         edges = edges1,edges2
 
         if (proj1.space,proj2.space) == (ProjectionName.POWER,ProjectionName.POWER):
-            edge = interval_intersection(*edges)
-            if empty_interval(edge):
+            edge = _interval_intersection(*edges)
+            if _is_empty_interval(edge):
                 return None,None
             x = np.linspace(edge[0],edge[1],self.xnum)
             #x = x[x>self.k[0]]
@@ -269,8 +327,8 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
             return w1/dv1,w2/dv2
 
 
-    def eval(self, pk2, proj1=None, proj2=None, edges1=None, edges2=None, volume=None):
-
+    def _eval(self, pk2, proj1=None, proj2=None, edges1=None, edges2=None, volume=None):
+        # Compute covariance for projections ``proj1`` and ``proj2``.
         nindices = [len(edges) for edges in [edges1,edges2]]
         toret = np.zeros(nindices,dtype='f8')
 
@@ -280,16 +338,16 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
                 raise ValueError('Required projection space is {}, but allowed spaces are {}'.format(proj.space,allowed))
 
         if (proj1.space,proj2.space) == (ProjectionName.CORRELATION,ProjectionName.POWER):
-            return self.eval(pk2,proj1=proj2,proj2=proj1,edges1=edges2,edges2=edges1,volume=volume).T
+            return self._eval(pk2,proj1=proj2,proj2=proj1,edges1=edges2,edges2=edges1,volume=volume).T
 
         if (proj1.space,proj2.space) == (ProjectionName.POWER,ProjectionName.POWER):
 
             def sigma_integk(i1, i2):
-                k,w = self.bin_integ(proj1,proj2,edges1[i1],edges2[i2])
+                k,w = self._bin_integ(proj1,proj2,edges1[i1],edges2[i2])
                 if k is None:
                     return 0.
                 coeff = 2.*np.pi**2
-                sigmak = self.sigma_k(pk2,k,proj1,proj2,volume=volume)
+                sigmak = self._sigma_k(pk2,k,proj1,proj2,volume=volume)
                 return coeff*np.sum(w * sigmak)
 
             auto = proj2 == proj1
@@ -307,8 +365,8 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
                 coeff = np.array(1j**proj2.proj)
                 if not np.iscomplex(coeff):
                     coeff = coeff.real
-                k,wk,ws = self.bin_integ(proj1,proj2,edges1[i1],edges2[i2])
-                sigmak = self.sigma_k(pk2,k,proj1,proj2,volume=volume)
+                k,wk,ws = self._bin_integ(proj1,proj2,edges1[i1],edges2[i2])
+                sigmak = self._sigma_k(pk2,k,proj1,proj2,volume=volume)
                 return coeff*np.sum(wk * ws * sigmak)
 
             for i1,i2 in itertools.product(range(nindices[0]),range(nindices[1])):
@@ -324,8 +382,8 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
                 coeff = np.array(1j**(proj1.proj + proj2.proj))/2./np.pi**2
                 if not np.iscomplex(coeff):
                     coeff = coeff.real
-                w1,w2 = self.bin_integ(proj1,proj2,edges1[i1],edges2[i2])
-                sigmak = self.sigma_k(pk2,None,proj1,proj2,volume=volume)
+                w1,w2 = self._bin_integ(proj1,proj2,edges1[i1],edges2[i2])
+                sigmak = self._sigma_k(pk2,None,proj1,proj2,volume=volume)
                 return coeff*np.sum(w1 * w2 * sigmak * weights_trapz(self.k))
 
             auto = proj2 == proj1
@@ -347,6 +405,6 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
                 nproj1, nproj2 = proj1.copy(), proj2.copy()
                 nproj1.mode, nproj2.mode = ProjectionName.MULTIPOLE, ProjectionName.MULTIPOLE
                 nproj1.proj, nproj2.proj = ell1, ell2
-                toret += coeff * self.eval(pk2,nproj1,nproj2,edges1=edges1,edges2=edges2,volume=volume)
+                toret += coeff * self._eval(pk2,nproj1,nproj2,edges1=edges1,edges2=edges2,volume=volume)
 
         return toret

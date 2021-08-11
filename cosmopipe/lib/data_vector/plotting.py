@@ -1,3 +1,5 @@
+"""Utilities to plot data vectors and covariance matrices."""
+
 import re
 import logging
 
@@ -8,33 +10,46 @@ from matplotlib.colors import Normalize
 from cosmopipe.lib import plotting, utils
 from cosmopipe.lib.plotting import make_list
 from cosmopipe.lib.utils import BaseClass
-from .projection import ProjectionName
+from .projection import ProjectionName, ProjectionNameCollection
 
 
 class BaseDataPlotStyle(plotting.BasePlotStyle):
-
+    """
+    Base data plotting class.
+    It holds default attributes (:attr:`xlabel`, :attr:`ylabel`, :attr:`colors`, etc.)
+    that can be set at initialization (``style = BaseDataPlotStyle(colors='r')``) or at any
+    time using :meth:`update`.
+    """
     def __init__(self, style=None, **kwargs):
+        """
+        Initialize :class:`BaseDataPlotStyle`.
+
+        Parameters
+        ----------
+        style : BaseDataPlotStyle, default=None
+            A plotting style to start from, which will be updated with ``kwargs``.
+
+        kwargs : dict
+            Attributes for :class:`BaseDataPlotStyle`.
+        """
         super(BaseDataPlotStyle,self).__init__(style=style)
         self.projs = None
         self.xlabel = None
         self.ylabel = None
-        self.color = None
+        self.colors = None
         self.linestyles = '-'
         self.xscale = 'linear'
         self.yscale = 'linear'
         self.labelsize = 17
         self.ticksize = 15
         self.errorbar = 'fill'
-        self.filename = None
         self.grid = True
         self.kwplt = {}
+        self.filename = None
         self.update(**kwargs)
 
-    def update(self, **kwargs):
-        for key,val in kwargs.items():
-            setattr(self,key,val)
-
-    def set_ax_attrs(self, ax):
+    def _set_ax_attrs(self, ax):
+        # set ax attributes (labels, scales)
         ax.set_xlabel(self.xlabel,fontsize=self.labelsize)
         ax.set_ylabel(self.ylabel,fontsize=self.labelsize)
         ax.set_xscale(self.xscale)
@@ -42,55 +57,90 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
         ax.tick_params(labelsize=self.ticksize)
 
     def get_color(self, proj, projs=None):
+        """
+        Return color corresponding to projection name ``proj``.
+        If :attr:`colors` is a list, return colors at index of ``proj`` in list of projection names ``projs``.
+        """
         if projs is None:
             projs = self.projs
             index = self.projs.index(proj)
         else:
             index = proj
             proj = projs[index]
-        if self.color is None:
+        if self.colors is None:
             color = 'C{:d}'.format(index)
-        elif isinstance(self.color,str):
-            color = self.color
-        elif isinstance(self.color,dict):
-            color = self.color[proj]
+        elif isinstance(self.colors,str):
+            color = self.colors
+        elif isinstance(self.colors,dict):
+            color = self.colors[proj]
         else:
-            color = self.color[index]
+            color = self.colors[index]
         return color
 
     @staticmethod
     def get_label(proj):
+        """Return label corresponding to projection name ``proj``."""
         return ProjectionName(proj).get_projlabel()
 
     def get_projs(self, data_vector=None):
+        """Return projection names of input data vector."""
         data_vector = self.get_list('data_vectors',value=[data_vector])[0]
         if self.projs is not None:
-            return [ProjectionName(proj) for proj in self.projs]
+            return ProjectionNameCollection(self.projs)
         return data_vector.get_projs()
 
     @staticmethod
-    def get_x(data, *args, **kwargs):
-        return data.get_x(*args,**kwargs)
+    def get_x(data_vector, *args, **kwargs):
+        """Return x-coordinates of input data vector."""
+        return data_vector.get_x(*args,**kwargs)
 
     @staticmethod
-    def get_y(data, *args, **kwargs):
-        return data.get_y(*args,**kwargs)
+    def get_y(data_vector, *args, **kwargs):
+        """Return y-coordinates of input data vector."""
+        return data_vector.get_y(*args,**kwargs)
 
     @staticmethod
     def get_covx(covariance, *args, **kwargs):
+        """Return x-coordinates of input covariance matrix."""
         return covariance.get_x(*args,**kwargs)[0]
 
     @staticmethod
     def get_covy(covariance, *args, **kwargs):
+        """Return mean y-coordinates provided in the input covariance matrix."""
         return covariance.get_y(*args,**kwargs)[0]
 
     @staticmethod
     def get_covstd(covariance, *args, **kwargs):
+        """Return standard deviation corresponding to the input covariance matrix."""
         return covariance.get_std(*args,**kwargs)
 
     def plot(self, data_vectors=None, covariance=None, error_mean=None, ax=None, filename=None):
+        """
+        Plot data vectors, optionally with error bars / shaded area from covariance.
+
+        Parameters
+        ----------
+        data_vectors : list, DataVector, default=None
+            Data vector(s) to plot. If ``None``, :attr:`data_vectors` attribute is used.
+
+        covariance : CovarianceMatrix, default=None
+            If not ``None``, covariance matrix to use for error bars.
+
+        error_mean : int, default=None
+            If not ``None``, index of data vector in ``data_vectors`` to use as mean when plotting error bars.
+
+        ax : matplotlib.axes.Axes, default=None
+            Axes where to plot data vectors. If ``None``, takes current axes.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        Returns
+        -------
+        ax : matplotlib.axes.Axes
+        """
         if ax is None: ax = plt.gca()
-        self.set_ax_attrs(ax)
+        self._set_ax_attrs(ax)
         data_vectors = self.get_list('data_vectors',data_vectors)
         linestyles = self.get_list('linestyles',default=['-']*len(data_vectors))
         projs = self.get_projs(data_vectors[0])
@@ -122,16 +172,20 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
 
 
 class PowerSpectrumPlotStyle(BaseDataPlotStyle):
-
+    """
+    Plotting style for power spectrum, y-coordinates are :math:`k P(k)`.
+    Only projections that have :attr:`ProjectionName.space` 'power' or unspecified (``None``) will be plotted.
+    """
     def __init__(self, style=None, **kwargs):
         super(PowerSpectrumPlotStyle,self).__init__(style=style)
         self.xlabel = '$k$ [$h \ \\mathrm{Mpc}^{-1}$]'
-        self.ylabel = '$k P(k)$ [$(\\mathrm{Mpc} \ h)^{-1})^{2}$]'
+        self.ylabel = '$k P(k)$ [$(\\mathrm{Mpc} \ h^{-1})^{2}$]'
         self.update(**kwargs)
 
     def get_projs(self, data_vector=None):
+        """Return projection names for input data vector, selecting those that have :attr:`ProjectionName.space` 'power' or unspecified (``None``)."""
         projs = super(PowerSpectrumPlotStyle,self).get_projs(data_vector=data_vector)
-        return [proj for proj in projs if proj.space in (None,ProjectionName.POWER)]
+        return ProjectionNameCollection([proj for proj in projs if proj.space in (None,ProjectionName.POWER)])
 
     @staticmethod
     def get_y(data, *args, **kwargs):
@@ -147,7 +201,10 @@ class PowerSpectrumPlotStyle(BaseDataPlotStyle):
 
 
 class CorrelationFunctionPlotStyle(BaseDataPlotStyle):
-
+    """
+    Plotting style for correlation function, y-coordinates are :math:`s^{2} \\xi(s)`.
+    Only projections that have :attr:`ProjectionName.space` 'correlation' or unspecified (``None``) will be plotted.
+    """
     def __init__(self, style=None, **kwargs):
 
         super(CorrelationFunctionPlotStyle,self).__init__(style=style)
@@ -156,8 +213,9 @@ class CorrelationFunctionPlotStyle(BaseDataPlotStyle):
         self.update(**kwargs)
 
     def get_projs(self, data_vector=None):
+        """Return projection names for input data vector, selecting those that have :attr:`ProjectionName.space` 'correlation' or unspecified (``None``)."""
         projs = super(CorrelationFunctionPlotStyle,self).get_projs(data_vector=data_vector)
-        return [proj for proj in projs if proj.space in (None,ProjectionName.CORRELATION)]
+        return ProjectionNameCollection([proj for proj in projs if proj.space in (None,ProjectionName.CORRELATION)])
 
     @staticmethod
     def get_y(data, *args, **kwargs):
@@ -173,7 +231,17 @@ class CorrelationFunctionPlotStyle(BaseDataPlotStyle):
 
 
 def DataPlotStyle(style=None, **kwargs):
+    """
+    Convenience function to plot data vector.
 
+    Parameters
+    ----------
+    style : DataPlotStyle, string, default=None
+        Can be 'power' to plot power spectrum (:class:`PowerSpectrumPlotStyle`), 'correlation' to plot correlation function (:class:`CorrelationFunctionPlotStyle`).
+
+    kwargs : dict
+        Arguments for plotting style.
+    """
     if isinstance(style, plotting.BasePlotStyle):
         style.update(**kwargs)
         return style
@@ -198,7 +266,24 @@ dataplotstyle_registry[ProjectionName.CORRELATION] = CorrelationFunctionPlotStyl
 
 class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
 
+    """Plotting style for covariance matrix."""
+
     def __init__(self, style=None, data_styles=None, **kwargs):
+        """
+        Initialize :class:`CovarianceMatrixPlotStyle`.
+
+        Parameters
+        ----------
+        style : CovarianceMatrixPlotStyle, default=None
+            A plotting style to start from, which will be updated with ``kwargs``.
+
+        data_styles : DataPlotStyle, tuple, default=None
+            Data vector plotting style(s), used to get projections to be plotted, and x-labels.
+            Can be left ``None`` in most use cases.
+
+        kwargs : dict
+            Attributes for :class:`BaseDataPlotStyle`.
+        """
         super(CovarianceMatrixPlotStyle,self).__init__(style=style)
         self.data_styles = make_list(data_styles,2)
         self.wspace = self.hspace = 0.18
@@ -206,18 +291,44 @@ class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
         self.ticksize = 13
         self.norm = None
         self.barlabel = None
+        self.filename = None
         self.update(**kwargs)
 
     def get_styles(self, covariance=None):
+        """Return styles for input covariance."""
         if covariance is not None:
             return tuple(DataPlotStyle(style=style,data_vectors=data_vector) if style is not None else BaseDataPlotStyle() for style,data_vector in zip(self.data_styles,covariance.x))
         return tuple(DataPlotStyle(style) if style is not None else BaseDataPlotStyle() for style in self.data_styles)
 
     @staticmethod
     def get_mat(covariance):
+        """Return covariance array, without view."""
         return covariance.copy().noview().get_cov()
 
     def plot(self, covariance=None, filename=None):
+        """
+        Plot covariance matrix.
+
+        Parameters
+        ----------
+        covariance : CovarianceMatrix, default=None
+            Covariance matrix to plot.
+            If ``None``, :attr:`covariance` attribute is used.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            Figure.
+
+        lax : array
+            Array of axes.
+
+        cbar_ax : matplotlib.axes.Axes
+            Color bar axes.
+        """
         covariance = self.get('covariance',covariance)
         mat = self.get_mat(covariance)
         norm = self.norm or Normalize(vmin=mat.min(),vmax=mat.max())
@@ -262,10 +373,12 @@ class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
         cbar.set_label(self.barlabel,fontsize=styles[0].labelsize,rotation=90)
         filename = filename or self.filename
         if filename: self.savefig(filename)
-        return lax,cbar_ax
+        return fig, lax, cbar_ax
 
 
 class CorrelationMatrixPlotStyle(CovarianceMatrixPlotStyle):
+
+    """Plotting style for correlation matrix."""
 
     @staticmethod
     def get_mat(covariance):
@@ -273,7 +386,17 @@ class CorrelationMatrixPlotStyle(CovarianceMatrixPlotStyle):
 
 
 def MatrixPlotStyle(style=None, **kwargs):
+    """
+    Convenience function to plot covariance/correlation matrix.
 
+    Parameters
+    ----------
+    style : BasePlotStyle, string, default=None
+        Can be 'cov' to plot covariance (:class:`CovarianceMatrixPlotStyle`), 'corr' to plot correlation (:class:`CorrelationMatrixPlotStyle`).
+
+    kwargs : dict
+        Arguments for plotting style.
+    """
     if isinstance(style, plotting.BasePlotStyle):
         style.update(**kwargs)
         return style

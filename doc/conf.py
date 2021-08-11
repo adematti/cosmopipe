@@ -28,11 +28,14 @@ from _version import __version__, __docker_image__
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
     'sphinx.ext.napoleon',
     'sphinx_rtd_theme'
 ]
+
+autosummary_generate = True  # Turn on sphinx.ext.autosummary
 
 # -- Project information -----------------------------------------------------
 
@@ -45,7 +48,7 @@ release = __version__
 
 html_theme = 'sphinx_rtd_theme'
 
-autodoc_mock_imports = []
+autodoc_mock_imports = ['pypescript','cosmopipe']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -93,11 +96,11 @@ ultimate_replacements = {
 
 
 def setup(app):
-    #try:
-    #    from pypescript.libutils import write_pype_modules_rst_doc
-    #    write_pype_modules_rst_doc(os.path.join('api','modules.rst'),max_line_len=150,base_dir=lib_dir)
-    #except ImportError:
-    #    pass
+    try:
+        from pypescript.libutils import write_pype_modules_rst_doc
+        write_pype_modules_rst_doc(os.path.join('api','modules.rst'),header='.. _api-modules:\n\n',max_line_len=150,base_dir=lib_dir)
+    except ImportError:
+        pass
     app.add_config_value('ultimate_replacements', {}, True)
     app.connect('source-read',_replace)
 

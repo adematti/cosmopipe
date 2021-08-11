@@ -3,12 +3,13 @@ from scipy import special, interpolate
 from pybird_dev import pybird
 
 from cosmopipe.lib import utils, theory
-from cosmopipe.lib.theory.base import BaseModel, ProjectionBase, ModelCollection
-
+from cosmopipe.lib.theory.base import BaseModel, ProjectionBasis, ModelCollection
 from cosmopipe import section_names
 
+from .module import PTModule
 
-class PyBird(object):
+
+class PyBird(PTModule):
 
     def init_pybird(self):
         cache = dict(Nl=len(self.ells),kmax=self.kmax,km=self.km,optiresum=self.with_resum == 'opti',nd=self.nd,with_cf=self.with_correlation)
@@ -28,27 +29,24 @@ class PyBird(object):
             if self.with_nnlo_counterterm:
                 self.nnlo_counterterm = pybird.NNLO_counterterm(co=self.co)
 
-    def set_pklin(self):
-        self.zeff = self.data_block[section_names.survey_geometry,'zeff']
-        pklin = self.data_block[section_names.primordial_perturbations,'pk_callable']
-        self.sigma8 = pklin.sigma8_z(self.zeff)
-        self.klin,self.pklin = pklin.k,pklin(pklin.k,z=self.zeff)
-        fo = self.data_block[section_names.primordial_cosmology,'cosmo'].get_fourier()
-        self.growth_rate = fo.sigma8_z(self.zeff,of='theta_cb')/fo.sigma8_z(self.zeff,of='delta_cb')
+    def set_primordial(self):
+        toret = super(PyBird,self).set_primordial()
+        if toret:
+            self.pklin = self.pklin(self.klin)
+            if self.with_nnlo_higher_derivative or self.with_nnlo_counterterm:
+                pknow_callable = PowerSpectrumBAOFilter(self.pklin,engine='wallish2018').smooth_pk_interpolator()
 
-    def set_pknow(self):
-        pklin = self.data_block[section_names.primordial_perturbations,'pk_callable'].to_1d(z=self.zeff)
-        pknow_callable = PowerSpectrumBAOFilter(pklin,engine='wallish2018').smooth_pk_interpolator()
+                def pknow_loglog(logk):
+                    return np.log(pknow_callable(logk,islogk=True))
 
-        def pknow_loglog(logk):
-            return np.log(pknow_callable(logk,islogk=True))
+                self.pknow_loglog = pknow_loglog
+                self.pknow = pknow_callable(self.co.k)
 
-        self.pknow_loglog = pknow_loglog
-        self.pknow = pknow_callable(self.co.k)
+        return toret
 
     def setup(self):
-        self.set_pklin()
-        self.ells = [0,2,4]
+        self.set_parameters()
+        self.ells = (0,2,4)
         self.data_shotnoise = self.options.get('data_shotnoise',None)
         try:
             self.data_shotnoise = 1. * self.data_shotnoise
@@ -67,15 +65,6 @@ class PyBird(object):
         self.model_attrs = self.options.get_dict('model_attrs',{})
         self.init_pybird()
 
-        cosmo = {'k11':self.klin,'P11':self.pklin,'f':self.growth_rate,'DA':1.,'H':1.}
-        self.bird = pybird.Bird(cosmo,with_bias=True,with_stoch=self.with_stoch,with_nnlo_counterterm=self.with_nnlo_counterterm,co=self.co)
-        self.nonlinear.PsCf(self.bird)
-
-        if self.with_nnlo_higher_derivative:
-            self.bird_now = deepcopy(self.bird)
-            self.bird_now.Pin = self.pknow
-            self.nonlinear.PsCf(self.bird_now)
-
         self.required_params = ['b1', 'b2', 'b3', 'b4', 'cct', 'cr1', 'cr2']
         if self.with_stoch:
             self.required_params += ['ce0','ce1','ce2']
@@ -85,28 +74,38 @@ class PyBird(object):
         if self.with_nnlo_counterterm:
             self.required_params += ['cnnlo0','cnnlo2']
             if len(self.ells) > 2: self.required_params += ['cnnlo4']
-        if self.with_nnlo_higher_derivative or self.with_nnlo_counterterm:
-            self.set_pknow()
 
-        model_collection = ModelCollection()
+        model_collection = self.data_block.get(section_names.model,'collection',ModelCollection())
         if self.with_correlation:
-            self.model_correlation = BaseModel(base=ProjectionBase(x=self.co.s,space=ProjectionBase.CORRELATION,mode=ProjectionBase.MULTIPOLE,projs=self.ells,**self.model_attrs))
+            basis = ProjectionBasis(x=self.co.s,space=ProjectionBasis.CORRELATION,mode=ProjectionBasis.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs)
+            self.model_correlation = BaseModel(basis=basis)
             model_collection.set(self.model_correlation)
 
         if self.with_power:
-            self.model_power = BaseModel(base=ProjectionBase(x=self.co.k,space=ProjectionBase.POWER,mode=ProjectionBase.MULTIPOLE,projs=self.ells,**self.model_attrs))
+            basis = ProjectionBasis(x=self.co.k,space=ProjectionBasis.POWER,mode=ProjectionBasis.MULTIPOLE,projs=self.ells,wa_order=0,**self.model_attrs)
+            self.model_power = BaseModel(basis=basis)
             model_collection.set(self.model_power)
 
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + model_collection
+        self.data_block[section_names.model,'collection'] = model_collection
 
     def execute(self):
+        fsig = self.data_block[section_names.galaxy_rsd,'fsig']
+        if self.set_primordial():
+            f = fsig/self.sigma
+            cosmo = {'k11':self.klin,'P11':self.pklin,'f':f,'DA':1.,'H':1.}
+            self.bird = pybird.Bird(cosmo,with_bias=True,with_stoch=self.with_stoch,with_nnlo_counterterm=self.with_nnlo_counterterm,co=self.co)
+            self.nonlinear.PsCf(self.bird)
+
+            if self.with_nnlo_higher_derivative:
+                self.bird_now = deepcopy(self.bird)
+                self.bird_now.Pin = self.pknow
+                self.nonlinear.PsCf(self.bird_now)
+
         bias = {}
         for name in self.required_params:
             bias[name] = self.data_block.get(section_names.galaxy_bias,name)
-        fsig = self.data_block.get(section_names.galaxy_rsd,'fsig',self.growth_rate*self.sigma8)
-        f = fsig/self.sigma8
-
         #if f != self._cache.get('f',None):
+        f = fsig/self.sigma
         self.bird.f = f
         self.bird.setPsCf(bias)
         if self.with_resum:
@@ -137,21 +136,17 @@ class PyBird(object):
                 self.nnlo_counterterm.Ps(self.bird,self.pknow_loglog)
             # self.bird.Pnnlo = self.co.k**4 * self.pknow # equivalent to the commented line above, just make it less stupid
         #self._cache['f'] = f
-        model_collection = ModelCollection()
         if self.with_power:
             power = self.bird.fullPs + self.data_shotnoise
             if self.with_nnlo_higher_derivative:
                 power += power_nnlo
             self.model_power.eval = interpolate.interp1d(self.co.k,power.T,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)
-            model_collection.set(self.model_power)
 
         if self.with_correlation:
             correlation = self.bird.fullCf
             if self.with_nnlo_higher_derivative:
                 correlation += correlation_nnlo
             self.model_correlation.eval = interpolate.interp1d(self.co.s,correlation.T,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)
-
-        self.data_block[section_names.model,'collection'] = self.data_block.get(section_names.model,'collection',[]) + model_collection
 
     def cleanup(self):
         pass

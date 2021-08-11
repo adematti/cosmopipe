@@ -1,0 +1,24 @@
+name: OddWideAngle
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Compute odd wide angle effects for the power spectrum
+requirements: []
+
+long description: >
+                  So far only order n=1 wide angle effects are implemented,
+                  but this is just a question of deriving formulae to include more.
+                  Relevant only within the context of a :class:`SurveyProjection` pipeline.
+
+options:
+  d:
+    type: [string, float]
+    default: 1.0
+    description: distance at the effective redshift. Use :math:`1` if already included in window functions.
+                'fiducial' will compute the comoving radial distance at the effective redshift survey_section.zeff.
+
+setup output:
+  survey_selection.effect:
+    type: PowerOddWideAngle
+    description: :class:`PowerOddWideAngle` instance

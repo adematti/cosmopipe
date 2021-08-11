@@ -14,7 +14,7 @@ def test_linear():
     assert model(k=0.1,mu=0.,f=0.8).ndim == 0
     assert model(k=0.1,mu=np.linspace(0.,0.4,3),f=0.8).shape == (3,)
     assert model(k=pk.k,mu=np.linspace(0.,0.4,3),f=0.8).shape == (pk.k.size,3)
-    assert np.allclose(model(k=pk.k,mu=0.,f=0.8),pk(pk.k))
+    assert np.allclose(model(k=pk.k,mu=0.,b1=1.0,f=0.8),pk(pk.k))
 
 
 if __name__ == '__main__':

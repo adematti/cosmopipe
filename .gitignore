@@ -19,6 +19,8 @@ doc/_build/
 **/*.npz
 **/bak
 **/old
+**/.ipynb_checkpoints
+**/_autosummary
 
 # Unit test / coverage reports
 **/.coverage

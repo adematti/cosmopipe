@@ -1,3 +1,5 @@
+"""Utilities related to data clustering catalogs."""
+
 import logging
 
 import numpy as np
@@ -10,20 +12,27 @@ from cosmopipe.lib import mpi
 def vector_projection(vector, direction):
     r"""
     Vector components of given vectors in a given direction.
+
     .. math::
-        \mathbf{v}_\mathbf{d} &= (\mathbf{v} \cdot \hat{\mathbf{d}}) \hat{\mathbf{d}} \\
-        \hat{\mathbf{d}} &= \frac{\mathbf{d}}{\|\mathbf{d}\|}
+       \mathbf{v}_\mathbf{d} &= (\mathbf{v} \cdot \hat{\mathbf{d}}) \hat{\mathbf{d}} \\
+       \hat{\mathbf{d}} &= \frac{\mathbf{d}}{\|\mathbf{d}\|}
+
+    Adapted from https://github.com/bccp/nbodykit/blob/master/nbodykit/transform.py
 
     Parameters
     ----------
-    vector : array_like, (..., D)
-        array of vectors to be projected
-    direction : array_like, (D,)
-        projection direction. It does not have to be normalized
+    vector : array
+        Array of vectors to be projected (along last dimension).
+
+    direction : array
+        Projection direction, 1D or 2D (if different direction for each input ``vector``) array.
+        It will be normalized.
+
     Returns
     -------
-    projection : array_like, (..., D)
-        vector components of the given vectors in the given direction
+    projection : array
+        Vector components of the given vectors in the given direction.
+        Same shape as input ``vector``.
     """
     direction = np.asarray(direction, dtype='f8')
     direction = direction / (direction ** 2).sum(axis=-1)[:, None] ** 0.5
@@ -35,30 +44,78 @@ def vector_projection(vector, direction):
 
 class DistanceToRedshift(object):
 
-    def __init__(self, distance, zmax=100., nz=2048):
+    """Class that holds a conversion distance -> redshift."""
+
+    def __init__(self, distance, zmax=100., nz=2048, interp_order=3):
+        """
+        Initialize :class:`DistanceToRedshift`.
+        Creates an array of redshift -> distance in log(redshift) and instantiates
+        a spline interpolator distance -> redshift.
+
+        Parameters
+        ----------
+        distance : callable
+            Callable that provides distance as a function of redshift (array).
+
+        zmax : float, default=100.
+            Maximum redshift for redshift <-> distance mapping.
+
+        nz : int, default=2048
+            Number of points for redshift <-> distance mapping.
+
+        interp_order : int, default=3
+            Interpolation order, e.g. ``1`` for linear interpolation, ``3`` for cubic splines.
+        """
         self.distance = distance
         self.zmax = zmax
         self.nz = nz
-        self.compute()
-
-    def compute(self):
         zgrid = np.logspace(-8,np.log10(self.zmax),self.nz)
         self.zgrid = np.concatenate([[0.], zgrid])
         self.rgrid = self.distance(self.zgrid)
-        self.interp = interpolate.Akima1DInterpolator(self.rgrid,self.zgrid,axis=0)
+        self.interp = interpolate.UnivariateSpline(self.rgrid,self.zgrid,k=interp_order,s=0)
 
     def __call__(self, distance):
+        """Return (interpolated) redshift at distance ``distance`` (scalar or array)."""
         return self.interp(distance)
 
 
 class RedshiftDensityInterpolator(ScatteredBaseClass):
-
+    """
+    Class that computes and interpolates a redshift density histogram :math:`n(z)` from an array of redshift and optionally weights.
+    Adapted from: https://github.com/bccp/nbodykit/blob/master/nbodykit/algorithms/zhist.py
+    """
     logger = logging.getLogger('RedshiftDensityInterpolator')
 
     @mpi.MPIInit
     def __init__(self, redshifts, weights=None, bins=None, fsky=1., radial_distance=None, interp_order=1):
-        """
-        Inspired from: https://github.com/bccp/nbodykit/blob/master/nbodykit/algorithms/zhist.py
+        r"""
+        Initialize :class:`RedshiftDensityInterpolator`.
+
+        Parameters
+        ----------
+        redshifts : array
+            Array of redshifts.
+
+        weights : array, default=None
+            Array of weights, same shape as ``redshifts``. Defaults to 1.
+
+        bins : int, array, string, default=None
+            If `bins` is an integer, it defines the number of equal-width
+            bins in the given range. If `bins` is a sequence, it defines the bin
+            edges, including the rightmost edge, allowing for non-uniform bin widths.
+            If 'scott', Scott's rule is used to estimate the optimal bin width
+            from the input data. Defaults to 'scott'.
+
+        fsky : float, default=1
+            The sky area fraction, which is used in the volume calculation when normalizing :math:`n(z)`.
+            ``1`` corresponds to full-sky: :math:`4 \pi` or :math:`\simeq 41253\; \mathrm{deg}^{2}`.
+
+        radial_distance : callable, default=None
+            Radial distance to use when converting redshifts into comoving distance.
+            If ``None``, ``redshifts`` and optionally ``bins`` are assumed to be in distance units.
+
+        interp_order : int, default=1
+            Interpolation order, e.g. ``1`` for linear interpolation, ``3`` for cubic splines.
         """
         def zrange(redshifts):
             if self.is_mpi_scattered():
@@ -104,31 +161,38 @@ class RedshiftDensityInterpolator(ScatteredBaseClass):
         self.spline = interpolate.UnivariateSpline(self.z,self.density,k=interp_order,s=0)
 
     def __call__(self, z):
+        """Return density at redshift ``z`` (scalar or array)."""
         return self.spline(z)
 
 
 def distance(position):
+    """Return cartesian distance, taking coordinates along ``position`` last axis."""
     return np.sqrt((position**2).sum(axis=-1))
 
 
 def cartesian_to_sky(position, wrap=True, degree=True):
-    """Transform cartesian coordinates into distance, RA, Dec.
+    r"""
+    Transform cartesian coordinates into distance, RA, Dec.
 
     Parameters
     ----------
     position : array of shape (N,3)
-        position in cartesian coordinates.
-    wrap : bool, optional
-        whether to wrap ra into [0,2*pi]
-    degree : bool, optional
-        whether RA, Dec are in degree (True) or radian (False).
+        Position in cartesian coordinates.
+
+    wrap : bool, default=True
+        Whether to wrap RA in :math:`[0, 2 \pi]`.
+
+    degree : bool, default=True
+        Whether RA, Dec are in degree (``True``) or radian (``False``).
 
     Returns
     -------
     dist : array
-        distance.
+        Distance.
+
     ra : array
         RA.
+
     dec : array
         Dec.
     """
@@ -141,20 +205,25 @@ def cartesian_to_sky(position, wrap=True, degree=True):
 
 
 def sky_to_cartesian(dist, ra, dec, degree=True, dtype=None):
-    """Transform distance, RA, Dec into cartesian coordinates.
+    """
+    Transform distance, RA, Dec into cartesian coordinates.
 
     Parameters
     ----------
     dist : array
-        distance.
+        Distance.
+
     ra : array
         RA.
+
     dec : array
         Dec.
-    degree : bool
-        whether RA, Dec are in degree (True) or radian (False).
-    dtype : dtype, optional
-        return array dtype.
+
+    degree : default=True
+        Whether RA, Dec are in degree (``True``) or radian (``False``).
+
+    dtype : numpy.dtype, default=None
+        :class:`numpy.dtype` for returned array.
 
     Returns
     -------

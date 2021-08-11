@@ -20,6 +20,10 @@ options:
     type: bool
     default: None
     description: do not add Gaussian noise and set to mean provided with the covariance matrix?
+  mean_load:
+    type: [bool, string]
+    default: False
+    description: if ``True`` or (section, name), take the mean from corresponding data_block entry (instead of using covariance matrix mean)
   save:
     type: string
     default: None

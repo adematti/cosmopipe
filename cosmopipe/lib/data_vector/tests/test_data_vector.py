@@ -14,7 +14,7 @@ data_fn = os.path.join(data_dir,'_data_{:d}.txt')
 covariance_fn = os.path.join(data_dir,'covariance.txt')
 
 
-def make_data_covariance(data_fn=data_fn,covariance_fn=covariance_fn,proj=None,ndata=30,shotnoise=3000.,seed=42):
+def make_data_covariance(data_fn=data_fn, covariance_fn=covariance_fn, proj=None, ndata=30, shotnoise=3000., seed=42, covfmt='index'):
     utils.mkdir(os.path.dirname(data_fn))
     utils.mkdir(os.path.dirname(covariance_fn))
     x = np.linspace(0.01,0.2,5)
@@ -35,10 +35,17 @@ def make_data_covariance(data_fn=data_fn,covariance_fn=covariance_fn,proj=None,n
     cov = MockCovarianceMatrix.from_data(list_data)
     with open(covariance_fn,'w') as file:
         file.write('#Nobs: {:d}\n'.format(ndata))
-        template = '{:d} {:d} {:.18e}\n'
-        for i in range(cov.shape[0]):
-            for j in range(cov.shape[1]):
-                file.write(template.format(i,j,cov._cov[i,j]))
+        if covfmt == 'index':
+            template = '{:d} {:d} {:.18e}\n'
+            for i in range(cov.shape[0]):
+                for j in range(cov.shape[1]):
+                    file.write(template.format(i,j,cov._cov[i,j]))
+        else:
+            template = '{:.18e} {:.18e} {:.18e}\n'
+            x = cov.get_x(concatenate=True)[0]
+            for i in range(cov.shape[0]):
+                for j in range(cov.shape[1]):
+                    file.write(template.format(x[i],x[j],cov._cov[i,j]))
     return list_data,cov
 
 
@@ -66,6 +73,7 @@ def test_multipole_data_vector():
     data2.noview()
     assert np.all(data2.get_y(proj='ell_2') == data.get_y(proj='ell_2'))
     assert data.attrs['shotnoise'] == shotnoise
+    data.view(xlim=(0.01,0.2))
     filename = os.path.join(data_dir,'data.txt')
     data.save_txt(filename)
     data2 = DataVector.load_txt(filename)
@@ -79,6 +87,7 @@ def test_multipole_data_vector():
     data = DataVector.load_txt(data_fn.format(0),mapping_header=mapping_header)
     assert np.allclose(data.get_x(),list_data[0].get_x())
     assert data.attrs['shotnoise'] == 3000.
+    data.view(xlim=(0.1,0.2))
     filename = os.path.join(data_dir,'data.npy')
     data.save(filename)
     data2 = DataVector.load(filename)
@@ -92,7 +101,6 @@ def test_multipole_data_vector():
 
 
 def test_multipole_covariance_matrix():
-
     proj = ['ell_0','ell_2','ell_4']
     list_data,cov_ref = make_data_covariance(ndata=60,proj=proj)
 
@@ -130,6 +138,20 @@ def test_multipole_covariance_matrix():
     filename = os.path.join(data_dir,'plot_covariance_0.png')
     cov.plot(filename=filename,data_styles='power')
 
+    cov.view(xlim=(0.1,0.15))
+    filename = os.path.join(data_dir,'covariance_view.txt')
+    cov.save_txt(filename)
+    cov = CovarianceMatrix.load_txt(filename)
+
+    assert cov.get_x()[0][0].min() > 0.1
+
+
+def test_mock_challenge_covariance():
+    proj = ['ell_0','ell_2','ell_4']
+    list_data,cov_ref = make_data_covariance(ndata=60,proj=proj,covfmt='x')
+    cov = CovarianceMatrix.load_txt(covariance_fn,mapping_proj=proj)
+    assert np.allclose(cov.get_cov(),cov_ref.get_cov())
+
 
 def test_mock_data_vector():
     cov = make_data_covariance(ndata=60,proj=['ell_0','ell_2'])[1]
@@ -138,6 +160,9 @@ def test_mock_data_vector():
     assert np.allclose(data.get_y(),cov.x[0].get_y())
     data = MockDataVector(cov,seed=42)
     assert not np.allclose(data.get_y(),cov.x[0].get_y())
+    filename = os.path.join(data_dir,'data.txt')
+    data.save_txt(filename)
+    assert DataVector.load_txt(filename).__class__ is MockDataVector
 
 
 def test_plotting():
@@ -192,10 +217,10 @@ def test_set_y():
     #print(data.kwview)
 
 
-
 if __name__ == '__main__':
 
     setup_logging()
+
     test_misc()
     test_multipole_data_vector()
     test_muwedge_data_vector()
@@ -203,3 +228,4 @@ if __name__ == '__main__':
     test_set_y()
     test_plotting()
     test_multipole_covariance_matrix()
+    test_mock_challenge_covariance()

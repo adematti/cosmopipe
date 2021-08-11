@@ -80,10 +80,10 @@ class BoxCorrelationFunction(BaseModule):
                                 R1R2=None,
                                 position='position',weight='weight',BoxSize=BoxSize,
                                 **self.correlation_options)
-        args = []
+        pairs = {}
         for name in ['D1D2','R1R2']:
             pc = getattr(result,name)
-            args.append(PairCount(wnpairs=pc['wnpairs'],total_wnpairs=pc.attrs['total_wnpairs']))
+            pairs[name] = PairCount(wnpairs=pc['wnpairs'],total_wnpairs=pc.attrs['total_wnpairs'])
         edges = {dim:result.corr.edges[dim] for dim in result.corr.dims}
         default_sep = np.meshgrid(*[(edges[dim][1:] + edges[dim][:-1])/2. for dim in result.corr.dims],indexing='ij')
         sep = {}
@@ -93,7 +93,7 @@ class BoxCorrelationFunction(BaseModule):
             else: s = default_sep[idim]
             sep[dim] = s
         result.attrs.pop('edges')
-        estimator = NaturalEstimator(*args,data=sep,x=tuple(result.corr.dims),edges=edges,attrs=result.attrs)
+        estimator = NaturalEstimator(**pairs,data=sep,dims=list(result.corr.dims),edges=edges,attrs=result.attrs)
         data_vector = self.build_data_vector(estimator)
         if self.save: data_vector.save_auto(self.save)
         self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + data_vector

@@ -17,7 +17,7 @@ class MinuitProfiler(BasePipeline):
     logger = logging.getLogger('MinuitProfiler')
 
     def setup(self):
-        self.migrad_params = self.options.get('migrad',{})
+        self.migrad_params = self.options.get('migrad',{}).copy() # because of later pop('n_iterations')
         self.minos_params = self.options.get('minos',{})
         self.torun = self.options.get('torun',None)
         if self.torun is None:
@@ -30,10 +30,11 @@ class MinuitProfiler(BasePipeline):
         self.save = self.options.get('save',False)
         self.seed = self.options.get('seed',None)
 
-    def execute(self):
         super(MinuitProfiler,self).setup()
-        minuit_params = {}
         self.parameters = self.pipe_block[section_names.parameters,'list']
+
+    def execute(self):
+        minuit_params = {}
         minuit_params['name'] = parameter_names = [str(param.name) for param in self.parameters]
         self._data_block = self.data_block.copy().mpi_distribute(dests=range(self.mpicomm.size),mpicomm=mpi.COMM_SELF)
 
@@ -45,8 +46,12 @@ class MinuitProfiler(BasePipeline):
 
         profiles = Profiles(parameters=self.parameters)
         if 'migrad' in self.torun:
+
             if self.n_iterations is None:
                 self.n_iterations = self.mpicomm.size
+
+            self.log_info('Running migrad for {:d} iterations.'.format(self.n_iterations),rank=0)
+
             seeds = mpi.bcast_seed(self.seed,mpicomm=self.mpicomm,size=self.n_iterations)
 
             def get_result(seed):
@@ -85,9 +90,11 @@ class MinuitProfiler(BasePipeline):
             profiles.set_covariance(results[ibest]['covariance'])
 
         #if self.profiles_key:
-        #    profiles = self.data_block[self.profiles_key].append(profiles)
+        #    profiles = self.data_block[self.profiles_key].extend(profiles)
 
         if 'minos' in self.torun:
+
+            self.log_info('Running minos.',rank=0)
 
             if 'migrad' not in self.torun:
                 if not hasattr('profiles','bestfit'):
@@ -135,7 +142,7 @@ def get_minuit_values(parameters, sample=True):
     toret = []
     for param in parameters:
         name = str(param.name)
-        if sample and (not param.fixed) and param.ref.is_proper():
+        if sample and param.varied and param.ref.is_proper():
             toret.append(param.ref.sample())
         else:
             toret.append(param.value)
@@ -145,7 +152,7 @@ def get_minuit_values(parameters, sample=True):
 def get_minuit_fixed(parameters):
     toret = {}
     for param in parameters:
-        toret[str(param.name)] = param.fixed
+        toret[str(param.name)] = not param.varied
     return toret
 
 

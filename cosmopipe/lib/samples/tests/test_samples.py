@@ -22,8 +22,9 @@ def get_chains(parameters, n=4, size=4000):
         diff = array-mean
         samples = Samples.from_array(array.T,columns=parameters,mpistate='broadcast')
         samples['metrics','logposterior'] = -1./2.*np.sum(diff.dot(invcov)*diff,axis=-1)
-        for par in parameters:
+        for ipar,par in enumerate(parameters):
             samples.parameters[par].fixed = False
+            samples.parameters[par].value = mean[ipar]
         chains.append(samples)
     return mean,cov,chains
 
@@ -51,7 +52,7 @@ def test_plotting():
     mean,cov,chains = get_chains(parameters,n=4,size=4000)
 
     for chains in iterate_mpi(chains):
-        for method in ['histo','cic','gaussian_kde']:
+        for method in ['histo','cic','gaussian_kde'][:1]:
             style = SamplesPlotStyle(kwplt_2d={'method':method})
             style.plot_1d(chains=chains[0],parameter='parameters.a',filename=os.path.join(plot_dir,'pdf_{}_a.png'.format(method)))
             style.plot_2d(chains=chains[0],parameters=['parameters.a','parameters.b'],truths=mean[:2],filename=os.path.join(plot_dir,'pdf_{}_ab.png'.format(method)))
@@ -65,10 +66,10 @@ def test_plotting():
             style.savefig(filename=os.path.join(plot_dir,'pdfg_{}_ab.png'.format(method)))
             style.fills = [True,False]
             fig,dax = style.plot_corner(chains=chains[:2],parameters=parameters,truths=mean,labels=['1','2'])
+            #fig,dax = style.plot_corner(chains=chains[:2],truths='value',labels=['1','2'])
             plot_normal_1d(dax['parameters.a'],mean=mean[0],covariance=cov[0,0],color='g')
             plot_normal_2d(dax['parameters.a','parameters.b'],mean=mean[:2],covariance=cov[:2,:2],colors='g')
             style.savefig(filename=os.path.join(plot_dir,'cornerg_{}.png'.format(method)),fig=fig)
-
         style = SamplesPlotStyle()
         style.plot_chain(chains[0],parameters=['parameters.a'],filename=os.path.join(plot_dir,'chain_a.png'))
         style.plot_chain(chains[0],filename=os.path.join(plot_dir,'chain_all.png'))

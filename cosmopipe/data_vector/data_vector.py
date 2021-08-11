@@ -5,18 +5,17 @@ from cosmopipe import section_names
 from cosmopipe.lib import syntax, data_vector
 
 
-def get_data_from_options(options, data_block=None):
-    data_load = options['data_load']
-    kwargs = dict(comments='#',usecols=None,skip_rows=0,max_rows=None,mapping_header=None,mapping_proj=None,attrs=None)
-    for name,value in kwargs.items():
-        kwargs[name] = options.get(name,value)
-    data = syntax.load_auto(data_load,data_block=data_block,default_section=section_names.data,loader=data_vector.DataVector.load_auto,squeeze=True,**kwargs)
-    projs = options.get('projs',{})
-    for projname in projs:
-        for proj in data.projs:
-            if proj.name == projname:
-                proj.set(**projs[projname])
-    apply = options.get('apply',[])
+def update_data_projs(projs, updates):
+    if not isinstance(updates,list):
+        updates = [updates]
+    for update in updates:
+        update = update.copy()
+        select = update.pop('select',{})
+        for proj in projs.select(**select):
+            proj.set(**update)
+
+
+def apply_data(data, apply):
     for apply_ in apply:
         for key,value in apply_.items():
             value = value.copy()
@@ -30,6 +29,15 @@ def get_data_from_options(options, data_block=None):
                         data.set(dataproj)
                 elif toret is not None:
                     data.set(toret)
+
+
+def get_data_from_options(options, data_load, data_block=None, default_section=section_names.data, loader=data_vector.DataVector.load_auto):
+    kwargs = dict(comments='#',usecols=None,skip_rows=0,max_rows=None,mapping_header=None,mapping_proj=None,attrs=None)
+    for name,value in kwargs.items():
+        kwargs[name] = options.get(name,value)
+    data = syntax.load_auto(data_load,data_block=data_block,default_section=default_section,loader=loader,squeeze=True,**kwargs)
+    update_data_projs(data.projs,options.get('projs_attrs',[]))
+    apply_data(data,options.get('apply',[]))
     return data
 
 
@@ -47,10 +55,13 @@ def get_kwview(data, xlim=None):
 class DataVector(object):
 
     def setup(self):
-        data = get_data_from_options(self.options,data_block=self.data_block)
-        self.data = data.view(**get_kwview(data,xlim=self.options.get('xlim',None)))
-        self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + self.data
-        self.data_block[section_names.data,'y'] = self.data_block[section_names.data,'data_vector'].get_y()
+        self.data_vector = get_data_from_options(self.options,data_load=self.options['data_load'],data_block=self.data_block)
+        self.data_vector = self.data_vector.view(**get_kwview(self.data_vector,xlim=self.options.get('xlim',None)))
+        data_vector = self.data_block.get(section_names.data,'data_vector',[])
+        data_vector += self.data_vector
+        self.data_block[section_names.data,'data_vector'] = data_vector
+        self.data_block[section_names.data,'y'] = data_vector.get_y()
+        #print(self.data.get_x())
 
     def execute(self):
         pass

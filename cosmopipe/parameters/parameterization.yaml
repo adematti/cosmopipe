@@ -1,0 +1,21 @@
+name: Parameterization
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Set up parameters, with default values, priors and reference distributions
+
+options:
+  base_parameters:
+    type: dict
+    default: {}
+    description: common parameters, to be shared between all modules
+  update_parameters:
+    type: dict
+    default: {}
+    description: update base parameters
+
+setup output:
+  parameters.list:
+    type: cosmopipe.lib.ParameterCollection
+    description: list of parameters

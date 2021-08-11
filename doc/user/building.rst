@@ -106,7 +106,7 @@ In interactive mode::
   For further information on shifter, see `shifter docs`_.
 
 References
-==========
+----------
 
 .. target-notes::
 

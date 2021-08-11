@@ -1,3 +1,5 @@
+"""Utilities to plot likelihood samples and profiles."""
+
 import numpy as np
 
 from matplotlib import pyplot as plt
@@ -5,29 +7,42 @@ from matplotlib import gridspec, patches
 from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
 from cosmopipe.lib import plotting, utils
-from cosmopipe.lib.parameter import ParamBlock, Parameter
+from cosmopipe.lib.parameter import ParameterCollection, Parameter
 
 from .mesh import Mesh
 from .samples import Samples
 from .profiles import Profiles
-from .utils import *
+from .utils import nsigmas_to_quantiles_1d_sym, nsigmas_to_deltachi2
 
 
 def lighten_color(color, amount=0.5):
-    """Lightens the given color by multiplying (1-luminosity) by the given amount.
-    Input can be matplotlib color string, hex string, or RGB tuple.
+    """
+    Lightens the given color by multiplying 1-luminosity by the given amount ``amount``.
 
-    Examples:
-    >> lighten_color('g', 0.3)
-    >> lighten_color('#F034A3', 0.6)
-    >> lighten_color((.3,.55,.1), 0.5)
+    Taken from https://stackoverflow.com/questions/37765197/darken-or-lighten-a-color-in-matplotlib
 
+    >>> lighten_color('g', 0.3)
+    >>> lighten_color('#F034A3', 0.6)
+    >>> lighten_color((.3,.55,.1), 0.5)
+
+    Parameters
+    ----------
+    color : string, tuple
+         *matplotlib* color string, hex string, or RGB tuple.
+
+    amount : float, default=0.5
+        Positive number ligthens color, negative darkens color.
+
+    Returns
+    -------
+    color : tuple
+        RGB tuple.
     """
     import matplotlib.colors as mc
     import colorsys
     try:
         c = mc.cnames[color]
-    except:
+    except KeyError:
         c = color
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     lum = 1 - amount * (1 - c[1]) if amount > 0 else - amount * c[1]
@@ -35,6 +50,25 @@ def lighten_color(color, amount=0.5):
 
 
 def get_color_sequence(colors, ncolors=1, lighten=-0.5):
+    """
+    Return list of colors of varying luminosity.
+
+    Parameters
+    ----------
+    colors : list, string, tuple
+        Single or list of colors to start sequence with.
+
+    ncolors : int, default=1
+        Number of colors to return.
+
+    lighten : float, default=-0.5
+        Positive number ligthens colors, negative darkens colors.
+
+    Returns
+    -------
+    colors : list
+        List of RGB colors (tuples).
+    """
     toret = []
     if isinstance(colors,list):
         toret += colors
@@ -44,14 +78,47 @@ def get_color_sequence(colors, ncolors=1, lighten=-0.5):
     return toret
 
 
-def plot_samples_1d(ax, samples, parameter, normalise='max', method='gaussian_kde', bins=60, **kwargs):
+def plot_samples_1d(ax, samples, parameter, normalize='max', method='gaussian_kde', bins=60, **kwargs):
+    """
+    Plot 1D samples for parameter.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes where to plot samples.
+
+    samples : Samples
+        Samples to plot.
+
+    parameter : Parameter, ParamName
+        Parameter to plot samples for.
+
+    normalize : string, default='max'
+        How to normalize 1D distribution.
+        Use 'max' to set maximum at 1 (most common),
+        else distribution will be normalized as probability density (integral of 1).
+
+    method : string
+        Method to interpolate samples on mesh, either:
+
+        - 'gaussian_kde': Gaussian kernel density estimation, based on :class:`scipy.stats.gaussian_kde`
+        - 'cic' : Cloud-in-Cell assignment
+        - 'histo' : simple binning.
+
+    bins : int, default=60
+        Number of bins i.e. mesh nodes to use.
+
+    kwargs : dict
+        Arguments for :meth:`matplotlib.axes.Axes.hist` if ``method`` is ``'histo'``,
+        else for :meth:`matplotlib.axes.Axes.plot`.
+    """
     ax.set_ylim(bottom=0)
     if not isinstance(samples,Mesh):
         mesh = samples.to_mesh([parameter],method=method,bins=bins)
     else:
         mesh = samples
     x,pdf = mesh([parameter])
-    if normalise == 'max': pdf /= pdf.max()
+    if normalize == 'max': pdf /= pdf.max()
     if method == 'histo':
         ax.hist(x,bins=mesh.edges[0],weights=pdf,density=False,**kwargs)
     else:
@@ -59,9 +126,57 @@ def plot_samples_1d(ax, samples, parameter, normalise='max', method='gaussian_kd
 
 
 def plot_samples_2d(ax, samples, parameters, sigmas=2, method='gaussian_kde', scatter=False, bins=60, colors=None, fill=True, lighten=-0.5, **kwargs):
+    """
+    Plot 2D samples for parameter.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes where to plot samples.
+
+    samples : Samples
+        Samples to plot.
+
+    parameter : tuple, list, ParameterCollection
+        The two parameters to plot samples for.
+
+    sigmas : int, list, array, default=2
+        Sigma levels to plot. If scalar, plot levels up to (including) ``sigmas``.
+
+    method : string
+        Method to interpolate samples on mesh, either:
+
+        - 'gaussian_kde': Gaussian kernel density estimation, based on :class:`scipy.stats.gaussian_kde`
+        - 'cic' : Cloud-in-Cell assignment
+        - 'histo' : simple binning.
+
+    scatter : bool, string, default=False
+        Whether to plot samples as points.
+        If ``'only'``, plot only points (and not contours).
+
+    bins : int, default=60
+        Number of bins i.e. mesh nodes to use.
+
+    colors : list, string, tuple
+        Single or list of colors.
+        This list is extended to the number of required ``sigmas`` with ``ligthen``.
+
+    fill : bool, default=True
+        Whether to fill contours.
+
+    lighten : float, default=-0.5
+        Positive number ligthens colors, negative darkens colors.
+
+    kwargs : dict
+        Arguments for :meth:`matplotlib.axes.Axes.contourf` if ``fill`` is ``True``,
+        else for :meth:`matplotlib.axes.Axes.coutour`.
+    """
+    parameters = list(parameters)
     if scatter:
+        # scatter plot
         ax.scatter(samples[parameters[0]],samples[parameters[1]],**kwargs)
-        if scatter == 'only': return
+        if scatter == 'only': return # only scatter plot
+    # contour plot
     if not isinstance(samples,Mesh):
         mesh = samples.to_mesh(parameters,method=method,bins=bins)
     else:
@@ -80,7 +195,31 @@ def plot_samples_2d(ax, samples, parameters, sigmas=2, method='gaussian_kde', sc
 
 
 def plot_normal_1d(ax, mean=0., covariance=1., lim=None, normalize='max', **kwargs):
+    """
+    Plot 1D normal distribution.
 
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes where to plot distribution.
+
+    mean : float, default=0
+        Distribution mean.
+
+    covariance : float, default=1
+        Distribution covariance.
+
+    lim : tuple, default=None
+        x-limits. Defaults to current ``ax`` limits.
+
+    normalize : string, default='max'
+        How to normalize 1D distribution.
+        Use 'max' to set maximum at 1 (most common),
+        else distribution will be normalized as probability density (integral of 1).
+
+    kwargs : dict
+        Arguments for :meth:`matplotlib.axes.Axes.plot`.
+    """
     if lim is None: lim = ax.get_xlim()
     x = np.linspace(*lim,num=1000)
     y = np.exp(-(x-mean)**2/2./covariance)
@@ -89,7 +228,35 @@ def plot_normal_1d(ax, mean=0., covariance=1., lim=None, normalize='max', **kwar
 
 
 def plot_contour_2d(ax, contours, sigmas=2, colors=None, fill=False, lighten=-0.5, **kwargs):
+    """
+    Plot 2D contours.
 
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes where to plot contours.
+
+    contours : tuple, list, array
+        List (or tuple) or arrays with x and y coordinates along first axis forming a contour in the x-y plane.
+        Such array must be given for each confidence level.
+
+    sigmas : int, list, array, default=2
+        Sigma levels to plot. If scalar, plot levels up to (including) ``sigmas``.
+
+    colors : list, string, tuple
+        Single or list of colors.
+        This list is extended to the number of required ``sigmas`` with ``ligthen``.
+
+    fill : bool, default=True
+        Whether to fill contours.
+
+    lighten : float, default=-0.5
+        Positive number ligthens colors, negative darkens colors.
+
+    kwargs : dict
+        Arguments for :meth:`matplotlib.axes.Axes.fill` if ``fill`` is ``True``,
+        else for :meth:`matplotlib.axes.Axes.plot`.
+    """
     if not isinstance(contours,(tuple,list)):
         contours = [contours]
     nsigmas = len(contours)
@@ -104,16 +271,39 @@ def plot_contour_2d(ax, contours, sigmas=2, colors=None, fill=False, lighten=-0.
         else: ax.plot(x,y,color=color,**kwargs)
 
 
-def plot_normal_2d(ax, mean=None, covariance=None, sigmas=2, **kwargs):
+def plot_normal_2d(ax, mean=0, covariance=1., sigmas=2, **kwargs):
+    r"""
+    Plot 2D normal distribution.
 
-    if np.isscalar(sigmas): sigmas = 1 + np.arange(sigmas)
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes where to plot distribution.
+
+    mean : float, array, default=0
+        Distribution mean. If array, must be 1D.
+
+    covariance : float, array, default=None
+        Distribution covariance.
+        If 1D array, must contain :math:`(\sigma_{xx}, \sigma_{yy}, \sigma_{xy})`
+        If 2D array, covariance matrix.
+
+    kwargs : dict
+        Arguments for :func:`plot_contour_2d`.
+    """
+    if np.ndim(sigmas) == 0: sigmas = 1 + np.arange(sigmas)
 
     radii = np.sqrt(nsigmas_to_deltachi2(sigmas,ndof=2))
     t = np.linspace(0.,2.*np.pi,1000,endpoint=False)
     ct = np.cos(t)
     st = np.sin(t)
+    mean_ = np.zeros(2,dtype='f8')
+    mean_[:] = mean
     covariance = np.array(covariance)
-    if covariance.size == 3:
+    if covariance.size <= 1:
+        sigx2 = sigy2 = covariance.flat[0]
+        sigxy = 0.
+    elif covariance.size == 3:
         sigx2,sigy2,sigxy = covariance
     else:
         sigx2,sigy2,sigxy = [covariance[i,j] for i,j in [(0,0),(1,1),(0,1)]]
@@ -123,16 +313,22 @@ def plot_normal_2d(ax, mean=None, covariance=None, sigmas=2, **kwargs):
         a = radius * np.sqrt(0.5 * (sigx2 + sigy2) + np.sqrt(0.25 * (sigx2 - sigy2)**2. + sigxy**2.))
         b = radius * np.sqrt(0.5 * (sigx2 + sigy2) - np.sqrt(0.25 * (sigx2 - sigy2)**2. + sigxy**2.))
         th = 0.5 * np.arctan2(2. * sigxy, sigx2 - sigy2)
-        x = mean[0] + a * ct * np.cos(th) - b * st * np.sin(th)
-        y = mean[1] + a * ct * np.sin(th) + b * st * np.cos(th)
+        x = mean_[0] + a * ct * np.cos(th) - b * st * np.sin(th)
+        y = mean_[1] + a * ct * np.sin(th) + b * st * np.cos(th)
         contours.append((x,y))
 
     plot_contour_2d(ax, contours, **kwargs)
 
 
-class ListPlotStyle(plotting.BasePlotStyle):
+class ParameterPlotStyle(plotting.BasePlotStyle):
+
+    """Base plotting class for parameter values."""
 
     def get_color(self, label, labels=None):
+        """
+        Return color corresponding to label ``label``.
+        If :attr:`colors` is a list, return color at index of ``label`` in list of labels ``labels``.
+        """
         if labels is None:
             labels = self.labels
             index = self.labels.index(label)
@@ -151,10 +347,29 @@ class ListPlotStyle(plotting.BasePlotStyle):
 
     @staticmethod
     def get_parameters(parameters, chains=None):
-        isscalar = not isinstance(parameters,(tuple,list,ParamBlock))
+        """
+        Return parameters.
+
+        Parameters
+        ----------
+        parameters : tuple, list, ParameterCollection
+            List of parameter (names).
+            If parameter name, get the xorresponding parameter in the first element in ``chains`` that contains this parameter.
+
+        chains : list
+            List of classes with ``parameters`` attribute.
+
+        Returns
+        -------
+        toret : Parameter, ParameterCollection
+            Return single parameter if ``parameters`` is a single parameter (name).
+        """
+        if parameters is None:
+            raise ValueError('Please provide parameter(s)')
+        isscalar = not isinstance(parameters,(tuple,list,ParameterCollection))
         if isscalar:
             parameters = [parameters]
-        toret = ParamBlock(parameters)
+        toret = ParameterCollection(parameters)
         if chains is None:
             if isscalar:
                 return toret[0]
@@ -162,9 +377,9 @@ class ListPlotStyle(plotting.BasePlotStyle):
         elif not isinstance(chains,(tuple,list)):
             chains = [chains]
         for iparam,param in enumerate(toret):
-            if isinstance(parameters[iparam],Parameter):
+            if isinstance(parameters[iparam],Parameter): # keep input parameter
                 continue
-            for ichain,chain in enumerate(chains):
+            for ichain,chain in enumerate(chains): # if input was not parameter, take it from chains
                 if param.name in chain.parameters:
                     toret[iparam] = chain.parameters[param.name]
                     break
@@ -172,8 +387,26 @@ class ListPlotStyle(plotting.BasePlotStyle):
             return toret[0]
         return toret
 
-    def get_default_truths(self, truths, parameters):
-        isscalar = not isinstance(parameters,(tuple,list,ParamBlock))
+    def get_default_truths(self, parameters, truths=None):
+        """
+        Return default truth / reference values for parameters.
+
+        Parameters
+        ----------
+        parameters : Parameter, tuple, list, ParameterCollection
+            Parameters to return truth values for.
+
+        truths : list, default=None
+            List of truth values.
+            If ``None``, return :attr:`truths` if exists, else set all truths to ``None``.
+            If ``'value'``, return list of :attr:`Parameter.value`.
+
+        Returns
+        -------
+        truths : float, list
+            Return single value if ``parameters`` is a single parameter.
+        """
+        isscalar = not isinstance(parameters,(tuple,list,ParameterCollection))
         if isscalar:
             truths = [truths]
             parameters = [parameters]
@@ -184,9 +417,25 @@ class ListPlotStyle(plotting.BasePlotStyle):
         return toret
 
 
-class SamplesPlotStyle(ListPlotStyle):
-
+class SamplesPlotStyle(ParameterPlotStyle):
+    """
+    Plotting style for samples.
+    It holds default attributes (:attr:`truths`, :attr:`colors`, etc.)
+    that can be set at initialization (``style = SamplesPlotStyle(colors='r')``) or at any
+    time using :meth:`update`.
+    """
     def __init__(self, style=None, **kwargs):
+        """
+        Initialize :class:`SamplesPlotStyle`.
+
+        Parameters
+        ----------
+        style : SamplesPlotStyle, default=None
+            A plotting style to start from, which will be updated with ``kwargs``.
+
+        kwargs : dict
+            Attributes for :class:`SamplesPlotStyle`.
+        """
         super(SamplesPlotStyle,self).__init__(style=style)
         self.figsize = None
         self.title = None
@@ -211,16 +460,46 @@ class SamplesPlotStyle(ListPlotStyle):
 
     @staticmethod
     def get_default_parameters(parameters, samples):
+        """If parameters is ``None``, return varied parameters from ``samples``."""
         if parameters is None:
-            parameters = samples.columns(fixed=False)
+            parameters = samples.columns(varied=True)
         return parameters
 
     def plot_1d(self, chains=None, parameter=None, labels=None, truth=None, ax=None, filename=None):
+        """
+        Plot 1D distribution of samples.
+
+        Parameters
+        ----------
+        chains : list, default=None
+            List of :class:`Samples` instances.
+            Defaults to :attr:`chains`.
+
+        parameter : Parameter, ParamName, string, tuple
+            Parameter name.
+
+        labels : list, string
+            Label(s) for input chains.
+
+        truth : float, string, default=None
+            Plot this truth / reference value for parameter.
+            If ``'value'``, take :attr:`Parameter.value`.
+
+        ax : matplotlib.axes.Axes, default=None
+            Axes where to plot samples. If ``None``, takes current axes.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        Returns
+        -------
+        ax : matplotlib.axes.Axes
+        """
         tosave = ax is None
         if tosave: ax = plt.gca()
         chains = self.get_list('chains',chains)
         parameter = self.get_parameters(parameter,chains=chains)
-        truth = self.get_default_truths(truth,parameter)
+        truth = self.get_default_truths(parameter,truth)
         labels = self.get_list('labels',labels,[getattr(chain,'name',None) for chain in chains])
         add_legend = any(label is not None for label in labels)
         for ichain,(chain,label) in enumerate(zip(chains,labels)):
@@ -241,11 +520,40 @@ class SamplesPlotStyle(ListPlotStyle):
         return ax
 
     def plot_2d(self, chains=None, parameters=None, labels=None, truths=None, ax=None, filename=None):
+        """
+        Plot 2D distribution of samples.
+
+        Parameters
+        ----------
+        chains : list, default=None
+            List of :class:`Samples` instances.
+            Defaults to :attr:`chains`.
+
+        parameters : tuple, list, ParameterCollection
+            The two parameter name(s).
+
+        labels : list, string
+            Label(s) for input chains.
+
+        truths : list, default=None
+            Plot this truths / reference values for parameters.
+            See :meth:`get_default_truths`.
+
+        ax : matplotlib.axes.Axes, default=None
+            Axes where to plot samples. If ``None``, takes current axes.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        Returns
+        -------
+        ax : matplotlib.axes.Axes
+        """
         tosave = ax is None
         if tosave: ax = plt.gca()
         chains = self.get_list('chains',chains)
         parameters = self.get_parameters(parameters,chains=chains)
-        truths = self.get_default_truths(truths,parameters)
+        truths = self.get_default_truths(parameters,truths)
         labels = self.get_list('labels',labels,[getattr(chain,'name',None) for chain in chains])
         fills = self.get_list('fills',default=[True]*len(chains))
         handles = []
@@ -266,10 +574,41 @@ class SamplesPlotStyle(ListPlotStyle):
         return ax
 
     def plot_corner(self, chains=None, parameters=None, labels=None, truths=None, filename=None):
+        """
+        Make corner plot.
+
+        Parameters
+        ----------
+        chains : list, default=None
+            List of :class:`Samples` instances.
+            Defaults to :attr:`chains`.
+
+        parameters : list, ParameterCollection
+            The parameter names.
+
+        labels : list, string
+            Label(s) for input chains.
+
+        truths : list, default=None
+            Plot this truths / reference values for parameters.
+            See :meth:`get_default_truths`.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            Figure.
+
+        dax : dict
+            Dictionary of :class:`ParamName` and to :class:`matplotlib.axes.Axes`:
+            name: axes for 1D plots and (name1, name2): axes for 2D plots.
+        """
         chains = self.get_list('chains',chains)
         parameters = self.get_default_parameters(parameters,chains[0])
         parameters = self.get_parameters(parameters,chains=chains)
-        truths = self.get_default_truths(truths,parameters)
+        truths = self.get_default_truths(parameters,truths)
         labels = self.get_list('labels',labels,[getattr(chain,'name',None) for chain in chains])
         handles = []
         add_legend = any(label is not None for label in labels)
@@ -319,9 +658,31 @@ class SamplesPlotStyle(ListPlotStyle):
 
         filename = filename or self.filename
         if filename: self.savefig(filename)
-        return fig,dax
+        return fig, dax
 
     def plot_chain(self, chain, parameters=None, filename=None):
+        """
+        Make trace plot.
+
+        Parameters
+        ----------
+        chain : Samples
+            Samples to plot.
+
+        parameters : list, ParameterCollection
+            The parameter names.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            Figure.
+
+        lax : array
+            Array of axes.
+        """
         parameters = self.get_default_parameters(parameters,chain)
         parameters = self.get_parameters(parameters,chains=chain)
         nparams = len(parameters)
@@ -339,9 +700,41 @@ class SamplesPlotStyle(ListPlotStyle):
         lax[-1].set_xlabel('step',fontsize=self.labelsize)
         filename = filename or self.filename
         if filename: self.savefig(filename)
-        return fig,lax
+        return fig, lax
 
     def plot_gelman_rubin(self, chains=None, parameters=None, multivariate=False, threshold=1.1, slices=None, ax=None, filename=None):
+        """
+        Plot Gelman-Rubin statistics.
+
+        Parameters
+        ----------
+        chains : list, default=None
+            List of :class:`Samples` instances.
+            Defaults to :attr:`chains`.
+
+        parameters : list, ParameterCollection
+            The parameter names.
+
+        multivariate : bool, default=False
+            If ``True``, add line for maximum of eigen value of Gelman-Rubin matrix.
+            See :meth:`Samples.gelman_rubin`.
+
+        threshold : float, default=1.1
+            If not ``None``, plot horizontal line at this value.
+
+        slices : list, array
+            List of increasing number of steps to include in calculation of Gelman-Rubin statistics.
+
+        ax : matplotlib.axes.Axes, default=None
+            Axes where to plot samples. If ``None``, takes current axes.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        Returns
+        -------
+        ax : matplotlib.axes.Axes
+        """
         chains = self.get_list('chains',chains)
         parameters = self.get_default_parameters(parameters,chains[0])
         parameters = self.get_parameters(parameters,chains=chains)
@@ -373,6 +766,35 @@ class SamplesPlotStyle(ListPlotStyle):
         return ax
 
     def plot_autocorrelation_time(self, chains=None, parameters=None, threshold=50, slices=None, ax=None, filename=None):
+        r"""
+        Plot integrated autocorrelation time.
+
+        Parameters
+        ----------
+        chains : list, default=None
+            List of :class:`Samples` instances.
+            Defaults to :attr:`chains`.
+
+        parameters : list, ParameterCollection
+            The parameter names.
+
+        threshold : float, default=50
+            If not ``None``, plot :math:`y = x/\mathrm{threshold}` line.
+            Integrated autocorrelation time estimation can be considered reliable when falling under this line.
+
+        slices : list, array
+            List of increasing number of steps to include in calculation of autocorrelation time.
+
+        ax : matplotlib.axes.Axes, default=None
+            Axes where to plot samples. If ``None``, takes current axes.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        Returns
+        -------
+        ax : matplotlib.axes.Axes
+        """
         chains = self.get_list('chains',chains)
         parameters = self.get_default_parameters(parameters,chains[0])
         parameters = self.get_parameters(parameters,chains=chains)
@@ -406,10 +828,25 @@ class SamplesPlotStyle(ListPlotStyle):
         return ax
 
 
-class ProfilesPlotStyle(ListPlotStyle):
-
+class ProfilesPlotStyle(ParameterPlotStyle):
+    """
+    Plotting style for profiles.
+    It holds default attributes (:attr:`truths`, :attr:`colors`, etc.)
+    that can be set at initialization (``style = ProfilesPlotStyle(colors='r')``) or at any
+    time using :meth:`update`.
+    """
     def __init__(self, style=None, **kwargs):
+        """
+        Initialize :class:`ProfilesPlotStyle`.
 
+        Parameters
+        ----------
+        style : ProfilesPlotStyle, default=None
+            A plotting style to start from, which will be updated with ``kwargs``.
+
+        kwargs : dict
+            Attributes for :class:`ProfilesPlotStyle`.
+        """
         super(ProfilesPlotStyle,self).__init__(style=style)
         self.figsize = None
         self.title = None
@@ -441,17 +878,56 @@ class ProfilesPlotStyle(ListPlotStyle):
 
     @staticmethod
     def get_default_parameters(parameters, profiles):
+        """If parameters is ``None``, return varied parameters from ``profiles``."""
         if parameters is None:
-            parameters = profiles.parameters.select(fixed=False)
+            parameters = profiles.parameters.select(varied=True)
         return parameters
 
     def plot_aligned(self, profiles=None, parameter=None, ids=None, labels=None, truth=None, yband=None, ax=None, filename=None):
+        """
+        Plot best fit estimates for single parameter.
 
+        Parameters
+        ----------
+        profiles : list, default=None
+            List of :class:`Profiles` instances.
+            Defaults to :attr:`profiles`.
+
+        parameter : Parameter, ParamName, string, tuple
+            Parameter name.
+
+        ids : list, string
+            Label(s) for input profiles.
+
+        labels : list, string
+            Label(s) for best fits within each :class:`Profiles` instance.
+
+        truth : float, string, default=None
+            Plot this truth / reference value for parameter.
+            If ``'value'``, take :attr:`Parameter.value`.
+
+        yband : float, tuple, default=None
+            If not ``None``, plot horizontal band.
+            If tuple and last element set to ``'abs'``,
+            absolute lower and upper y-coordinates of band;
+            lower and upper fraction around truth.
+            If float, fraction around truth.
+
+        ax : matplotlib.axes.Axes, default=None
+            Axes where to plot profiles. If ``None``, takes current axes.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        Returns
+        -------
+        ax : matplotlib.axes.Axes
+        """
         tosave = ax is None
         if tosave: ax = plt.gca()
         profiles = self.get_list('profiles',profiles)
         parameter = self.get_parameters(parameter,chains=profiles)
-        truth = self.get_default_truths(truth,parameter)
+        truth = self.get_default_truths(parameter,truth)
         if ids is None: ids = [None] * len(profiles)
         maxpoints = max(map(len,profiles))
         labels = self.get_list('labels',labels,[None]*maxpoints)
@@ -476,8 +952,14 @@ class ProfilesPlotStyle(ListPlotStyle):
         if truth is not None:
             ax.axhline(y=truth,xmin=0.,xmax=1.,**self.kwplt_truth)
         if yband is not None:
-            if yband[-1] == 'abs': low,up = yband[0],yband[1]
-            else: low,up = yband*(1-yband[0]),yband*(1+yband[1])
+            if np.ndim(yband) == 0:
+                yband = (yband,yband)
+            if yband[-1] == 'abs':
+                low,up = yband[0],yband[1]
+            else:
+                if truth is None:
+                    raise ValueError('Plotting relative band requires truth value.')
+                low,up = truth*(1-yband[0]),truth*(1+yband[1])
             ax.axhspan(low,up,**self.kwplt_bands)
 
         ax.set_xticks(xmain)
@@ -492,10 +974,49 @@ class ProfilesPlotStyle(ListPlotStyle):
         return ax
 
     def plot_aligned_stacked(self, profiles=None, parameters=None, ids=None, labels=None, truths=None, ybands=None, ylimits=None, filename=None):
+        """
+        Plot best fit estimates for several parameters.
 
+        Parameters
+        ----------
+        profiles : list, default=None
+            List of :class:`Profiles` instances.
+            Defaults to :attr:`profiles`.
+
+        parameters : list, ParameterCollection
+            The parameter names.
+
+        ids : list, string
+            Label(s) for input profiles.
+
+        labels : list, string
+            Label(s) for best fits within each :class:`Profiles` instance.
+
+        truths : list, default=None
+            Plot this truths / reference values for parameters.
+            See :meth:`get_default_truths`.
+
+        ybands : list, default=None
+            If not ``None``, plot horizontal bands.
+            See :meth:`plot_aligned`.
+
+        ylimits : list, default=None
+            If not ``None``, limits  for y axis.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            Figure.
+
+        lax : array
+            Array of axes.
+        """
         profiles = self.get_list('profiles',profiles)
         parameters = self.get_default_parameters(parameters,profiles[0])
-        truths = self.get_default_truths(truths,parameters)
+        truths = self.get_default_truths(parameters,truths)
         ybands = self.get_list('ybands',ybands,[None]*len(parameters))
         ylimits = self.get_list('ylimits',ylimits,[None]*len(parameters))
         maxpoints = max(map(len,profiles))
@@ -520,9 +1041,11 @@ class ProfilesPlotStyle(ListPlotStyle):
 
         filename = filename or self.filename
         if filename: self.savefig(filename)
-        return lax
+        return fig,lax
 
-    def _profiles_to_samples(self, profiles, parameters, select='best', residual='parabolic_errors', truths=None):
+    def _profiles_to_samples(self, profiles, parameters, select='min', residual='parabolic_errors', truths=None):
+        # Turn :class:`Profiles` instances to :class:`Samples`
+        # If residual is not ``None``, divide distance to truth (or mean if truth not provided) by corresponding error.
         profiles = self.get_list('profiles',profiles)
         if isinstance(profiles[0],Samples):
             return profiles
@@ -532,7 +1055,7 @@ class ProfilesPlotStyle(ListPlotStyle):
             toret = Profiles.to_samples(profiles,parameters=parameters,name='bestfit',select=select)
             if residual:
                 for iparam,param in enumerate(parameters):
-                    if truths[iparam] is not None:
+                    if truths is not None and truths[iparam] is not None:
                         toret[param] -= truths[iparam]
                     else:
                         toret[param] -= toret.mean(param)
@@ -552,14 +1075,48 @@ class ProfilesPlotStyle(ListPlotStyle):
 
     @staticmethod
     def _get_label(parameter, residual='parabolic_errors'):
+        # Return label for parameter
+        # If residual, make label as Delta param / sigma_param
         if residual:
             if parameter.latex is not None:
                 return '$\Delta {0}/\sigma({0})$'.format(parameter.latex)
             return '$\Delta$ {0}/sigma({0})'.format(parameter.name)
         return parameter.get_label()
 
-    def plot_1d(self, profiles=None, parameter=None, select='best', residual='parabolic_errors', truth=None, filename=None, **kwargs):
-        truths = [self.get_default_truths(truth,parameter)]
+    def plot_1d(self, profiles=None, parameter=None, select='min', residual='parabolic_errors', truth=None, filename=None, **kwargs):
+        """
+        Plot 1D distribution of best fits.
+
+        Parameters
+        ----------
+        profiles : list, default=None
+            List of :class:`Profiles` instances.
+            Defaults to :attr:`profiles`.
+
+        parameter : Parameter, ParamName, string, tuple
+            Parameter name.
+
+        select : string, default='min'
+            Rule to select the best fit in each :class:`Profiles` instance.
+
+        residual : string, default='parabolic_errors'
+            If not ``None``, divide distance to truth (or mean of truth is ``None``) by this quantity.
+
+        truth : float, string, default=None
+            Plot this truth / reference value for parameter.
+            If ``'value'``, take :attr:`Parameter.value`.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        kwargs : dict
+            Arguments for :meth:`SamplesPlotStyle.plot_1d`.
+
+        Returns
+        -------
+        ax : matplotlib.axes.Axes
+        """
+        truths = [self.get_default_truths(parameter,truth)]
         chains = self._profiles_to_samples(profiles=profiles,parameters=[parameter],select=select,residual=residual,truths=truths)
         parameter = self.get_parameters(parameter,chains=chains)
         ax = SamplesPlotStyle.plot_1d(self,chains,parameter=parameter,**kwargs)
@@ -573,8 +1130,40 @@ class ProfilesPlotStyle(ListPlotStyle):
         if filename: self.savefig(filename)
         return ax
 
-    def plot_2d(self, profiles=None, parameters=None, select='best', residual='parabolic_errors', truths=None, filename=None, **kwargs):
-        truths = self.get_default_truths(truths,parameters)
+    def plot_2d(self, profiles=None, parameters=None, select='min', residual='parabolic_errors', truths=None, filename=None, **kwargs):
+        """
+        Plot 2D distribution of best fits.
+
+        Parameters
+        ----------
+        profiles : list, default=None
+            List of :class:`Profiles` instances.
+            Defaults to :attr:`profiles`.
+
+        parameters : tuple, list, ParameterCollection
+            The two parameter name(s).
+
+        select : string, default='min'
+            Rule to select the best fit in each :class:`Profiles` instance.
+
+        residual : string, default='parabolic_errors'
+            If not ``None``, divide distance to truth (or mean of truth is ``None``) by this quantity.
+
+        truths : list, default=None
+            Plot this truths / reference values for parameters.
+            See :meth:`get_default_truths`.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        kwargs : dict
+            Arguments for :meth:`SamplesPlotStyle.plot_2d`.
+
+        Returns
+        -------
+        ax : matplotlib.axes.Axes
+        """
+        truths = self.get_default_truths(parameters,truths)
         chains = self._profiles_to_samples(profiles=profiles,parameters=parameters,select=select,residual=residual,truths=truths)
         parameters = self.get_parameters(parameters,chains=chains)
         ax = SamplesPlotStyle.plot_2d(self,chains,parameters=parameters,**kwargs)
@@ -584,7 +1173,44 @@ class ProfilesPlotStyle(ListPlotStyle):
         if filename: self.savefig(filename)
         return ax
 
-    def plot_corner(self, profiles=None, parameters=None, select='best', residual='parabolic_errors', truths=None, **kwargs):
-        truths = self.get_default_truths(truths,parameters)
+    def plot_corner(self, profiles=None, parameters=None, select='min', residual='parabolic_errors', truths=None, **kwargs):
+        """
+        Make corner plot of best fits.
+
+        Parameters
+        ----------
+        profiles : list, default=None
+            List of :class:`Profiles` instances.
+            Defaults to :attr:`profiles`.
+
+        parameters : tuple, list, ParameterCollection
+            The two parameter name(s).
+
+        select : string, default='min'
+            Rule to select the best fit in each :class:`Profiles` instance.
+
+        residual : string, default='parabolic_errors'
+            If not ``None``, divide distance to truth (or mean of truth is ``None``) by this quantity.
+
+        truths : list, default=None
+            Plot this truths / reference values for parameters.
+            See :meth:`get_default_truths`.
+
+        filename : string, default=None
+            If not ``None``, file name where to save figure.
+
+        kwargs : dict
+            Arguments for :meth:`SamplesPlotStyle.plot_corner`.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            Figure.
+
+        dax : dict
+            Dictionary of :class:`ParamName` and to :class:`matplotlib.axes.Axes`:
+            name: axes for 1D plots and (name1, name2): axes for 2D plots.
+        """
+        truths = self.get_default_truths(parameters,truths)
         chains = self._profiles_to_samples(profiles=profiles,parameters=parameters,select=select,residual=residual,truths=truths)
         return SamplesPlotStyle.plot_corner(self,chains,parameters=parameters,**kwargs)

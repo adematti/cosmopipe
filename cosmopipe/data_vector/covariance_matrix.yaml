@@ -7,13 +7,11 @@ description: Load a covariance matrix
 
 
 options:
-  xlim:
-  xlim:
-    type: [dict, list]
-    default: None
-    description: "dictionary holding projection names and corresponding tuple of limits (e.g. {'ell_0':(0.,0.2),'ell_2':(0.,0.1)})
-                or list of tuples corresponding to the data projections"
-  data_load:
+  projs_attrs:
+    ${data_vector.yaml:options.xlim}:
+  projs_attrs:
+    ${data_vector.yaml:options.projs_attrs}:
+  covariance_load:
     type: string
     description: either (section, name) in data_block where to find the covariance matrix or, if containing / (or \), a path to a covariance matrix on disk.
                 If path ends with .npy, none of the arguments below apply.
@@ -24,34 +22,34 @@ options:
   usecols:
     type: list
     default: None
-    description: if not ``None``, list of columns to read the covariance matrix from. Last column must ve the covariance value.
-  columns:
-    type: [list, tuple]
-    default: None
-    description: column names corresponding to ``usecols``. Can be a tuple of column lists for two different data vectors.
-                Columns 'x' and 'y' are used as x- and y-coordinates for each data vector.
+    description: which columns to read, with 0 being the first. If ``None``, reads all columns. Last column must be the covariance value.
   skip_rows:
     type: int
     default: 0
-    description: skip the first skiprows lines, including comments
+    description: skip the first skip_rows lines, including comments
   max_rows:
     type: int
     default: None
-    description: read max_rows lines of content after skiprows lines. The default is to read all the lines
+    description: read max_rows lines of content after skip_rows lines. The default is to read all the lines
   mapping_header:
     type: dict
     default: None
     description: dictionary holding keyword:regex mapping or (regex, type) to provide the type.
                 The corresponding values will be saved in the :attr:`attrs` dictionary
-  mapping_proj:
-    type: dict
+  columns:
+    type: [list, tuple]
     default: None
-    description: "dictionary holding a mapping from column name to projection specifier (e.g. 'ell_0', ['muwedge', [0.0,0.2]], or with a name, e.g.: 'ELG_ell_0', ['ELG','muwedge',[0.0,0.2]])"
+    description: column names corresponding to ``usecols``. Can be a tuple of column lists for two different data vectors.
+                Columns 'x' and 'y' are used as x- and y-coordinates for each data vector.
+  mapping_proj:
+    type: [dict, list]
+    default: None
+    description: list of projection names (considered of the same size), or dictionary holding a mapping from projection specifier (e.g. 'ell_0')
+          to the number of points for this projection (e.g. ``{'ell_0':10, 'ell_2':4}`` for a matrix of total size 14 x 14).
   data:
     type: dict
     default: None
-    description: dictionary to load the data vector matching the provided covariance matrix (in which case 'x' columns of the covariance file are expected to be indices
-                of the data vector.
+    description: dictionary to load the data vector matching the provided covariance matrix, in which case 'x' columns of the covariance file are expected to be indices of the data vector.
   attrs:
     type: dict
     default: {}

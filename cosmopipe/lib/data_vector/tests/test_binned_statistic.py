@@ -40,6 +40,6 @@ def test_projection():
 if __name__ == '__main__':
 
     setup_logging()
-    #test_binned_statistic()
-    #test_binned_projection()
+    test_binned_statistic()
+    test_binned_projection()
     test_projection()

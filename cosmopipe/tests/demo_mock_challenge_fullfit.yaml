@@ -1,0 +1,101 @@
+# This runs full cosmo fitting on DESI mock challenge ELG power spectrum
+# WARNING: requires downloading /global/project/projectdirs/desi/users/UNIT-BAO-RSD-challenge/UNIT/pk_3Gpc/UNIT_3Gpc_Nmesh512_pkl.txt
+# and /global/project/projectdirs/desi/users/UNIT-BAO-RSD-challenge/UNIT/pk_3Gpc_corrected/Pkl_linear_Wilson_UNIT_DESI_Shadab_HOD_snap97_ELG_v1_4col.gcat_3Gpc_regress_1_lmax_4_stride_1_v2.txt into ./_data/ directory
+
+data_dir: _data
+plots_dir: _plots
+
+main:
+  #$execute: [primordial, fitting]
+  $execute: [fiducial, primordial, data, mockcov, minuit, plotting, postprocessing]
+
+postprocessing:
+  $module_name: cosmopipe.pipelines.postprocessing
+  $module_class: ProfilesPostprocessing
+  #$execute: ${like.$modules}
+  #$modules: [data_model_plotting]
+  $execute: [model, anisotropic, projection, data_model_plotting]
+
+minuit:
+  $module_name: cosmopipe.samplers.profiler.minuit
+  $module_class: MinuitProfiler
+  $modules: [like]
+  torun: [migrad]
+
+primordial:
+  $module_name: cosmopipe.theory.primordial.primordial
+  engine: eisenstein_hu
+  compute: pk_m
+  update_parameters:
+    varied: ['*.omega_cdm', '*.h']
+
+plotting:
+  $module_name: cosmopipe.samplers.plotting
+  $module_class: ProfilesPlotting
+  save_stats: f'${plots_dir}/stats_velocileptors.tex'
+  toplot:
+    - plot_aligned_stacked:
+        truths: value
+        filename: f'${plots_dir}/aligned_stacked_mock_challenge.png'
+
+data_model_plotting:
+  $module_name: cosmopipe.theory.plotting
+  data_load: True
+  covariance_load: True
+  xmodel:
+    nbins: 100
+  style: power
+  filename: f'${plots_dir}/mock_challenge_data_model.png'
+
+like:
+  $module_name: cosmopipe.likelihood.likelihood
+  $module_class: GaussianLikelihood
+  $modules: [full_model]
+
+data:
+  $module_name: cosmopipe.data_vector.data_vector
+  data_load: f'${data_dir}/Pkl_linear_Wilson_UNIT_DESI_Shadab_HOD_snap97_ELG_v1_4col.gcat_3Gpc_regress_1_lmax_4_stride_1_v2.txt'
+  mapping_header:
+    shotnoise: '.*?Estimated shot noise: (.*)'
+  usecols: [0,1,3,5]
+  mapping_proj: [ell_0, ell_2, ell_4]
+  xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
+  $[survey_selection.zeff]: 0.9873
+
+mockcov:
+  $module_name: cosmopipe.data_vector.covariance_matrix
+  covariance_load: f'${data_dir}/cov_matrix_pk-EZmocks-3Gpc-nonfix-corrected_rsd_centerbin.txt'
+  mapping_proj: [ell_0, ell_2, ell_4]
+
+fiducial:
+  $module_name: cosmopipe.theory.primordial.fiducial
+
+effectap:
+  $module_name: cosmopipe.theory.primordial.effect_ap
+  engine: class
+
+rsd:
+  $module_name: cosmopipe.theory.primordial.galaxy_rsd
+
+full_model:
+  $module_name: pypescript
+  $module_class: StreamPipeline
+  $modules: [primordial, effectap, rsd, model, anisotropic, projection]
+
+model:
+  $module_name: cosmopipe.theory.galaxy_clustering.velocileptors
+  $module_class: EPTFull
+  #$module_class: EPTMoments
+  #$module_class: LPTMoments
+  reduced: True
+  kmax: 0.4
+
+anisotropic:
+  $module_name: cosmopipe.theory.projections.anisotropic_scaling
+  #update_parameters:
+  #  derived: ['*']
+
+projection:
+  $module_name: cosmopipe.survey_selection.projection
+  #$modules: [wideangle, window]
+  $modules: []

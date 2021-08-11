@@ -1,8 +1,8 @@
 .. title:: cosmopipe docs
 
-**************************************
+*************************************
 Welcome to cosmopipe's documentation!
-**************************************
+*************************************
 
 .. toctree::
   :maxdepth: 1
@@ -40,6 +40,12 @@ Running a clustering analysis is then as simple as::
 
 (probably using MPI.)
 
+Structure
+=========
+As described above, **cosmopipe** implements *modules*. These are documented in :ref:`api-modules`.
+In addition, **cosmopipe** relies on an internal library :mod:`comopipe.lib`, implementing common data types (data vectors, samples, etc.).
+This library is documented in :ref:`api-lib`.
+
 The rationale
 =============
 
@@ -62,6 +68,7 @@ Eventually, it should be made *very* easy to code and include new modules, witho
 This would be possible by providing a simple module architecture to copy and fill, with either Python, C, C++ or Fortran code.
 
 These should be the key features of **cosmopipe**, quite similar to `CosmoSIS`_ used by the DES collaboration.
+
 
 Acknowledgements
 ================

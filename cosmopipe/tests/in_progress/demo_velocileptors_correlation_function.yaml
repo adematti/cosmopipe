@@ -1,0 +1,71 @@
+data_dir: _data
+plots_dir: _plots
+
+main:
+  #$execute: [primordial, model_power, model_correlation, mockcov, mockdata, fitting]
+  $execute: [primordial, model_power, xdata, mockcov, mockdata, fitting]
+  $[survey_selection.zeff]: 1.0
+
+fitting:
+  $module_name: pypescript
+  $module_class: BasePipeline
+  $modules: [minuit, plotting]
+
+minuit:
+  $module_name: cosmopipe.samplers.profiler.minuit
+  $module_class: MinuitProfiler
+  $modules: [like]
+  torun: [migrad]
+
+primordial:
+  $module_name: cosmopipe.theory.primordial.primordial
+  engine: eisenstein_hu
+  compute: pk_m
+
+xdata:
+  $module_name: cosmopipe.data_vector.synthetic_data_vector
+  edges:
+    min: 10
+    max: 180
+    step: 10
+  projs: e'[{'space':'correlation','mode':'multipole','proj':ell} for ell in [0,2,4]]'
+  xlim: $&{mockdata.xlim}
+
+mockcov:
+  $module_name: cosmopipe.theory.galaxy_clustering.gaussian_covariance
+  $module_class: GaussianCovariance
+  volume: 1e10
+
+mockdata:
+  $module_name: cosmopipe.data_vector.mock_data_vector
+  mean: True
+  seed: 42
+  xlim: {'ell_0': [10, 180], 'ell_2': [10, 180], 'ell_4': [10, 180]}
+  save: f'${data_dir}/data.txt'
+
+plotting:
+  $module_name: cosmopipe.samplers.plotting
+  $module_class: ProfilesPlotting
+  save_stats: f'${plots_dir}/stats_velocileptors.tex'
+  toplot:
+    - plot_aligned_stacked:
+        truths: value
+        filename: f'${plots_dir}/aligned_stacked_velocileptors.png'
+
+like:
+  $module_name: cosmopipe.likelihood.likelihood
+  $module_class: GaussianLikelihood
+  $modules: [model_correlation, projection]
+
+model_power:
+  $module_name: cosmopipe.theory.galaxy_clustering.velocileptors
+  $module_class: LPTFourierStreaming
+  data_shotnoise: 1e3
+
+model_correlation:
+  $module_name: cosmopipe.theory.galaxy_clustering.velocileptors
+  $module_class: LPTGaussianStreaming
+  data_shotnoise: 1e3
+
+projection:
+  $module_name: cosmopipe.survey_selection.projection

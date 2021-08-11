@@ -1,0 +1,79 @@
+name: WindowConvolution
+version: 0.0.1
+date: 01/06/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Apply window convolution
+bibtex: [arXiv:2106.06324]
+requirements: []
+
+long description: >
+                  Compute Fourier-space window convolution matrix following Beutler and McDonald 2021,
+                  provided a window function in configuration space.
+                  Relevant only within the context of a :class:`SurveyProjection` pipeline.
+
+options:
+  srange:
+    type: list
+    default: None
+    description: :math:`s`-range for Hankel transforms
+  krange:
+    type: list
+    default: None
+    description: if ``srange`` not provided, equivalent :math:`k`-range (taking :math:`s = 1/k`)
+  ns:
+    type: int
+    default: 1024
+    description: number of log-spaced points for Hankel transforms
+  q:
+    type: float
+    default: 0.0
+    description: power-law tilt to regularize Hankel transforms
+  window_load:
+    type: string
+    default: window_function
+    description: either (section, name) in data_block where to find the window function or, if containing / (or \), a path to a window function on disk.
+                If path ends with .npy, none of the arguments below apply.
+  projs:
+    type: dict
+    default: {}
+    description: "dictionary holding a mapping between projection names and projection attributes to be added to the corresponding projections (e.g.: shotnoise?)"
+  comments:
+    type: string
+    default: '#'
+    description: the characters used to indicate the start of a comment
+  skip_rows:
+    type: int
+    default: 0
+    description: skip the first skiprows lines, including comments
+  max_rows:
+    type: int
+    default: None
+    description: read max_rows lines of content after skiprows lines. The default is to read all the lines
+  usecols:
+    type: list
+    default: None
+    description: if not ``None``, list of columns to read the window function from
+  columns:
+    type: list
+    default: None
+    description: column names corresponding to ``usecols``. Columns 'x' and 'y' are used as x- and y-coordinates.
+  mapping_header:
+    type: dict
+    default: None
+    description: dictionary holding keyword:regex mapping or (regex, type) to provide the type.
+                The corresponding values will be saved in the :attr:`attrs` dictionary
+  mapping_proj:
+    type: dict
+    default: None
+    description: "dictionary holding a mapping from column name to projection specifier e.g.: 'ell_0'"
+  attrs:
+    type: dict
+    default: {}
+    description: global attributes for window function
+
+
+setup output:
+  survey_selection.effect:
+    type: PowerWindowMatrix
+    description: :class:`PowerWindowMatrix` instance

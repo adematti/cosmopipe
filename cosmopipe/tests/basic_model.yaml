@@ -1,0 +1,34 @@
+name: BasicModel
+version: 0.0.1
+date: 23/07/2021
+author: Arnaud de Mattia
+maintainer: Arnaud de Mattia
+description: Basic model
+
+long description: >
+                  Just a scale factor b.
+
+options:
+  base_parameters:
+    type: dict
+    default: ${parameters}
+    description: base parameters
+  update_parameters:
+    type: dict
+    default: {}
+    description: update base parameters
+
+# here we setup model parameters
+parameters:
+  galaxy_bias:
+    b:
+      value: 2.
+      fixed: False
+      prior:
+        dist: uniform
+        limits: [0.0, 10.0]
+      ref:
+        dist: uniform
+        limits: [1.5, 2.5]
+      proposal: 0.01
+      latex: b_{1}

@@ -99,12 +99,6 @@ long description: >
                   similarly for the model.y in the execute step. The full inverse covariance matrix should be provided in the setup step
                   (by adding the relevant module to the '#modules' list).
 
-options:
-  join:
-    type: list
-    default: []
-    description: :class:`BaseLikelihood` modules to join
-
 setup input:
   data.y:
     type: float_array

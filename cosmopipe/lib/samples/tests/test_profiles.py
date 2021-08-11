@@ -12,11 +12,14 @@ def get_profiles(parameters):
     mean = np.zeros(ndim,dtype='f8')
     std = np.ones(ndim,dtype='f8')
     profiles = Profiles(parameters=parameters)
+    for param in profiles.parameters:
+        param.fixed = False
+        param.latex = param.name.tuple[-1]
     profiles.set_bestfit({param:rng.normal(loc=mean_,scale=std_,size=size) for param,mean_,std_ in zip(parameters,mean,std)})
     profiles.set_parabolic_errors({param:rng.normal(loc=std_,scale=std_/10.,size=size) for param,mean_,std_ in zip(parameters,mean,std)})
     profiles.set_deltachi2_errors({param:np.array([-rng.normal(loc=std_,scale=std_/10.,size=size),rng.normal(loc=std_,scale=std_,size=size)]).T\
                                     for param,mean_,std_ in zip(parameters,mean,std)})
-    profiles.set_metrics({'minchi2':rng.normal(loc=10,scale=0.1,size=size)})
+    profiles.set_metrics({'fval':rng.normal(loc=10,scale=0.1,size=size)})
     return profiles
 
 
@@ -39,6 +42,7 @@ def test_plotting():
     style.plot_1d(profiles,parameter='parameters.a',filename=os.path.join(plot_dir,'kstest_a.png'))
     style.plot_2d(profiles,parameters=['parameters.a','parameters.b'],filename=os.path.join(plot_dir,'scatter_ab.png'))
     style.plot_corner(profiles,filename=os.path.join(plot_dir,'corner.png'))
+
 
 if __name__ == '__main__':
 
