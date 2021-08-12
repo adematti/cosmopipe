@@ -34,6 +34,15 @@ options:
     default: window_function
     description: either (section, name) in data_block where to find the window function or, if containing / (or \), a path to a window function on disk.
                 If path ends with .npy, none of the arguments below apply.
+                The window function can be in configuration-space or in Fourier-space.
+                In the latter case, if the number of modes (as :class:`BinnedProjection` "weights"), as well as the physical size of the box
+                used to compute the window function (as ``BoxSize`` attribute in :attr:`BinnedProjection.attrs`) are provided,
+                use these to compute the Fourier-volume element in the Hankel transform.
+                Else, use :attr:`BinnedProjection.edges` if provided, else differences in x-coordinates (:math:`k`) to compute the Fourier-volume element.
+  default_zero:
+    type: bool
+    default: False
+    description: If a given projection is not provided in window function, set to 0. Else an :class:`IndexError` is raised.
   projs:
     type: dict
     default: {}

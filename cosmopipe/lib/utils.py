@@ -149,6 +149,15 @@ class BaseNameSpace(BaseClass):
             else:
                 raise ValueError('Cannot set (unknown) attribute {} (available: {})'.format(name,self._attrs))
 
+    def setdefault(self, **kwargs):
+        """Set attributes ``kwargs`` if current values are ``None``."""
+        for name,value in kwargs.items():
+            if name in self._attrs:
+                if getattr(self,name,None) is None:
+                    setattr(self,name,value)
+            else:
+                raise ValueError('Cannot set (unknown) attribute {} (available: {})'.format(name,self._attrs))
+
     def get(self, name, default=None):
         """Return attribute ``name``, defaulting to ``default``."""
         toret = getattr(self,name,default)

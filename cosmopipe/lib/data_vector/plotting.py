@@ -51,7 +51,7 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
     def _set_ax_attrs(self, ax):
         # set ax attributes (labels, scales)
         ax.set_xlabel(self.xlabel,fontsize=self.labelsize)
-        ax.set_ylabel(self.ylabel,fontsize=self.labelsize)
+        ax.set_ylabel(self.get_ylabel(),fontsize=self.labelsize)
         ax.set_xscale(self.xscale)
         ax.set_yscale(self.yscale)
         ax.tick_params(labelsize=self.ticksize)
@@ -77,10 +77,13 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
             color = self.colors[index]
         return color
 
-    @staticmethod
-    def get_label(proj):
+    def get_label(self, proj):
         """Return label corresponding to projection name ``proj``."""
         return ProjectionName(proj).get_projlabel()
+
+    def get_ylabel(self):
+        """Return y-label, to be overriden."""
+        return self.ylabel
 
     def get_projs(self, data_vector=None):
         """Return projection names of input data vector."""
@@ -89,28 +92,23 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
             return ProjectionNameCollection(self.projs)
         return data_vector.get_projs()
 
-    @staticmethod
-    def get_x(data_vector, *args, **kwargs):
+    def get_x(self, data_vector, *args, **kwargs):
         """Return x-coordinates of input data vector."""
         return data_vector.get_x(*args,**kwargs)
 
-    @staticmethod
-    def get_y(data_vector, *args, **kwargs):
+    def get_y(self, data_vector, *args, **kwargs):
         """Return y-coordinates of input data vector."""
         return data_vector.get_y(*args,**kwargs)
 
-    @staticmethod
-    def get_covx(covariance, *args, **kwargs):
+    def get_covx(self, covariance, *args, **kwargs):
         """Return x-coordinates of input covariance matrix."""
         return covariance.get_x(*args,**kwargs)[0]
 
-    @staticmethod
-    def get_covy(covariance, *args, **kwargs):
+    def get_covy(self, covariance, *args, **kwargs):
         """Return mean y-coordinates provided in the input covariance matrix."""
         return covariance.get_y(*args,**kwargs)[0]
 
-    @staticmethod
-    def get_covstd(covariance, *args, **kwargs):
+    def get_covstd(self, covariance, *args, **kwargs):
         """Return standard deviation corresponding to the input covariance matrix."""
         return covariance.get_std(*args,**kwargs)
 
@@ -173,13 +171,13 @@ class BaseDataPlotStyle(plotting.BasePlotStyle):
 
 class PowerSpectrumPlotStyle(BaseDataPlotStyle):
     """
-    Plotting style for power spectrum, y-coordinates are :math:`k P(k)`.
+    Plotting style for power spectrum, y-coordinates are :math:`k^{n} P(k)` with ``n`` given by :attr:`xpow`.
     Only projections that have :attr:`ProjectionName.space` 'power' or unspecified (``None``) will be plotted.
     """
     def __init__(self, style=None, **kwargs):
         super(PowerSpectrumPlotStyle,self).__init__(style=style)
+        self.xpow = 1
         self.xlabel = '$k$ [$h \ \\mathrm{Mpc}^{-1}$]'
-        self.ylabel = '$k P(k)$ [$(\\mathrm{Mpc} \ h^{-1})^{2}$]'
         self.update(**kwargs)
 
     def get_projs(self, data_vector=None):
@@ -187,47 +185,64 @@ class PowerSpectrumPlotStyle(BaseDataPlotStyle):
         projs = super(PowerSpectrumPlotStyle,self).get_projs(data_vector=data_vector)
         return ProjectionNameCollection([proj for proj in projs if proj.space in (None,ProjectionName.POWER)])
 
-    @staticmethod
-    def get_y(data, *args, **kwargs):
-        return data.get_x(*args,**kwargs)*data.get_y(*args,**kwargs)
+    def get_ylabel(self):
+        """Return y-label depending on :attr:`xpow`."""
+        if self.xpow == 0:
+            ylabel = '$P(k)$ [$(\\mathrm{Mpc} \ h^{-1})^{3}$]'
+        elif self.xpow == 1:
+            ylabel = '$k P(k)$ [$(\\mathrm{Mpc} \ h^{-1})^{2}$]'
+        elif self.xpow == 2:
+            ylabel = '$k^{2} P(k)$ [$\\mathrm{Mpc} \ h^{-1}$]'
+        elif self.xpow == 3:
+            ylabel = '$k^{3} P(k)$'
+        else:
+            ylabel = 'k^{:d} P(k)$ [$(\\mathrm{{Mpc}} \ h^{-1})^{:d}$]'.format(self.xpow,3-self.xpow)
+        return self.get('ylabel',None,ylabel)
 
-    @staticmethod
-    def get_covy(covariance, *args, **kwargs):
-        return covariance.get_x(*args,**kwargs)[0]*covariance.get_y(*args,**kwargs)[0]
+    def get_y(self, data, *args, **kwargs):
+        return data.get_x(*args,**kwargs)**self.xpow*data.get_y(*args,**kwargs)
 
-    @staticmethod
-    def get_covstd(covariance, *args, **kwargs):
-        return covariance.get_x(*args,**kwargs)[0]*covariance.get_std(*args,**kwargs)
+    def get_covy(self, covariance, *args, **kwargs):
+        return covariance.get_x(*args,**kwargs)[0]**self.xpow*covariance.get_y(*args,**kwargs)[0]
+
+    def get_covstd(self, covariance, *args, **kwargs):
+        return covariance.get_x(*args,**kwargs)[0]**self.xpow*covariance.get_std(*args,**kwargs)
 
 
 class CorrelationFunctionPlotStyle(BaseDataPlotStyle):
     """
-    Plotting style for correlation function, y-coordinates are :math:`s^{2} \\xi(s)`.
+    Plotting style for correlation function, y-coordinates are :math:`s^{n} \\xi(s)` with ``n`` given by :attr:`xpow`.
     Only projections that have :attr:`ProjectionName.space` 'correlation' or unspecified (``None``) will be plotted.
     """
     def __init__(self, style=None, **kwargs):
-
         super(CorrelationFunctionPlotStyle,self).__init__(style=style)
+        self.xpow = 2
         self.xlabel = '$s$ [$\\mathrm{Mpc} / h$]'
-        self.ylabel = '$s^{2} \\xi(s)$ [$(\\mathrm{Mpc} / h)^{-1})^{2}$]'
         self.update(**kwargs)
+
+    def get_ylabel(self):
+        """Return y-label depending on :attr:`xpow`."""
+        if self.xpow == 0:
+            ylabel = '$\\xi(s)$'
+        elif self.xpow == 1:
+            ylabel = '$s \\xi(s)$ [$\\mathrm{Mpc} / h$]'
+        else:
+            ylabel = '$s^{:d} \\xi(s)$ [$(\\mathrm{{Mpc}} / h)^{:d}$]'.format(self.xpow,self.xpow)
+        return self.get('ylabel',None,ylabel)
 
     def get_projs(self, data_vector=None):
         """Return projection names for input data vector, selecting those that have :attr:`ProjectionName.space` 'correlation' or unspecified (``None``)."""
         projs = super(CorrelationFunctionPlotStyle,self).get_projs(data_vector=data_vector)
         return ProjectionNameCollection([proj for proj in projs if proj.space in (None,ProjectionName.CORRELATION)])
 
-    @staticmethod
-    def get_y(data, *args, **kwargs):
-        return data.get_x(*args,**kwargs)**2*data.get_y(*args,**kwargs)
+    def get_y(self, data, *args, **kwargs):
+        return data.get_x(*args,**kwargs)**self.xpow*data.get_y(*args,**kwargs)
 
-    @staticmethod
-    def get_covy(covariance, *args, **kwargs):
-        return covariance.get_x(*args,**kwargs)[0]**2*covariance.get_y(*args,**kwargs)[0]
+    def get_covy(self, covariance, *args, **kwargs):
+        return covariance.get_x(*args,**kwargs)[0]**self.xpow*covariance.get_y(*args,**kwargs)[0]
 
-    @staticmethod
-    def get_covstd(covariance, *args, **kwargs):
-        return covariance.get_x(*args,**kwargs)[0]**2*covariance.get_std(*args,**kwargs)
+    def get_covstd(self, covariance, *args, **kwargs):
+        return covariance.get_x(*args,**kwargs)[0]**self.xpow*covariance.get_std(*args,**kwargs)
 
 
 def DataPlotStyle(style=None, **kwargs):
@@ -300,8 +315,7 @@ class CovarianceMatrixPlotStyle(plotting.BasePlotStyle):
             return tuple(DataPlotStyle(style=style,data_vectors=data_vector) if style is not None else BaseDataPlotStyle() for style,data_vector in zip(self.data_styles,covariance.x))
         return tuple(DataPlotStyle(style) if style is not None else BaseDataPlotStyle() for style in self.data_styles)
 
-    @staticmethod
-    def get_mat(covariance):
+    def get_mat(self, covariance):
         """Return covariance array, without view."""
         return covariance.copy().noview().get_cov()
 
@@ -380,8 +394,7 @@ class CorrelationMatrixPlotStyle(CovarianceMatrixPlotStyle):
 
     """Plotting style for correlation matrix."""
 
-    @staticmethod
-    def get_mat(covariance):
+    def get_mat(self, covariance):
         return covariance.copy().noview().get_corrcoef()
 
 

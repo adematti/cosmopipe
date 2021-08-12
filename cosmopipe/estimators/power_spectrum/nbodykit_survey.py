@@ -5,10 +5,19 @@ from pypescript import BaseModule
 from nbodykit.lab import FKPCatalog, ConvolvedFFTPower
 
 from cosmopipe import section_names
-from cosmopipe.lib import syntax
+from cosmopipe.lib import syntax, mpi
 from cosmopipe.lib.catalog import Catalog
 from cosmopipe.lib.data_vector import DataVector, ProjectionName, BinnedProjection
 from cosmopipe.estimators import utils
+
+
+def is_valid_crosscorr(*args, **kwargs):
+    return True
+
+
+# temporary patch
+from nbodykit.algorithms.convpower import fkp
+fkp.is_valid_crosscorr = is_valid_crosscorr
 
 
 class SurveyPowerSpectrum(BaseModule):
@@ -36,36 +45,51 @@ class SurveyPowerSpectrum(BaseModule):
         self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},'weight_fkp':None,'P0_fkp':0.}
         for name,value in self.catalog_options.items():
             self.catalog_options[name] = self.options.get(name,value)
-        self.data_load = self.options.get('data_load','data')
-        self.randoms_load = self.options.get('randoms_load','randoms')
         self.projattrs = self.options.get('projattrs',{})
         if isinstance(self.projattrs,str):
             self.projattrs = {'name':self.projattrs}
-        self.save = self.options.get('save',None)
 
     def execute(self):
+        self.data_load = self.options.get('data_load','data')
+        self.randoms_load = self.options.get('randoms_load','randoms')
+        self.save = self.options.get('save',None)
         input_data = syntax.load_auto(self.data_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
-        input_randoms = syntax.load_auto(self.randoms_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
-        if len(input_data) != len(input_randoms):
-            raise ValueError('Number of input data and randoms catalogs is different ({:d} v.s. {:d})'.format(len(input_data),len(input_randoms)))
+        has_randoms = self.randoms_load != ''
+        if has_randoms:
+            input_randoms = syntax.load_auto(self.randoms_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
+            if len(input_data) != len(input_randoms):
+                raise ValueError('Number of input data and randoms catalogs is different ({:d} v.s. {:d})'.format(len(input_data),len(input_randoms)))
+        else:
+            self.log_info('Using no randoms.',rank=0)
+            input_randoms = [None]*len(input_data)
         cosmo = self.data_block.get(section_names.fiducial_cosmology,'cosmo',None)
         list_mesh = []
+        wdata2 = 1.
         for data,randoms in zip(input_data,input_randoms):
+            data = data.mpi_to_state('scattered')
+            if randoms is not None: randoms = randoms.mpi_to_state('scattered')
             data,randoms = utils.prepare_survey_catalogs(data,randoms,cosmo=cosmo,**self.catalog_options)
-            fkp = FKPCatalog(data.to_nbodykit(),randoms.to_nbodykit(),BoxPad=self.BoxPad,nbar='nbar')
+            fkp = FKPCatalog(data.to_nbodykit(),randoms.to_nbodykit() if randoms is not None else None,BoxPad=self.BoxPad,nbar='nbar')
             list_mesh.append(fkp.to_mesh(position='position',fkp_weight='weight_fkp',comp_weight='weight_comp',nbar='nbar',**self.mesh_options))
+            wdata2 *= mpi.sum_array(data['weight_comp']*data['weight_fkp'],mpicomm=data.mpicomm)
+        if len(list_mesh) == 1:
+            wdata2 **= 2
 
         result = ConvolvedFFTPower(list_mesh[0],poles=self.ells,second=list_mesh[1] if len(list_mesh) > 1 else None,**self.power_options)
         attrs = result.attrs.copy()
+        attrs['norm/wdata2'] = attrs['randoms.norm'] / wdata2
         poles = result.poles
         ells = attrs['poles']
+        shotnoise = attrs['shotnoise']
+        shotnoise = shotnoise if np.isfinite(shotnoise) else 0.
         data_vector = DataVector()
         for ell in ells:
             x = poles['k']
             if ell == 0:
-                y = poles['power_{:d}'.format(ell)].real - attrs['shotnoise']
+                y = poles['power_{:d}'.format(ell)] - shotnoise
             else:
-                y = poles['power_{:d}'.format(ell)].real
+                y = poles['power_{:d}'.format(ell)]
+            y = y.real if ell % 2 == 0 else y.imag
             proj = ProjectionName(space=ProjectionName.POWER,mode=ProjectionName.MULTIPOLE,proj=ell,**self.projattrs)
             dataproj = BinnedProjection(data={'k':x,'power':y,'nmodes':poles['modes']},x='k',y='power',weights='nmodes',edges={'k':result.poles.edges['k']},proj=proj,attrs=attrs)
             data_vector.set(dataproj)

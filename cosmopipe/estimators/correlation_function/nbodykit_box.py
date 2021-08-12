@@ -23,8 +23,6 @@ class BoxCorrelationFunction(BaseModule):
         for name,value in self.catalog_options.items():
             self.catalog_options[name] = self.options.get(name,value)
         self.BoxSize = self.options.get('BoxSize')
-        self.data_load = self.options.get('data_load','data')
-        self.save = self.options.get('save',None)
 
     def set_correlation_options(self):
         default_edges = {'min':1e-12,'max':200,'nbins':50} # non-zero to avoid cross-pairs
@@ -67,6 +65,8 @@ class BoxCorrelationFunction(BaseModule):
         return data_vector
 
     def execute(self):
+        self.data_load = self.options.get('data_load','data')
+        self.save = self.options.get('save',None)
         input_data = syntax.load_auto(self.data_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
         list_data = []
         for data in input_data:

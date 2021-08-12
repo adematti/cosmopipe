@@ -37,13 +37,13 @@ class BoxPowerSpectrum(BaseModule):
         self.catalog_options = {'position':'Position'}
         for name,value in self.catalog_options.items():
             self.catalog_options[name] = self.options.get(name,value)
+
+    def execute(self):
         self.data_load = self.options.get('data_load','data')
         self.projattrs = self.options.get('projattrs',{})
         if isinstance(self.projattrs,str):
             self.projattrs = {'name':self.projattrs}
         self.save = self.options.get('save',None)
-
-    def execute(self):
         input_data = syntax.load_auto(self.data_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
         list_mesh = []
         BoxSize = self.BoxSize
@@ -61,9 +61,10 @@ class BoxPowerSpectrum(BaseModule):
         for ell in ells:
             x = poles['k']
             if ell == 0:
-                y = poles['power_{:d}'.format(ell)].real - attrs['shotnoise']
+                y = poles['power_{:d}'.format(ell)] - attrs['shotnoise']
             else:
-                y = poles['power_{:d}'.format(ell)].real
+                y = poles['power_{:d}'.format(ell)]
+            y = y.real if ell % 2 == 0 else y.imag
             proj = ProjectionName(space=ProjectionName.POWER,mode=ProjectionName.MULTIPOLE,proj=ell,**self.projattrs)
             dataproj = BinnedProjection(data={'k':x,'power':y,'nmodes':poles['modes']},x='k',y='power',weights='nmodes',edges={'k':result.poles.edges['k']},proj=proj,attrs=attrs)
             data_vector.set(dataproj)

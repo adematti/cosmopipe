@@ -762,6 +762,10 @@ class BinnedProjection(BinnedStatistic):
         """Are y-coordinates specified?"""
         return 'y' in self.attrs and self.attrs['y'] in self.data
 
+    def has_weights(self):
+        """Are weights specified?"""
+        return 'weights' in self.attrs and self.attrs['weights'] in self.data
+
     def get_x_average(self, xlim=None, mask=Ellipsis, weights=None, from_edges=None):
         """
         Return average of x-coordinates. e.g., if x is ``(s, mu)``,
@@ -851,6 +855,13 @@ class BinnedProjection(BinnedStatistic):
     def get_y(self, xlim=None, mask=Ellipsis, flatten=True):
         """Same as :meth:`get_x`, for y-coordinate."""
         y = self[self.attrs['y']]
+        if flatten:
+            return y.flatten()[self.get_index(xlim,mask=mask,flatten=flatten)]
+        return y[self.get_index(xlim,mask=mask,flatten=flatten)]
+
+    def get_weights(self, xlim=None, mask=Ellipsis, flatten=True):
+        """Same as :meth:`get_x`, for weights."""
+        y = self[self.attrs['weights']]
         if flatten:
             return y.flatten()[self.get_index(xlim,mask=mask,flatten=flatten)]
         return y[self.get_index(xlim,mask=mask,flatten=flatten)]

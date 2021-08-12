@@ -10,7 +10,7 @@ long description: >
                   This pipeline takes care of the different survey selection/geometry effects:
                   (odd) wide-angle, window function, binning...
                   as a suite of matrix operations.
-                  The end-user should just specify the list of modules for these different effects
+                  The user should just specify the list of modules for these different effects
                   through the keyword $modules.
                   Empty list will result in a simple model evaluation at the data points.
 

@@ -4,8 +4,6 @@
 # - build mock data vector (here just taken as the theory)
 # - fit mock data vector
 # with geometry effects: wide-angle and window function (not accounted for in the covariance matrix)
-# WARNING: requires running prepare_window.py first (sets configuration-space window function)
-# estimating window function should be part of cosmopipe at some point
 
 data_dir: _data
 plots_dir: _plots
