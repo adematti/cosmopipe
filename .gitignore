@@ -21,6 +21,7 @@ doc/_build/
 **/old
 **/.ipynb_checkpoints
 **/_autosummary
+cosmopipe/section_names.py
 
 # Unit test / coverage reports
 **/.coverage

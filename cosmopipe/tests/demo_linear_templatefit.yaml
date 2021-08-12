@@ -3,9 +3,7 @@
 # - compute Gaussian covariance matrix with Kaiser model
 # - build mock data vector (here just taken as the theory)
 # - fit mock data vector
-# with geometry effects: wide-angle and window function (not accounted for in the covariance matrix)
-# WARNING: requires running prepare_window.py first (sets configuration-space window function)
-# estimating window function should be part of cosmopipe at some point
+
 
 data_dir: _data
 plots_dir: _plots
@@ -87,13 +85,3 @@ anisotropic:
 
 projection:
   $module_name: cosmopipe.survey_selection.projection
-  $modules: [wideangle, window]
-  #$modules: []
-
-wideangle:
-  $module_name: cosmopipe.survey_selection.wide_angle
-  d: 1e3
-
-window:
-  $module_name: cosmopipe.survey_selection.window_convolution
-  window_load: f'${data_dir}/window_function.txt'

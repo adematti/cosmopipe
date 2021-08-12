@@ -1,0 +1,43 @@
+# This an internal pipeline:
+# - setup template cosmology
+# - compute window function
+# - plot window function
+
+data_dir: _data
+catalog_dir: _catalog
+plots_dir: _plots
+
+main:
+  $execute: [fiducial, window, data_plotting]
+  #$execute: [data_plotting]
+
+fiducial:
+  $module_name: cosmopipe.theory.primordial.fiducial
+  engine: class
+
+window:
+  $module_name: cosmopipe.estimators.window_function.fft_window_function
+  $modules: [window_estimator]
+  nbar: NZ
+  data_load: f'${catalog_dir}/lognormal_data.fits'
+  randoms_load: f'${catalog_dir}/lognormal_randoms.fits'
+  swin: e'np.linspace(0.,5000,1000)'
+  wa_orders: [0,1]
+  ells: [[0,2,4],[1,3]]
+  save: f'${data_dir}/window_function.txt'
+
+window_estimator:
+  $module_name: cosmopipe.estimators.power_spectrum.nbodykit_survey
+  Nmesh: 256
+  BoxSize: 10000.
+
+data_plotting:
+  $module_name: cosmopipe.data_vector.plotting
+  $module_class: DataVectorPlotting
+  data_load: ${window.save}
+  #data_load: survey_selection.window
+  style: correlation
+  xpow: 0
+  xscale: log
+  ylabel: '$\mathcal{W}_{\ell}(s)$'
+  filename: f'${plots_dir}/window_function.png'

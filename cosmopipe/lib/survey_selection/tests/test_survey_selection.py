@@ -165,7 +165,6 @@ def save_window_function():
     window.save_auto(window_fn)
 
 
-
 def get_window_matrix():
     rebin_k = 2
     ns = rebin_k*1024
@@ -219,6 +218,26 @@ def test_window_convolution():
     style = PowerSpectrumPlotStyle(linestyles=['-','--'])
     filename = os.path.join(plot_dir,'window_convolution.png')
     style.plot([datanow,dataw],filename=filename)
+
+
+def test_real_window():
+
+    kwin = np.linspace(1e-4,0.2,100)
+    srange = (kwin[0],kwin[-1])
+    bwin = np.exp(-(kwin/100.)**2)
+    y,projs = [],[]
+    for n in range(2):
+        for ell in range(9):
+            y_ = bwin.copy()
+            if ell > 0: y_ *= np.random.uniform()/10.
+            y.append(y_)
+            projs.append(ProjectionName(space=ProjectionName.POWER,mode=ProjectionName.MULTIPOLE,proj=ell,wa_order=n))
+    window = WindowFunction(x=[kwin]*len(y),y=y,proj=projs)
+    from cosmopipe.lib.survey_selection.window_function import compute_real_window_1d
+    swin = np.linspace(1e-4,1e3,1000)
+    real_window = compute_real_window_1d(swin,window)
+    window_fn = os.path.join(plot_dir,'window_function_real.txt')
+    real_window.save(window_fn)
 
 
 def test_model_projection():
@@ -361,6 +380,9 @@ def test_copy():
 if __name__ == '__main__':
 
     setup_logging()
+    test_real_window()
+    exit()
+
     test_deriv()
     #test_power_odd_wideangle()
     #test_window_matrix()

@@ -126,11 +126,16 @@ class ProjectionName(BaseNameSpace):
     def latex(self):
         r"""Return *latex* (e.g., for the quadrupole, :math:`\ell = 2`)."""
         base = self._latex[self.mode]
+        iswa = self.wa_order is not None
+        if iswa:
+            base = '{}, n'.format(base)
         isscalar = np.ndim(self.proj) == 0
         proj = (self.proj,) if isscalar else self.proj
         label = ','.join(['{}'.format(p) if self.mode == self.MULTIPOLE else '{:.2f}'.format(p) for p in proj if p is not None])
         if not isscalar:
             label = '({})'.format(label)
+        if iswa:
+            label = '{}, {}'.format(label,self.wa_order)
         return '{} = {}'.format(base,label)
 
     def get_projlabel(self):

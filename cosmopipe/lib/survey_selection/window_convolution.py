@@ -28,7 +28,7 @@ class CorrelationWindowMatrix(BaseRegularMatrix):
     logger = logging.getLogger('CorrelationWindowMatrix')
     basis = ProjectionBasis(space=ProjectionBasis.CORRELATION,mode=ProjectionBasis.MULTIPOLE)
 
-    def __init__(self, window=None, sum_wa=True):
+    def __init__(self, window=None, sum_wa=True, default_zero=False):
         """
         Initialize :class:`CorrelationWindowMatrix`.
 
@@ -39,9 +39,14 @@ class CorrelationWindowMatrix(BaseRegularMatrix):
 
         sum_wa : bool, default=True
             Whether to perform summation over wide-angle orders.
+
+        default_zero : bool, default=False
+            If a given projection is not provided in window function, set to 0.
+            Else an :class:`IndexError` is raised.
         """
         self.window = window
         self.sum_wa = sum_wa
+        self.default_zero = default_zero
 
     @property
     def s(self):
@@ -83,7 +88,7 @@ class CorrelationWindowMatrix(BaseRegularMatrix):
                     ellsw,coeffs = wigner3j_square(projout.proj,projin.proj)
                     for ell,coeff in zip(ellsw,coeffs):
                         proj = projin.copy(space=ProjectionBasis.CORRELATION,mode=ProjectionBasis.MULTIPOLE,proj=ell)
-                        tmp += coeff*self.window(proj,self.s)
+                        tmp += coeff*self.window(proj,self.s,default_zero=self.default_zero)
                 line.append(tmp)
             matrix.append(line)
         self.projmatrix = np.array(matrix)
@@ -113,7 +118,7 @@ class PowerWindowMatrix(BaseMatrix):
     basis = ProjectionBasis(space=ProjectionBasis.POWER,mode=ProjectionBasis.MULTIPOLE)
     regularin = True
 
-    def __init__(self, window=None, srange=(1e-4,1e4), krange=None, ns=1024*16, q=0, rebin_k=1, sum_wa=True):
+    def __init__(self, window=None, srange=(1e-4,1e4), krange=None, ns=1024*16, q=0, krebin=1, **kwargs):
         """
         Initialize :class:`PowerWindowMatrix`.
 
@@ -134,20 +139,19 @@ class PowerWindowMatrix(BaseMatrix):
         q : int, default=0
             Power-law tilt to regularize Hankel transforms.
 
-        rebin_k : int, default=1
-            Rebin matrix aling input :math:`k` by factor ``rebin_k``.
+        krebin : int, default=1
+            Rebin matrix aling input :math:`k` by factor ``krebin``.
 
-        sum_wa : bool, default=True
-            Whether to perform summation over wide-angle orders.
+        kwargs : dict
+            Arguments for :class:`CorrelationWindowMatrix`.
         """
         if krange is not None:
             srange = (1./krange[1],1./krange[0])
         self.s = np.logspace(np.log10(srange[0]),np.log10(srange[1]),ns)
         self.krange = krange
-        self.rebin_k = rebin_k
+        self.krebin = krebin
         self.q = q
-        self.window = window
-        self.sum_wa = sum_wa
+        CorrelationWindowMatrix.__init__(self,window=window,**kwargs)
 
     @property
     def kout(self):
@@ -183,7 +187,6 @@ class PowerWindowMatrix(BaseMatrix):
         if np.ndim(kout[0]) == 0:
             self.xout = [kout]*len(projsout)
         self.xout = [np.asarray(x) for x in self.xout]
-        CorrelationWindowMatrix.__init__(self,window=self.window,sum_wa=self.sum_wa)
         CorrelationWindowMatrix.setup(self,self.s,projsin=self.projsin,projsout=self.projsout)
         self.corrmatrix = self.projmatrix
 
@@ -199,10 +202,10 @@ class PowerWindowMatrix(BaseMatrix):
                 if projout.proj % 2 == 1: prefactor *= -1j # we provide the imaginary part of odd power spectra, so let's multiply by (-i)^ellout
                 if projin.proj % 2 == 1: prefactor *= 1j # we take in the imaginary part of odd power spectra, so let's multiply by i^ellin
                 tmp = np.real(prefactor * tmp) * weights_trapz(self.kin**3) / 3. # everything should be real now
-                if self.rebin_k > 1:
+                if self.krebin > 1:
                     from scipy import signal
-                    tmp = signal.convolve(tmp,np.ones((1,self.rebin_k)),mode='valid') / self.rebin_k
-                    self.xin = signal.convolve(self.xin,np.ones(self.rebin_k),mode='valid') / self.rebin_k
+                    tmp = signal.convolve(tmp,np.ones((1,self.krebin)),mode='valid') / self.krebin
+                    self.xin = signal.convolve(self.xin,np.ones(self.krebin),mode='valid') / self.krebin
                 if self.krange is not None:
                     mask = (self.xin >= self.krange[0]) & (self.xin <= self.krange[-1])
                     self.xin = self.xin[mask]

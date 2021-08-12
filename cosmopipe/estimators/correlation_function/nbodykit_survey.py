@@ -23,12 +23,6 @@ class SurveyCorrelationFunction(BoxCorrelationFunction):
         self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},'weight_fkp':None,'P0_fkp':0.}
         for name,value in self.catalog_options.items():
             self.catalog_options[name] = self.options.get(name,value)
-        self.data_load = self.options.get('data_load','data')
-        self.randoms_load = self.options.get('randoms_load','randoms')
-        self.R1R2_load = self.options.get('R1R2_load',False)
-        if isinstance(self.R1R2_load,bool) and self.R1R2_load:
-            self.R1R2_load = 'correlation_estimator'
-        self.save = self.options.get('save',None)
 
     def get_R1R2(self):
         R1R2 = None
@@ -37,6 +31,12 @@ class SurveyCorrelationFunction(BoxCorrelationFunction):
         return R1R2
 
     def execute(self):
+        self.data_load = self.options.get('data_load','data')
+        self.randoms_load = self.options.get('randoms_load','randoms')
+        self.R1R2_load = self.options.get('R1R2_load',False)
+        if isinstance(self.R1R2_load,bool) and self.R1R2_load:
+            self.R1R2_load = 'correlation_estimator'
+        self.save = self.options.get('save',None)
         input_data = syntax.load_auto(self.data_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
         input_randoms = syntax.load_auto(self.randoms_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
         if len(input_data) != len(input_randoms):

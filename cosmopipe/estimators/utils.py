@@ -1,9 +1,10 @@
 from cosmopipe.lib.catalog import utils
 
 
-def prepare_survey_angular_catalogs(data, randoms, ra='RA', dec='DEC', weight_comp=None):
+def prepare_survey_angular_catalogs(data, randoms=None, ra='RA', dec='DEC', weight_comp=None):
 
-    origin_catalogs = {'data':data,'randoms':randoms}
+    origin_catalogs = {'data':data}
+    if randoms is not None: origin_catalogs['randoms'] = randoms
     catalogs = {name:catalog.copy(columns=[]) for name,catalog in origin_catalogs.items()}
 
     def from_origin(origin_column, column):
@@ -19,24 +20,32 @@ def prepare_survey_angular_catalogs(data, randoms, ra='RA', dec='DEC', weight_co
     from_origin(ra,'ra')
     from_origin(dec,'dec')
 
-    return catalogs['data'],catalogs['randoms']
+    return catalogs['data'], catalogs.get('randoms',None)
 
 
-def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z', position=None, weight_comp=None, nbar='NZ', weight_fkp=None, P0_fkp=0.):
+def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', z='Z', position=None, weight_comp=None, nbar='NZ', weight_fkp=None, P0_fkp=0.):
 
     origin_catalogs = {'data':data,'randoms':randoms}
 
     catalogs = {}
-    catalogs['data'],catalogs['randoms'] = prepare_survey_angular_catalogs(data,randoms,ra=ra,dec=dec,weight_comp=weight_comp)
+    origin_catalogs = {'data':data}
+    if randoms is not None: origin_catalogs['randoms'] = randoms
+    catalogs = {name:catalog.copy(columns=[]) for name,catalog in origin_catalogs.items()}
 
     def from_origin(origin_column, column):
         for name,catalog in catalogs.items():
             catalog[column] = origin_catalogs[name].eval(origin_column)
 
-    if z is not None:
-        from_origin(z,'z')
+    if weight_comp is None:
+        for name,catalog in catalogs.items():
+            catalog['weight_comp'] = origin_catalogs[name].ones()
+    else:
+        from_origin(weight_comp,'weight_comp')
 
     if position is None:
+        from_origin(z,'z')
+        from_origin(ra,'ra')
+        from_origin(dec,'dec')
         for name,catalog in catalogs.items():
             catalog['distance'] = cosmo.get_background().comoving_radial_distance(catalog['z'])
             catalog['position'] = utils.sky_to_cartesian(catalog['distance'],catalog['ra'],catalog['dec'],degree=True)
@@ -46,6 +55,13 @@ def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z'
             catalog['distance'] = utils.distance(catalog['position'])
 
     if isinstance(nbar,dict):
+        randoms = catalogs.get('randoms',None)
+        use_randoms = randoms is not None
+        if use_randoms:
+            alpha = data.sum('weight_comp')/randoms.sum('weight_comp')
+        else:
+            randoms = catalogs['data']
+            alpha = 1.
         if 'z' in randoms:
             z = randoms['z']
             radial_distance = cosmo.get_background().comoving_radial_distance
@@ -55,9 +71,9 @@ def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z'
         nbar = utils.RedshiftDensityInterpolator(redshifts,weights=randoms['weight_comp'],radial_distance=radial_distance,**nbar,**randoms.mpi_attrs)
         for name,catalog in catalogs.items():
             if 'z' in randoms:
-                catalog['nbar'] = nbar(catalog['z'])
+                catalog['nbar'] = alpha*nbar(catalog['z'])
             else:
-                catalog['nbar'] = nbar(catalog['distance'])
+                catalog['nbar'] = alpha*nbar(catalog['distance'])
     else:
         from_origin(nbar,'nbar')
 
@@ -70,7 +86,7 @@ def prepare_survey_catalogs(data, randoms, cosmo=None, ra='RA', dec='DEC', z='Z'
     for name,catalog in catalogs.items():
         catalog['weight'] = catalog['weight_comp']*catalog['weight_fkp']
 
-    return catalogs['data'],catalogs['randoms']
+    return catalogs['data'],catalogs.get('randoms',None)
 
 
 def prepare_box_catalog(data, position='Position', weight=None):

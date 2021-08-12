@@ -46,9 +46,9 @@ def save_power_window_function(data_fn, randoms_fn, window_fn):
     # Higher mesh resolution increases window function (more power on small scales)
     # Larger box size yields better convergence on large scales
     # There must be a correct choice, I should look again at Pat's notes
-    BoxSize = 10000.
+    BoxSize = 40000.
     Nmesh = 256
-    ells = (0,2,4)
+    ells = (0,)
     # We can try downsampling or rescaling random weights, result is the same
     #randoms = randoms.gslice(0,-1,10)
     #randoms['weight_comp'] *= 10
@@ -62,7 +62,9 @@ def save_power_window_function(data_fn, randoms_fn, window_fn):
     poles = power.poles
     mask = poles['k'] > 0.
     k = poles['k'][mask]
-    volume = np.prod(kfun)*poles['modes'][mask]
+    #volume = np.prod(kfun)*poles['modes'][mask]
+    edges = poles.edges['k']
+    volume = 4./3.*np.pi*(edges[1:]**3 - edges[:-1]**3)[mask]
 
     normwin = randoms.sum('weight')**2/data.sum('weight')**2*norm # this is 1 / alpha^2 * A
     shotnoise = mpi.sum_array(randoms['weight']**2,mpicomm=randoms.mpicomm)/normwin
