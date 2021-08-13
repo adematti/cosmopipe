@@ -1,5 +1,6 @@
 import logging
 
+import os
 import numpy as np
 from pypescript import BaseModule
 from nbodykit.lab import FKPCatalog, ConvolvedFFTPower
@@ -50,9 +51,13 @@ class SurveyPowerSpectrum(BaseModule):
             self.projattrs = {'name':self.projattrs}
 
     def execute(self):
+        self.save = self.options.get('save',None)
+        self.use_existing = self.options.get('use_existing',None)
+        if self.use_existing and os.path.isfile(self.save) :
+            self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + DataVector().load_auto(self.save)
+            return
         self.data_load = self.options.get('data_load','data')
         self.randoms_load = self.options.get('randoms_load','randoms')
-        self.save = self.options.get('save',None)
         input_data = syntax.load_auto(self.data_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto)
         has_randoms = self.randoms_load != ''
         if has_randoms:

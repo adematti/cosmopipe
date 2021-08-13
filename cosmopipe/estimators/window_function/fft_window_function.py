@@ -1,5 +1,6 @@
 import logging
 
+import os
 import numpy as np
 from pypescript import BasePipeline
 from nbodykit.lab import FKPCatalog, ConvolvedFFTPower
@@ -32,6 +33,10 @@ class FFTWindowFunction(BasePipeline):
     def execute(self):
         self.randoms_load = self.options.get('randoms_load','randoms')
         self.save = self.options.get('save',None)
+        self.use_existing = self.options.get('use_existing',None)
+        if self.use_existing and os.path.isfile(self.save) :
+            self.data_block[section_names.survey_selection,'window'] = WindowFunction().load_auto(self.save)
+            return 
         input_randoms = syntax.load_auto(self.randoms_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto,mpistate='scattered')
 
         cosmo = self.data_block.get(section_names.fiducial_cosmology,'cosmo',None)
