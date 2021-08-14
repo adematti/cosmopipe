@@ -245,7 +245,6 @@ class ParamError(Exception):
 class ParameterCollection(BaseOrderedCollection):
 
     """Class holding a collection of parameters."""
-    logger = logging.getLogger('ParameterCollection')
 
     def __init__(self, data=None, parser=None):
         """
@@ -579,7 +578,6 @@ class Parameter(BaseClass):
         Latex for parameter.
     """
     _attrs = ['name','value','fixed','prior','ref','proposal','latex']
-    logger = logging.getLogger('Parameter')
 
     def __init__(self, name, value=None, fixed=None, prior=None, ref=None, proposal=None, latex=None):
         """
@@ -733,7 +731,6 @@ class Prior(BaseClass):
     attrs : dict
         Arguments used to initialize :attr:`rv`.
     """
-    logger = logging.getLogger('Prior')
 
     def __init__(self, dist='uniform', limits=None, **kwargs):
         """

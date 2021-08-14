@@ -69,7 +69,6 @@ def _is_empty_interval(interval):
 class GaussianCovarianceMatrix(CovarianceMatrix):
 
     """Class computing Gaussian covariance matrix."""
-    logger = logging.getLogger('GaussianCovarianceMatrix')
 
     def __init__(self, data, model_bases=None, volume=None, xnum=3, munum=100, integration=None, kcutoff=(1e-6,1e1), attrs=None):
         """

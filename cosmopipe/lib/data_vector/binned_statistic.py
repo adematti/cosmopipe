@@ -6,7 +6,7 @@ import re
 
 import numpy as np
 
-from cosmopipe.lib.utils import BaseClass, savefile
+from cosmopipe.lib.utils import BaseClass, BaseMetaClass, savefile
 from cosmopipe.lib import utils
 from .projection import ProjectionName
 
@@ -119,9 +119,9 @@ def _mask_edges(edges, mask):
     return np.append(edge[:,0],edge[-1,1])
 
 
-class RegisteredBinnedStatistic(type):
+class RegisteredBinnedStatistic(BaseMetaClass):
 
-    """Metaclass registering :class:`BinnedStatistic` derived classes."""
+    """Meta class registering :class:`BinnedStatistic` derived classes."""
 
     _registry = {}
 
@@ -149,8 +149,6 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
     attrs : dict
         Dictionary of other attributes.
     """
-    logger = logging.getLogger('BinnedStatistic')
-
     _title_template = '### {} ###'
     _default_mapping_header = {'shape':'.*?#shape = (.*)$','dims':'.*?#dims = (.*)$','edges':'.*?#edges (.*) = (.*)$','columns':'.*?#columns = (.*)$'}
 
@@ -695,7 +693,6 @@ class BinnedProjection(BinnedStatistic):
     proj : ProjectionName
         Projection.
     """
-    logger = logging.getLogger('BinnedProjection')
     _default_mapping_header = {**BinnedStatistic._default_mapping_header,'proj':'.*?#proj = (.*)$','y':'.*?y = (.*)$'}
 
     def __init__(self, data=None, x=None, y=None, edges=None, dims=None, weights=None, proj=None, attrs=None):

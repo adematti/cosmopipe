@@ -17,7 +17,6 @@ class Catalog(BaseCatalog):
 class RandomBoxCatalog(Catalog):
 
     """Class that builds a random catalog with box geometry."""
-    logger = logging.getLogger('RandomBoxCatalog')
 
     @mpi.MPIInit
     def __init__(self, BoxSize=1., BoxCenter=0., size=None, nbar=None, rng=None, seed=None, attrs=None):

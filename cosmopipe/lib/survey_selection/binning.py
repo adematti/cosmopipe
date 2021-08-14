@@ -13,7 +13,6 @@ from .base import BaseMatrix
 class BaseBinning(BaseMatrix):
 
     """Class handling base binning scheme, i.e. evaluation right at the data points."""
-    logger = logging.getLogger('BaseBinning')
 
     def setup(self, data, projs=None):
         """
@@ -42,7 +41,7 @@ class BaseBinning(BaseMatrix):
 class InterpBinning(BaseBinning):
 
     """Class handling model interpolation at the data points."""
-    logger = logging.getLogger('InterpBinning')
+
     regularin = True
     regularout = False
 

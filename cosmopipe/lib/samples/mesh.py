@@ -105,7 +105,6 @@ class Mesh(BaseClass):
     Class that represents a mesh.
     TODO: decide what to do with MPI... scatter mesh? Gather mesh?
     """
-    logger = logging.getLogger('Mesh')
 
     @mpi.MPIInit
     def __init__(self, mesh, dims, edges=None, nodes=None, isdensity=True):

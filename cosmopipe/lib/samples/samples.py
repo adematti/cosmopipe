@@ -43,7 +43,6 @@ class hybridmethod(object):
 class Samples(BaseCatalog):
 
     """Class that holds samples drawn from likelihood."""
-    logger = logging.getLogger('Samples')
     _broadcast_attrs = ['parameters','attrs','mpistate','mpiroot']
 
     @mpi.MPIInit

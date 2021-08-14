@@ -11,7 +11,7 @@ from collections import UserDict
 import numpy as np
 from numpy.linalg import LinAlgError
 
-from pypescript.utils import setup_logging, mkdir, savefile, snake_to_pascal_case, ScatteredBaseClass, TaskManager, MemoryMonitor, exception_handler
+from pypescript.utils import setup_logging, mkdir, savefile, snake_to_pascal_case, BaseMetaClass, ScatteredBaseClass, TaskManager, MemoryMonitor, exception_handler
 from pypescript.utils import BaseClass as _BaseClass
 from pypescript.utils import ScatteredBaseClass as _ScatteredBaseClass
 from pypescript import mpi

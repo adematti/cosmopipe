@@ -25,7 +25,6 @@ class CorrelationWindowMatrix(BaseRegularMatrix):
         Array of shape ``(len(self.projsout),len(self.projsin),len(self.x))``
         to convert input array from one basis to another (e.g. multipoles to wedges).
     """
-    logger = logging.getLogger('CorrelationWindowMatrix')
     basis = ProjectionBasis(space=ProjectionBasis.CORRELATION,mode=ProjectionBasis.MULTIPOLE)
 
     def __init__(self, window=None, sum_wa=True, default_zero=False):
@@ -114,7 +113,6 @@ class PowerWindowMatrix(BaseMatrix):
 
     """Class computing matrix for window convolution in Fourier space."""
 
-    logger = logging.getLogger('PowerWindowMatrix')
     basis = ProjectionBasis(space=ProjectionBasis.POWER,mode=ProjectionBasis.MULTIPOLE)
     regularin = True
 

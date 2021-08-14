@@ -7,7 +7,7 @@ import json
 import numpy as np
 from scipy import linalg
 
-from cosmopipe.lib.utils import BaseClass, savefile
+from cosmopipe.lib.utils import BaseClass, BaseMetaClass, savefile
 from cosmopipe.lib import utils
 from .binned_statistic import BinnedProjection, get_title_label, read_title_label, read_header_txt
 from .projection import ProjectionName, ProjectionNameCollection
@@ -85,9 +85,9 @@ def _setstate_index_kwargs(**kwargs):
     return kwargs
 
 
-class RegisteredDataVector(type):
+class RegisteredDataVector(BaseMetaClass):
 
-    """Metaclass registering :class:`DataVector` derived classes."""
+    """Meta class registering :class:`DataVector` derived classes."""
 
     _registry = {}
 
@@ -112,7 +112,6 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
     attrs : dict
         Dictionary of other attributes.
     """
-    logger = logging.getLogger('DataVector')
     _copy_if_datablock_copy = True
     _title_template = '### {} ###'
     _default_mapping_header = {'kwargs_view':'.*?#kwview = (.*)$'}

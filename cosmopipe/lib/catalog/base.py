@@ -31,7 +31,6 @@ class BaseCatalog(ScatteredBaseClass):
 
     """Base class that represents a catalog, as a dictionary of columns stored as arrays."""
 
-    logger = logging.getLogger('BaseCatalog')
     _broadcast_attrs = ['attrs','mpistate','mpiroot']
 
     @mpi.MPIInit

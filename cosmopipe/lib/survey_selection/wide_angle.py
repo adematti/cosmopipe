@@ -57,7 +57,6 @@ class PowerOddWideAngle(BaseRegularMatrix):
     Class computing matrix for wide-angle expansion.
     Adapted from https://github.com/fbeutler/pk_tools/blob/master/wide_angle_tools.py
     """
-    logger = logging.getLogger('PowerOddWideAngle')
     basis = ProjectionBasis(space=ProjectionBasis.POWER,mode=ProjectionBasis.MULTIPOLE)
 
     def __init__(self, d=1., wa_orders=1, los='firstpoint', sum_wa=True):

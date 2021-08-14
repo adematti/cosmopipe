@@ -84,7 +84,6 @@ class RedshiftDensityInterpolator(ScatteredBaseClass):
     Class that computes and interpolates a redshift density histogram :math:`n(z)` from an array of redshift and optionally weights.
     Adapted from: https://github.com/bccp/nbodykit/blob/master/nbodykit/algorithms/zhist.py
     """
-    logger = logging.getLogger('RedshiftDensityInterpolator')
 
     @mpi.MPIInit
     def __init__(self, redshifts, weights=None, bins=None, fsky=1., radial_distance=None, interp_order=1):

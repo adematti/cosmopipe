@@ -136,7 +136,6 @@ class Profiles(BaseClass):
     covariance : ParamCovariance
         Parameter covariance at best fit.
     """
-    logger = logging.getLogger('Profiles')
     _paramdicts = ['metrics','init','bestfit','parabolic_errors','deltachi2_errors']
 
     def __init__(self, parameters, attrs=None):

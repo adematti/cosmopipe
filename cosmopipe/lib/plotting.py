@@ -46,7 +46,6 @@ class BasePlotStyle(utils.BaseClass):
     It holds attributes that can be set at initialization (``style = BaseDataPlotStyle(color='r')``) or at any
     time using :meth:`update`.
     """
-    logger = logging.getLogger('BasePlotStyle')
 
     @mpi.MPIInit
     def __init__(self, style=None, **kwargs):

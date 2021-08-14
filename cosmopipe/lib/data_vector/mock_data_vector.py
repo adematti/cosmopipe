@@ -12,8 +12,6 @@ class MockDataVector(DataVector):
 
     """Class to generate mock data vector, from an input covariance matrix."""
 
-    logger = logging.getLogger('MockDataVector')
-
     def __init__(self, covariance, rng=None, seed=None, y=None, mean=False):
         """
         Initialize :class:`MockDataVector`.
