@@ -20,8 +20,12 @@ options:
     type: [int, list]
     default: 0
     description: compute window functions for these wide-angle orders
+  ells:
+    type: list
+    default: [0,2,4]
+    description: a list of integer multipole numbers :math:`\ell` to compute, or such a list for each :math:`wa_orders`
   swin:
-    type: [dict, array]
+    type: [dict, float_array]
     default: None
     description: if provide, further take Hankel transforms of the Fourier-space window
   z:

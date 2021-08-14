@@ -20,10 +20,10 @@ class EnsembleSampler(BasePipeline):
         self.thin_by = self.options.get('thin_by',1)
         self.check_every = self.options.get('check_every',200)
         self.min_iterations = self.options.get('min_iterations',0)
-        self.max_iterations = self.options.get('max_iterations',sys.maxsize)
+        self.max_iterations = self.options.get('max_iterations',None)
+        if self.max_iterations is None: self.max_iterations = sys.maxsize
         self.max_tries = self.options.get('max_tries',1000)
-        diagnostics_options = ['nsplits','stable_over','burnin','eigen_gr_stop','diag_gr_stop','cl_diag_gr_stop','nsigmas_cl_diag_gr_stop','geweke_stop','iact_stop','dact_stop']
-        self.diagnostics = {key:self.options.get(key) for key in diagnostics_options if key in self.options}
+        self.diagnostics = self.options.get('diagnostics',{})
 
         super(EnsembleSampler,self).setup()
         self.parameters = self.pipe_block[section_names.parameters,'list']

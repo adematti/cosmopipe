@@ -59,7 +59,7 @@ class RandomBoxCatalog(Catalog):
             size = rng.poisson(nbar*np.prod(boxsize))
             size = mpi.local_size(size,mpicomm=self.mpicomm)
         if self.rng is None:
-            self.rng = mpi.MPIRandomState(size=size,seed=seed,mpicomm=self.mpicomm)
+            self.rng = mpi.MPIRandomState(mpicomm=self.mpicomm,seed=seed,size=size)
         position = np.array([rng.uniform(-boxsize[i]/2.+boxcenter[i],boxsize[i]/2.+boxcenter[i],size=size) for i in range(3)]).T
         attrs = attrs or {}
         attrs['BoxSize'] = boxsize

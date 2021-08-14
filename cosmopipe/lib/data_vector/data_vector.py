@@ -113,7 +113,7 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
         Dictionary of other attributes.
     """
     logger = logging.getLogger('DataVector')
-
+    _copy_if_datablock_copy = True
     _title_template = '### {} ###'
     _default_mapping_header = {'kwargs_view':'.*?#kwview = (.*)$'}
 

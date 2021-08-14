@@ -14,7 +14,7 @@ fitting:
   $module_name: pypescript
   $module_class: BasePipeline
   #$modules: [emcee, zeus, dynesty, cobaya, plotting]
-  $execute: [emcee, zeus, plotting]
+  $modules: [emcee, zeus, plotting]
   #$modules: [plotting]
 
 evaluate:
@@ -26,7 +26,8 @@ emcee:
   $module_name: cosmopipe.samplers.ensemble.emcee
   $module_class: EmceeSampler
   $modules: [like]
-  eigen_gr_stop: 0.5
+  diagnostics:
+    eigen_gr_stop: 0.5
   save: f'${samples_dir}/samples_emcee.txt'
   $[likelihood.samples_emcee]: $[likelihood.samples]
 
@@ -34,7 +35,8 @@ zeus:
   $module_name: cosmopipe.samplers.ensemble.zeus
   $module_class: ZeusSampler
   $modules: [like]
-  eigen_gr_stop: 0.5
+  diagnostics:
+    eigen_gr_stop: 0.5
   save: f'${samples_dir}/samples_zeus.txt'
   $[likelihood.samples_zeus]: $[likelihood.samples]
 

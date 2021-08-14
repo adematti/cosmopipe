@@ -36,7 +36,7 @@ options:
                   All tests that are not ``None``, should pass for the convergence diagnostic to be met.
   min_iterations:
     type: int
-    default: None
+    default: 0
     description: minimum number of iterations (to avoid early stop due to termination conditions being met fortuitously)
   max_iterations:
     type: int

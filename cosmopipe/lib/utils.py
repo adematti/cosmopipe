@@ -219,6 +219,7 @@ class BaseOrderedCollection(BaseClass):
     When adding a item equal to another already in the collection, the latter will be replaced by the former.
     Insertion order is conserved.
     """
+    _copy_if_datablock_copy = True
     _cast = lambda x: x
 
     def __init__(self, items=None):

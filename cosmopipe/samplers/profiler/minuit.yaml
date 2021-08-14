@@ -23,8 +23,8 @@ options:
     description: option dictionary for minos, possibly containing ``cl`` (confidence interval, defaults to 68.3%) and 'ncall' (maximum number of likelihood calls)
   torun:
     type: list
-    default: []
-    description: list of algorithms to run (migrad, minos)
+    default: None
+    description: list of algorithms to run (migrad, minos). If ``None``, if ``migrad`` options are not empty, run ``migrad``. Sample applies for ``minos``.
   seed:
     type: int
     default: None

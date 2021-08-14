@@ -191,10 +191,10 @@ def cartesian_to_sky(position, wrap=True, degree=True):
         Distance.
 
     ra : array
-        RA.
+        Right Ascension.
 
     dec : array
-        Dec.
+        Declination.
     """
     dist = distance(position)
     ra = np.arctan2(position[:,1],position[:,0])
@@ -214,10 +214,10 @@ def sky_to_cartesian(dist, ra, dec, degree=True, dtype=None):
         Distance.
 
     ra : array
-        RA.
+        Right Ascension.
 
     dec : array
-        Dec.
+        Declination.
 
     degree : default=True
         Whether RA, Dec are in degree (``True``) or radian (``False``).

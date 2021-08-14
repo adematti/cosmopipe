@@ -13,7 +13,6 @@ class BaseLikelihood(BasePipeline):
     logger = logging.getLogger('BaseLikelihood')
 
     def setup(self):
-        self.data_block[section_names.parameters,'list'] = []
         super(BaseLikelihood,self).setup()
         self.set_data()
         self.data_block[section_names.parameters,'list'] = self.pipe_block[section_names.parameters,'list']

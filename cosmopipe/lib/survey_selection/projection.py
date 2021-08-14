@@ -201,6 +201,8 @@ class ModelProjectionCollection(BaseClass):
     model_projections : list
         List of :class:`ModelProjection` instances.
     """
+    _copy_if_datablock_copy = True
+
     def __init__(self, data, projs=None, model_bases=None, integration=None):
         """
         Initialize :class:`ModelProjectionCollection`.
