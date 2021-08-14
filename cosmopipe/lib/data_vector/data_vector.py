@@ -744,7 +744,7 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
             return file
 
         if isinstance(filename,str):
-            cls.log_info('Loading {}.'.format(filename),rank=0)
+            cls.log_info('Loading DataVector {}.'.format(filename),rank=0)
             with open(filename,'r') as file_:
                 file = get_file(file_)
         else:
