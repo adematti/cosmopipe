@@ -282,7 +282,7 @@ class ParameterCollection(BaseOrderedCollection):
                 elif isinstance(name,dict):
                     data[name['name']] = name
                 else:
-                    data[name] = {}
+                    data[name] = {} # only name is provided
 
         elif not isinstance(data,dict):
             data = Decoder(data=data,parser=parser)

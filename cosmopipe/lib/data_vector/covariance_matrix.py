@@ -6,7 +6,7 @@ import json
 
 import numpy as np
 
-from cosmopipe.lib.utils import BaseClass, BaseMetaClass, savefile
+from cosmopipe.lib.utils import BaseClass, savefile
 from cosmopipe.lib import utils
 from .data_vector import DataVector
 from .data_vector import _format_index_kwargs as _format_single_index_kwargs
@@ -36,7 +36,7 @@ def _format_index_kwargs(first=None, second=None,  **kwargs):
     return [first,second]
 
 
-class RegisteredCovarianceMatrix(BaseMetaClass):
+class RegisteredCovarianceMatrix(type(BaseClass)):
 
     """Meta class registering :class:`CovarianceMatrix` derived classes."""
 

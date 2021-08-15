@@ -1,6 +1,6 @@
 import numpy as np
 
-from cosmopipe.lib.parameter import ParamName
+from cosmopipe.lib.parameter import ParameterCollection
 from cosmopipe import section_names
 
 
@@ -9,8 +9,8 @@ class GalaxyRSD(object):
     def setup(self):
         self.radius_sigma = self.options.get('radius_sig',8.)
         self.data_block[section_names.galaxy_rsd,'radius_sig'] = self.radius_sigma
-        derived = {ParamName(section_names.galaxy_rsd,'fsig')}
-        self.data_block[section_names.parameters,'derived'] = self.data_block.get(section_names.parameters,'derived',set()) | derived
+        self.data_block[section_names.parameters,'derived'] = self.data_block.get(section_names.parameters,'derived',[])
+        self.data_block[section_names.parameters,'derived'] += ParameterCollection([(section_names.galaxy_rsd,'fsig')])
 
     def execute(self):
         cosmo = self.data_block[section_names.primordial_cosmology,'cosmo']

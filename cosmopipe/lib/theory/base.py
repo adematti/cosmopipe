@@ -207,7 +207,7 @@ class ModelCollection(BaseOrderedCollection):
             self.data.append(model)
 
     def __contains__(self, item):
-        """Wether colleciton contains this model or basis."""
+        """Whether collection contains this model or basis."""
         return self.__class__._cast(item) in self.bases()
 
     def __getitem__(self, index):

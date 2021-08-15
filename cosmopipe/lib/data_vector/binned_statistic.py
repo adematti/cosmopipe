@@ -6,7 +6,7 @@ import re
 
 import numpy as np
 
-from cosmopipe.lib.utils import BaseClass, BaseMetaClass, savefile
+from cosmopipe.lib.utils import BaseClass, savefile
 from cosmopipe.lib import utils
 from .projection import ProjectionName
 
@@ -119,7 +119,7 @@ def _mask_edges(edges, mask):
     return np.append(edge[:,0],edge[-1,1])
 
 
-class RegisteredBinnedStatistic(BaseMetaClass):
+class RegisteredBinnedStatistic(type(BaseClass)):
 
     """Meta class registering :class:`BinnedStatistic` derived classes."""
 
@@ -290,9 +290,15 @@ class BinnedStatistic(BaseClass,metaclass=RegisteredBinnedStatistic):
         else:
             weights = np.ones(self.shape,dtype='f8')
 
+        if dims is None:
+            dims = self.dims
+            if not isinstance(edges,dict) and np.ndim(edges[0]) == 0:
+                edges = [edges]
+
         if np.ndim(dims) == 0:
             edges = [edges]
             dims = [dims]
+
         matrices, self.edges, dims = self._matrix_new_edges(edges,dims=dims,flatten=False,weights=None)
 
         axes = [self.dims.index(dim) for dim in dims]

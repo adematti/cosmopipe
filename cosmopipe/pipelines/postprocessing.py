@@ -10,8 +10,6 @@ from cosmopipe.lib.samples import Samples, Profiles
 
 class SamplesPostprocessing(MPIPipeline):
 
-    logger = logging.getLogger('SamplesPostprocessing')
-
     def setup(self):
         self.burnin = self.options.get('burnin',None)
         self.mode = self.options.get('mode','mean')
@@ -30,8 +28,6 @@ class SamplesPostprocessing(MPIPipeline):
 
 
 class ProfilesPostprocessing(MPIPipeline):
-
-    logger = logging.getLogger('ProfilesPostprocessing')
 
     def setup(self):
         self.mode = self.options.get('mode','best')

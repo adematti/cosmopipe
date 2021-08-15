@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from cosmopipe.lib.utils import BaseClass
+from cosmopipe.lib.utils import BaseClass, BaseOrderedCollection
 from cosmopipe.lib.data_vector import DataVector, ProjectionName, ProjectionNameCollection
 from cosmopipe.lib.theory import ProjectionBasis, ProjectionBasisCollection, ModelEvaluation
 
@@ -20,7 +20,7 @@ class ModelProjection(BaseClass):
     model_bases : ProjectionBasisCollection
         Projection bases of input theory models.
 
-    data : DataVector
+    data_vector : DataVector
         Data vector to project onto.
 
     projs : ProjectionNameCollection
@@ -29,18 +29,18 @@ class ModelProjection(BaseClass):
     operations : list
         List of successive matrix operations to apply.
     """
-    def __init__(self, data, projs=None, model_bases=None, integration=None):
+    def __init__(self, data_vector, projs=None, model_bases=None, integration=None):
         """
         Initialize :class:`ModelProjection`.
 
         Parameters
         ----------
-        data : DataVector
+        data_vector : DataVector
             Data vector to project onto.
 
         projs : list, ProjectionNameCollection, default=None
             Projection names.
-            If ``None``, defaults to ``data.get_projs()``, i.e. projections within data view.
+            If ``None``, defaults to ``data_vector.get_projs()``, i.e. projections within data view.
 
         model_bases : ProjectionBasis, ProjectionBasisCollection
             Projection basis of input model(s).
@@ -49,17 +49,30 @@ class ModelProjection(BaseClass):
         integration : dict
             Options for model evaluation / integration, see :class:`ModelEvaluation`.
         """
-        if isinstance(data,self.__class__):
-            self.__dict__.update(data.__dict__)
+        if isinstance(data_vector,self.__class__):
+            self.__dict__.update(data_vector.__dict__)
             return
 
         self.single_model = not isinstance(model_bases,(list,ProjectionBasisCollection))
         self.model_bases = ProjectionBasisCollection(model_bases)
 
-        self.data = data
-        self.projs = ProjectionNameCollection(projs) if projs is not None else data.get_projs()
+        self.set_data_vector(data_vector)
+        self.set_projs(projs)
+
         self.operations = []
         self.integration_options = integration
+
+    def set_data_vector(self, data_vector):
+        """Set :attr:`data_vector`."""
+        self.data_vector = data_vector
+
+    def set_projs(self, projs):
+        """Set :attr:`projs`."""
+        # we want projections to be exactly the same as data for ModelProjectionCollection
+        if projs is not None:
+            self.projs = ProjectionNameCollection([self.data_vector.projs.get(proj) for proj in projs])
+        else:
+            self.projs = self.data_vector.get_projs()
 
     def copy(self, copy_operations=True):
         """
@@ -81,29 +94,29 @@ class ModelProjection(BaseClass):
         """Append operation to the list of operations :attr:`operations`."""
         self.operations.append(operation)
 
-    def setup(self, data=None, projs=None):
+    def setup(self, data_vector=None, projs=None):
         """
         Compile all operations of :attr:`operations` into a single matrix transform.
 
         Parameters
         ----------
-        data : DataVector, default=None
-            Data vector to project onto. If not ``None``, replace current :attr:`data`.
+        data_vector : DataVector, default=None
+            Data vector to project onto. If not ``None``, replace current :attr:`data_vector`.
 
         projs : list, ProjectionNameCollection
             Projection names. If not ``None``, replace current :attr:`projs`.
         """
-        if data is not None:
-            self.data = data
+        if data_vector is not None:
+            self.set_data_vector(data_vector)
         if projs is not None:
-            self.projs = ProjectionNameCollection(projs)
+            self.set_projs(projs)
         operations = self.operations.copy()
         if not operations or not isinstance(operations[-1],BaseBinning):
             binning = BaseBinning()
             operations.append(binning)
 
         # this is binning operation
-        operations[-1].setup(data=self.data,projs=self.projs)
+        operations[-1].setup(data_vector=self.data_vector,projs=self.projs)
 
         operation = operations[0]
         projsout = ModelEvaluation.propose_out(self.model_bases)
@@ -134,10 +147,10 @@ class ModelProjection(BaseClass):
             self.matrix = None
 
         operation = operations[0]
-        data = DataVector(x=operation.xin,proj=operation.projsin)
+        data_vector = DataVector(x=operation.xin,proj=operation.projsin)
 
         # evaluation of the model callable
-        self.evaluation = ModelEvaluation(data=data,model_bases=self.model_bases[0] if self.single_model else self.model_bases,integration=self.integration_options)
+        self.evaluation = ModelEvaluation(data_vector=data_vector,model_bases=self.model_bases[0] if self.single_model else self.model_bases,integration=self.integration_options)
 
         xout = operations[-1].xout
         cumsizes = np.cumsum([0] + [len(x) for x in xout])
@@ -177,148 +190,109 @@ class ModelProjection(BaseClass):
     def to_data_vector(self, models, **kwargs):
         """Same as :meth:`__call__`, but returning :class:`DataVector` instance."""
         y = self(models,concatenate=True,**kwargs)
-        data = self.data.deepcopy()
+        data_vector = self.data_vector.deepcopy()
         #print(y.size)
-        data.set_y(y,proj=self.projs)
-        return data
+        data_vector.set_y(y,proj=self.projs)
+        return data_vector
 
 
-class ModelProjectionCollection(BaseClass):
+class ModelProjectionCollection(BaseOrderedCollection):
     """
-    Class managing several model projections.
-    Required data projections are grouped by e.g. :attr:`ProjectionName.space`, :attr:`ProjectionName.name`
-    (every :class:`ProjectionName` attribute that is not :attr:`ProjectionName.mode`, :attr:`ProjectionName.proj`, :attr:`ProjectionName.wa_order`)
-    and :class:`ModelProjection` instances are created for each of these groups.
+    Class managing a collection of model projections.
+    This is useful to directly get the the theory prediction of heteregenous data,
+    hence using different :class:`ModelProjection` pipelines,
+    e.g. correlation function and power spectrum.
 
     Attributes
     ----------
-    data : DataVector
-        Data vector to project onto.
-
-    projs : ProjectionNameCollection
-        Projection names.
-
-    model_projections : list
-        List of :class:`ModelProjection` instances.
+    _mapping : list, None
+        If not ``None``, this list contains, in the desired order,
+        the index of each projection in the concatenated projection collection from all model projections.
+        This is useful if one wants :meth:`__call__` or :attr:`to_data_vector` to return
+        e.g. a projection of the second model projection *before* one of the first model projection.
+        This mapping can be set using :meth:`reorder_by_projs`.
     """
-    _copy_if_datablock_copy = True
+    def __init__(self, *args, **kwargs):
+        """Initialize :class:`ModelProjectionCollection`."""
+        super(ModelProjectionCollection,self).__init__(*args,**kwargs)
+        self._mapping = None
 
-    def __init__(self, data, projs=None, model_bases=None, integration=None):
+    def index(self, proj):
+        """Return index of :class:`ProjectionName` ``proj`` in collection."""
+        proj = ProjectionName(proj)
+        for ii,model_projection in enumerate(self.data):
+            indices = model_projection.projs.index(proj,ignore_none=True)
+            if len(indices) == 1: break
+            elif len(indices) > 1: raise IndexError('Data projection {} has several matches')
+        return ii
+
+    def set(self, model_projection):
         """
-        Initialize :class:`ModelProjectionCollection`.
-
-        Parameters
-        ----------
-        data : DataVector
-            Data vector to project onto.
-
-        projs : list, ProjectionNameCollection, default=None
-            Projection names.
-            If ``None``, defaults to ``data.get_projs()``, i.e. projections within data view.
-
-        model_bases : ProjectionBasis, ProjectionBasisCollection
-            Projection basis of input model(s).
-            If single projection basis, a single model is expected in :meth:`__call__`.
-
-        integration : dict
-            Options for model evaluation / integration, see :class:`ModelEvaluation`.
+        Set new :class:`ModelProjection` in collection.
+        Raise :class:`TypeError` if not of type :class:`ModelProjection`.
         """
-        self.data = data
-        self.projs = ProjectionNameCollection(projs) if projs is not None else data.get_projs()
+        #Raise :class:`IndexError` if this model projection covers projections that are already treated in a model projection of this collection.
+        if not isinstance(model_projection,ModelProjection):
+            raise TypeError('{} is not a ModelProjection instance.'.format(model_projection))
+        # removing already-covered projections
+        for self_model_projection in self.data:
+            new_projs = self_model_projection.projs.copy()
+            for proj in model_projection.projs:
+                if proj in new_projs: del new_projs[new_projs.index(proj)]
+            self_model_projection.set_projs(new_projs)
+        #for proj in model_projection.projs:
+        #    if proj in self.projs:
+        #        raise ValueError('Data projection {} is already in current {}'.format(proj,self.__class__.__name__))
+        self.data.append(model_projection)
 
-        self.groups = self.projs.group_by(exclude=['mode','proj','wa_order'])
-        self.projection_mapping = [None]*len(self.projs)
-        nprojs = 0
-        self.model_projections = []
-        for label,projs in self.groups.items():
-            indices = [self.projs.index(proj) for proj in projs]
-            for ii,jj in enumerate(indices): self.projection_mapping[jj] = nprojs + ii
-            nprojs += len(projs)
-            modelproj = ModelProjection(self.data,projs=projs,model_bases=model_bases,integration=integration)
-            self.model_projections.append(modelproj)
+    @property
+    def data_vector(self):
+        """Return data vector, as a concatenation of all :attr:`ModelProjection.data_vector`."""
+        return DataVector.concatenate(*[model_projection.data_vector for model_projection in self])
 
-    def copy(self, *args, **kwargs):
-        """Return copy of collection of model projections, including copy of each model projections, with arguments ``args`` and ``kwargs``."""
-        new = self.__copy__()
-        new.model_projections = [modelproj.copy(*args,**kwargs) for modelproj in self.model_projections]
-        return new
+    @property
+    def projs(self):
+        """Return projection names, as a concatenation of all :attr:`ModelProjection.projs`, optionally reordered."""
+        projs = ProjectionNameCollection.concatenate(*[model_projection.projs for model_projection in self])
+        if self._mapping is not None:
+            projs.reorder(self._mapping)
+        return projs
 
-    def set(self, *args, **kwargs):
-        """
-        Set new :class:`ModelProjection` instance, initialized with arguments ``args`` and ``kwargs``.
-        Projections which are already covered by current collection are *not* replaced.
-        TODO: this was to simplify things, but we should simply redo the :attr:`projection_mapping`.
-        """
-        modelproj = ModelProjection(*args,**kwargs)
-        add_modelproj = False
-        for proj in modelproj.projs:
-            add_modelproj = proj not in self.projs
-            if add_modelproj:
-                self.projs.set(proj)
-                self.projection_mapping.append(len(self.projs))
-        if add_modelproj:
-            self.data += modelproj.data
-            self.model_projections.append(modelproj)
+    @classmethod
+    def propose_groups(cls, projs):
+        """Group input projection names ``projs`` into sets that could be handled by a single :class:`ModelProjection`."""
+        return ProjectionNameCollection(projs).group_by(exclude=['mode','proj','wa_order'])
 
-    def setup(self, data=None, projs=None):
+    def reorder_by_projs(self, projs):
+        """Internally reoder desired projections following projection names ``projs``."""
+        allprojs = ProjectionNameCollection.concatenate(*[model_projection.projs for model_projection in self])
+        self._mapping = [allprojs.index(proj) for proj in projs]
+
+    def setup(self, data_vector=None, projs=None):
         """
         Set up all model projections.
 
         Parameters
         ----------
-        data : DataVector, default=None
-            Data vector to project onto. If not ``None``, replace current :attr:`data`.
+        data_vector : DataVector, default=None
+            Data vector to project onto. If not ``None``, replace current :attr:`data_vector`.
 
         projs : list, ProjectionNameCollection
             Projection names. If not ``None``, replace current :attr:`projs`.
         """
-        if data is not None:
-            self.data = data
+        if data_vector is not None or projs is not None:
+            if projs is None: projs = data_vector.get_projs()
+            else: projs = ProjectionNameCollection([data_vector.projs.get(proj) for proj in projs])
+            indices = [self.index(proj) for proj in projs]
+            for ii,model_projection in enumerate(self.data):
+                if ii not in indices: continue
+                model_projection_projs = [proj for proj,ind in zip(projs,indices) if ind == ii]
+                model_projection.setup(data_vector=data_vector,projs=model_projection_projs)
+            self.reorder_by_projs(projs)
 
-        if data is not None or projs is not None:
-            self_group_labels = list(self.groups.keys())
-            self_model_projections = self.model_projections
-            self.projs = ProjectionNameCollection(projs) if projs is not None else data.get_projs()
-            self.groups = self.projs.group_by(exclude=['mode','proj','wa_order'])
-            self.projection_mapping = [None]*len(self.projs)
-            nprojs = 0
-            self.model_projections = []
-            for label,projs in self.groups.items():
-                indices = [projs.index(proj) for proj in projs]
-                for ii,jj in enumerate(indices): self.projection_mapping[jj] = nprojs + ii
-                self.model_projections.append(self_model_projections[self_group_labels.index(label)])
-
-        for model_projection,projs in zip(self.model_projections,self.groups.values()):
-            model_projection.setup(data=data,projs=projs)
-
-    @classmethod
-    def concatenate(cls, *others):
-        """Concatenate model projection collections."""
-        new = others[0].copy()
-        for other in others[1:]:
-            for item in other.model_projections:
-                new.set(item)
-        return new
-
-    def extend(self, other):
-        """Extend collection with ``other``."""
-        new = self.concatenate(self,other)
-        self.__dict__.update(new.__dict__)
-
-    def __radd__(self, other):
-        """Operation corresponding to ``other + self``."""
-        if other in [[],0,None]:
-            return self.copy()
-        return self.concatenate(self,other)
-
-    def __iadd__(self, other):
-        """Operation corresponding to ``self += other``."""
-        self.extend(other)
-        return self
-
-    def __add__(self, other):
-        """Addition of two collections is defined as concatenation."""
-        return self.concatenate(self,other)
+        else:
+            for model_projection in self.data:
+                model_projection.setup()
 
     def __call__(self, models, concatenate=True, **kwargs):
         """
@@ -344,10 +318,11 @@ class ModelProjectionCollection(BaseClass):
             If input ``concatenate`` is ``True``, single array concatenated over all projections.
             Else, a list of arrays corresponding to each :attr:`projs`.
         """
-        tmp = []
-        for model_projection in self.model_projections:
-            tmp += model_projection(models,concatenate=False, **kwargs)
-        toret = [tmp[ii] for ii in self.projection_mapping]
+        toret = []
+        for model_projection in self.data:
+            toret += model_projection(models,concatenate=False,**kwargs)
+        if self._mapping is not None:
+            toret = [toret[ii] for ii in self._mapping]
         if concatenate:
             return np.concatenate(toret)
         return toret
@@ -355,6 +330,7 @@ class ModelProjectionCollection(BaseClass):
     def to_data_vector(self, models, **kwargs):
         """Same as :meth:`__call__`, but returning :class:`DataVector` instance."""
         y = self(models,concatenate=True,**kwargs)
-        data = self.data.deepcopy()
-        data.set_y(y,proj=self.projs)
-        return data
+        data_vector = self.data_vector
+        data_vector = data_vector.deepcopy()
+        data_vector.set_y(y,proj=self.projs)
+        return data_vector

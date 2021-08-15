@@ -25,7 +25,7 @@ def test_evaluation():
     #print(pk_ell)
     assert pk_ell.size == k.size*2
     data = DataVector(x=[k,k[:10]],proj=['ell_0','ell_2'])
-    evaluation = ModelEvaluation(data=data,model_bases={'mode':'muwedge'})
+    evaluation = ModelEvaluation(data,model_bases={'mode':'muwedge'})
     assert len(list(evaluation.evalmesh.values())[0]) == 1 and list(evaluation.evalmesh.values())[0][0][0].size == k.size
     assert evaluation(model.pk_mu).size == k.size + 10
     data = DataVector(x=[k,k[:10]+0.042],proj=['ell_0','ell_2'])
@@ -86,7 +86,7 @@ def test_hankel(plot_fftlog=True):
     xi_interp = interpolate.interp1d(s,xiell.T,axis=0,kind='cubic',bounds_error=True,assume_sorted=True)
     x = np.linspace(10,200,30)
     data = DataVector(x=[x]*len(projs),proj=projs)
-    evaluation = ModelEvaluation(data=data,model_bases={'mode':'multipole','projs':ells})
+    evaluation = ModelEvaluation(data,model_bases={'mode':'multipole','projs':ells})
     data_vector = evaluation.to_data_vector(xi_interp)
     filename = os.path.join(plot_dir,'xi_evaluation.png')
     data_vector.plot(style='correlation',filename=filename)

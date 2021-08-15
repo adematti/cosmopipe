@@ -14,22 +14,22 @@ class BaseBinning(BaseMatrix):
 
     """Class handling base binning scheme, i.e. evaluation right at the data points."""
 
-    def setup(self, data, projs=None):
+    def setup(self, data_vector, projs=None):
         """
         Set up projection.
 
         Parameters
         ----------
-        data : DataVector
+        data_vector : DataVector
             Data vector to project onto.
 
         projs : list, ProjectionNameCollection, default=None
             Projection names.
-            If ``None``, defaults to ``data.get_projs()``, i.e. projections within data view.
+            If ``None``, defaults to ``data_vector.get_projs()``, i.e. projections within data view.
         """
-        self.data = data
-        self.projsin = self.projsout = ProjectionNameCollection(projs) if projs is not None else data.get_projs()
-        self.xin = self.xout = [self.data.get_x(proj=proj) for proj in self.projsout]
+        self.data_vector = data_vector
+        self.projsin = self.projsout = ProjectionNameCollection(projs) if projs is not None else data_vector.get_projs()
+        self.xin = self.xout = [self.data_vector.get_x(proj=proj) for proj in self.projsout]
         sout = sin = sum([len(x) for x in self.xin])
         self.matrix = np.eye(sout,sin,dtype='f8')
 
@@ -56,22 +56,22 @@ class InterpBinning(BaseBinning):
         """
         self.xin = np.asarray(xin)
 
-    def setup(self, data, projs=None):
+    def setup(self, data_vector, projs=None):
         """
         Set up projection.
 
         Parameters
         ----------
-        data : DataVector
+        data_vector : DataVector
             Data vector to project onto.
 
         projs : list, ProjectionNameCollection, default=None
             Projection names.
-            If ``None``, defaults to ``data.get_projs()``, i.e. projections within data view.
+            If ``None``, defaults to ``data_vector.get_projs()``, i.e. projections within data view.
         """
-        self.data = data
-        self.projsin = self.projsout = ProjectionNameCollection(projs) if projs is not None else data.get_projs()
-        self.xout = [self.data.get_x(proj=proj) for proj in self.projsout]
+        self.data_vector = data_vector
+        self.projsin = self.projsout = ProjectionNameCollection(projs) if projs is not None else data_vector.get_projs()
+        self.xout = [self.data_vector.get_x(proj=proj) for proj in self.projsout]
         matrix = []
         zeros = [np.zeros((len(xout),len(self.xin)),dtype='f8') for xout in self.xout]
         for iproj,xout in enumerate(self.xout):

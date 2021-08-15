@@ -70,13 +70,13 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
 
     """Class computing Gaussian covariance matrix."""
 
-    def __init__(self, data, model_bases=None, volume=None, xnum=3, munum=100, integration=None, kcutoff=(1e-6,1e1), attrs=None):
+    def __init__(self, data_vector, model_bases=None, volume=None, xnum=3, munum=100, integration=None, kcutoff=(1e-6,1e1), attrs=None):
         """
         Initialize :class:`GaussianCovarianceMatrix`.
 
         Parameters
         ----------
-        data : DataVector
+        data_vector : DataVector
             Data vector for which to compute Gaussian covariance matrix.
             Must have edges.
 
@@ -104,7 +104,7 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
         attrs : dict, default=None
             Other attributes.
         """
-        self.projs = data.get_projs()
+        self.projs = data_vector.get_projs()
         self.model_bases = ProjectionBasisCollection(model_bases)
         self.power_bases = self.model_bases.select(*[{'name':proj.name,'space':ProjectionBasis.POWER} for proj in self.projs])
 
@@ -144,11 +144,11 @@ class GaussianCovarianceMatrix(CovarianceMatrix):
 
         self.edges = []
         for proj in self.projs:
-            edges = data.get_edges(proj=proj)[0]
+            edges = data_vector.get_edges(proj=proj)[0]
             #print(proj,edges)
             self.edges.append(np.vstack([edges[:-1],edges[1:]]).T)
 
-        self.evaluation = ModelEvaluation(data,model_bases=self.model_bases,integration=integration)
+        self.evaluation = ModelEvaluation(data_vector,model_bases=self.model_bases,integration=integration)
 
         self.xnum = xnum
         self.munum = munum

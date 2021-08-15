@@ -35,6 +35,7 @@ extensions = [
     'sphinx_rtd_theme'
 ]
 
+import lib # hack to avoid issues with meta classes
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 
 # -- Project information -----------------------------------------------------

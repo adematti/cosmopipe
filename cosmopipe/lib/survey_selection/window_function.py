@@ -49,7 +49,7 @@ def compute_real_window_1d(s, fourier_window):
             volume = (2.*np.pi)**3/np.prod(boxsize)*nmodes
         else:
             if not logged:
-                dataproj.log_info('Missing modes or BoxSize to compute volume in descrete limit. Switching to continuous limit.',rank=0)
+                dataproj.log_info('Missing modes or BoxSize to compute volume in discrete limit. Switching to continuous limit.',rank=0)
                 logged = True
             if dataproj.has_edges():
                 edges = dataproj.get_edges()
@@ -113,7 +113,8 @@ class WindowFunction(DataVector):
                     return np.zeros(tuple(a.size for a in args),dtype=args[0].dtype)
                 return np.zeros_like(args[0])
             else:
-                raise IndexError('No window provided for projection {}'.format(proj))
+                raise IndexError('No window provided for projection {}. '
+                                'If you want to ignore this error (set the corresponding window to zero), pass defaut_zero = True'.format(proj))
         window = window[0]
         points = window.get_x_average()
         values = window.get_y(flatten=False)

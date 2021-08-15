@@ -10,6 +10,7 @@ from cosmopipe.lib.survey_selection.window_function import compute_real_window_1
 class WindowConvolution(object):
 
     def setup(self):
+        print(self.options)
         options = dict(krange=None,srange=None,ns=1024,q=0,default_zero=False)
         for name,value in options.items():
             options[name] = self.options.get(name,value)

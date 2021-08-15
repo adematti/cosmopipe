@@ -15,13 +15,14 @@ postprocessing:
   #$execute: ${like.$modules}
   #$modules: [data_model_plotting]
   $execute: [model, projection, data_model_plotting]
+  #$execute: ["&main.minuit.like", data_model_plotting]
 
 minuit:
   $module_name: cosmopipe.samplers.profiler.minuit
   $module_class: MinuitProfiler
   $modules: [like]
   migrad:
-    n_iterations: 10
+    n_iterations: 1
 
 primordial:
   $module_name: cosmopipe.theory.primordial.primordial
@@ -84,17 +85,7 @@ model:
   data_shotnoise: 1e3
 
 projection:
-  #$module_name: cosmopipe.theory.evaluation
   $module_name: cosmopipe.survey_selection.projection
-  $modules: [wideangle, window]
-
-wideangle:
-  $module_name: cosmopipe.survey_selection.wide_angle
-  d: 1e3
-
-window:
-  $module_name: cosmopipe.survey_selection.window_convolution
-  window_load: f'${data_dir}/window_function.txt'
 
 fine_projection:
   $module_name: cosmopipe.survey_selection.projection

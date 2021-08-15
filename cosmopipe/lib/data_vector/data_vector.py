@@ -7,7 +7,7 @@ import json
 import numpy as np
 from scipy import linalg
 
-from cosmopipe.lib.utils import BaseClass, BaseMetaClass, savefile
+from cosmopipe.lib.utils import BaseClass, savefile
 from cosmopipe.lib import utils
 from .binned_statistic import BinnedProjection, get_title_label, read_title_label, read_header_txt
 from .projection import ProjectionName, ProjectionNameCollection
@@ -85,7 +85,7 @@ def _setstate_index_kwargs(**kwargs):
     return kwargs
 
 
-class RegisteredDataVector(BaseMetaClass):
+class RegisteredDataVector(type(BaseClass)):
 
     """Meta class registering :class:`DataVector` derived classes."""
 
@@ -154,6 +154,8 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
             return
         if isinstance(x,BinnedProjection):
             self.set(x)
+            return
+        if isinstance(x,(tuple,list)) and not len(x):
             return
         if x is not None and isinstance(x[0],BinnedProjection):
             for x_ in x: self.set(x_)
@@ -476,6 +478,10 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
             else:
                 dataproj.set_y(y[iproj],mask=index)
 
+    def reorder(self, indices):
+        """Reorder deta_vector following index list ``indices``."""
+        self.data = [self.data[ii] for ii in indices]
+
     def copy(self, copy_proj=False):
         """Return copy, including shallow-copy of each projection."""
         new = self.__copy__()
@@ -542,6 +548,7 @@ class DataVector(BaseClass,metaclass=RegisteredDataVector):
                     toret['xlim'].append(xlim)
             return toret
 
+        if not others: return cls()
         new = cls(others[0])
         new.attrs = others[0].attrs.copy()
         has_view = others[0]._kwargs_view is not None

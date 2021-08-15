@@ -14,18 +14,18 @@ class ModelEvaluation(BaseClass):
 
     """Class evaluating theory model(s) at given points, optionally performing some integration (e.g. against Legendre polynomials)."""
 
-    def __init__(self, data, projs=None, model_bases=None, integration=None):
+    def __init__(self, data_vector, projs=None, model_bases=None, integration=None):
         """
         Initialize :class:`ModelEvaluation`.
 
         Parameters
         ----------
-        data : DataVector
+        data_vector : DataVector
             Data vector to project onto.
 
         projs : list, ProjectionNameCollection, default=None
             Projection names.
-            If ``None``, defaults to ``data.get_projs()``, i.e. projections within data view.
+            If ``None``, defaults to ``data_vector.get_projs()``, i.e. projections within data view.
             Theory model(s) are matched to each of these projections (using :meth:`ProjectionBasisCollection.get_by_proj`)
 
         model_bases : ProjectionBasis, ProjectionBasisCollection
@@ -37,10 +37,10 @@ class ModelEvaluation(BaseClass):
         """
         self.single_model = not isinstance(model_bases,(list,ProjectionBasisCollection))
         self.model_bases = ProjectionBasisCollection(model_bases)
-        self.data = data
-        if not isinstance(data,DataVector):
-            self.data = DataVector(data,proj=projs)
-        self.projs = ProjectionNameCollection(projs) if projs is not None else data.get_projs()
+        self.data_vector = data_vector
+        if not isinstance(data_vector,DataVector):
+            self.data_vector = DataVector(data_vector,proj=projs)
+        self.projs = ProjectionNameCollection(projs) if projs is not None else data_vector.get_projs()
 
         if integration is None:
             integration = {proj:None for proj in self.projs}
@@ -54,7 +54,7 @@ class ModelEvaluation(BaseClass):
             if model_basis not in groups:
                 groups[model_basis] = []
             groups[model_basis].append(proj)
-            self.set_model_evaluation(self.data,proj,model_basis=model_basis,integration=self.integration_options[proj])
+            self.set_model_evaluation(self.data_vector,proj,model_basis=model_basis,integration=self.integration_options[proj])
 
         self.evalmesh = {}
         for model_basis in groups:
@@ -89,13 +89,13 @@ class ModelEvaluation(BaseClass):
                     integ.maskmesh = utils.match1d(integ.evalmesh[0],cmesh)[0]
                     assert len(integ.maskmesh) == len(integ.evalmesh[0])
 
-    def set_model_evaluation(self, data, proj, model_basis, integration=None):
+    def set_model_evaluation(self, data_vector, proj, model_basis, integration=None):
         r"""
         Set engine for model evaluation on projection ``proj``.
 
         Parameters
         ----------
-        data : DataVector
+        data_vector : DataVector
             Data vector to project onto.
 
         proj : ProjectionName
@@ -113,8 +113,8 @@ class ModelEvaluation(BaseClass):
               and ``proj`` is a :math:`\mu`-wedge.
         """
         integration = integration or {}
-        #proj = ProjectionName(projname)
-        x = data.get_x(proj=proj)
+        #proj = ProjectionName(proj)
+        x = data_vector.get_x(proj=proj)
         error = ValueError('Unknown projection {} -> {}'.format(model_basis.mode,proj.mode))
         if proj.mode == ProjectionName.MULTIPOLE:
             if model_basis.mode == ProjectionBasis.MUWEDGE:
@@ -178,8 +178,8 @@ class ModelEvaluation(BaseClass):
             for mesh in self.evalmesh[model_basis]:
                 evals[model_basis].append(model(*mesh,**kwargs))
         toret = []
-        for projname in self.projs:
-            integ = self.integration_engines[projname]
+        for proj in self.projs:
+            integ = self.integration_engines[proj]
             mesh = evals[integ.model_basis][integ.indexmesh]
             projected = integ(mesh[integ.maskmesh,...] if integ.maskmesh is not None else mesh) - integ.shotnoise * remove_shotnoise
             toret.append(projected.flatten())
@@ -190,9 +190,9 @@ class ModelEvaluation(BaseClass):
     def to_data_vector(self, models, **kwargs):
         """Same as :meth:`__call__`, but returning :class:`DataVector` instance."""
         y = self(models,concatenate=True,**kwargs)
-        data = self.data.deepcopy()
-        data.set_y(y,proj=self.projs)
-        return data
+        data_vector = self.data_vector.deepcopy()
+        data_vector.set_y(y,proj=self.projs)
+        return data_vector
 
     @classmethod
     def propose_out(cls, model_bases=None):

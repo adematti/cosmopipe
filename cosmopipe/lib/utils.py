@@ -261,9 +261,17 @@ class BaseOrderedCollection(BaseClass):
         else:
             self.data.append(item)
 
+    def reorder(self, indices):
+        """Reorder collection following index list ``indices``."""
+        self.data = [self.data[ii] for ii in indices]
+
     def __getitem__(self, index):
         """Return item by index in collection."""
         return self.data[index]
+
+    def __delitem__(self, index):
+        """Delete item by index in collection."""
+        del self.data[index]
 
     @classmethod
     def concatenate(cls, *others):
@@ -271,6 +279,7 @@ class BaseOrderedCollection(BaseClass):
         Concatenate input collections.
         Unique items only are kept.
         """
+        if not others: return cls()
         new = cls(others[0])
         for other in others[1:]:
             other = cls(other)

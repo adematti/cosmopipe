@@ -41,7 +41,7 @@ minuit:
   $module_class: MinuitProfiler
   $modules: [like]
   migrad:
-    n_iterations: 10
+    n_iterations: 1
 
 fiducial:
   $module_name: cosmopipe.theory.primordial.fiducial

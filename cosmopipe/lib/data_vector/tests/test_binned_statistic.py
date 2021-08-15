@@ -8,7 +8,7 @@ def test_binned_statistic():
     edges = np.linspace(0.,1.,10)
     k = (edges[:-1] + edges[1:])/2.
     test = BinnedStatistic(data={'k':k},edges={'k':edges})
-    test.set_new_edges({'k':edges})
+    test.set_new_edges(edges,dims='k')
     assert test['k'].size == edges.size - 1
     edges = np.linspace(0.1,0.9,5)
     test.set_new_edges({'k':edges})
