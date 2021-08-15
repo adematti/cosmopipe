@@ -24,6 +24,8 @@ window:
   swin: e'np.linspace(0.,5000,1000)'
   wa_orders: [0,1]
   ells: [[0,2,4],[1,3]]
+  #if window already calculated, will next would just read and make the plot
+  #use_existing: true
   save: f'${data_dir}/window_function.txt'
 
 window_estimator:

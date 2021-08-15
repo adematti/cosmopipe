@@ -547,7 +547,7 @@ class BaseCatalog(ScatteredBaseClass):
         -------
         catalog : BaseCatalog
         """
-        cls.log_info('Loading {}.'.format(filename),rank=0)
+        cls.log_info('Loading BaseCatalog {}.'.format(filename),rank=0)
         import fitsio
         # Stolen from https://github.com/bccp/nbodykit/blob/master/nbodykit/io/fits.py
         msg = 'Input FITS file {}'.format(filename)

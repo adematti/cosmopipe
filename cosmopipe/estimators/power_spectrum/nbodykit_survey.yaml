@@ -107,7 +107,10 @@ options:
     type: string
     default: None
     description: if not ``None``, path where to save the power spectrum measurement
-
+  use_existing: 
+    type: bool
+    default: None
+    description: if save file exists, just read and return
 execute input:
   fiducial_cosmology.cosmo:
     type: cosmoprimo.Cosmology
