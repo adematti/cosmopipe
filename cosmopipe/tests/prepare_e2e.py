@@ -12,8 +12,8 @@ def generate_lognormal(data_fn, randoms_fn=None, data_box_fn=None, seed=42,use_e
     if use_existing :
         if (not data_fn or os.path.isfile(data_fn)) and \
            (not randoms_fn or os.path.isfile(randoms_fn)) and \
-           (not data_box_fn or os.path.isfile(data_box_fn)) : 
-            return 
+           (not data_box_fn or os.path.isfile(data_box_fn)) :
+            return
 
     redshift = 1.
     cosmo = cosmology.Planck15
@@ -52,7 +52,7 @@ def generate_lognormal(data_fn, randoms_fn=None, data_box_fn=None, seed=42,use_e
         cat.save_fits(randoms_fn)
 
 
-def main(ndata=11,use_existing=False) :
+def main(ndata=11, use_existing=False) :
     setup_logging()
     base_dir = '_catalog'
     data_box_fn = os.path.join(base_dir,'lognormal_box.fits')
@@ -63,6 +63,6 @@ def main(ndata=11,use_existing=False) :
         data_fn = os.path.join(base_dir,'lognormal_data_{:d}.fits'.format(ii))
         generate_lognormal(data_fn,seed=ii,use_existing=use_existing)
 
+
 if __name__ == '__main__':
     main()
-

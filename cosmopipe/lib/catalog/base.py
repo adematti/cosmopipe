@@ -1,4 +1,4 @@
-"""Definition of :class:`BaseCatalog` to store a catalog-like objects."""
+"""Definition of :class:`BaseCatalog` to store a catalog-like object."""
 
 import os
 import re
