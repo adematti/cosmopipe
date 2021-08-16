@@ -124,3 +124,4 @@ class FFTWindowFunction(BasePipeline):
         if self.save: fourier_window.save_auto(self.save)
 
         self.data_block[section_names.survey_selection,'window'] = fourier_window
+

@@ -1,3 +1,4 @@
+import os
 from pypescript.main import main
 from pypescript.syntax import yaml_parser
 
@@ -18,9 +19,11 @@ def test_demo():
         with open(config,'r') as file:
             toret = file.read()
         config_block = yaml_parser(toret)
-        main(config_block=config_block)
-
-
+        try :
+            main(config_block=config_block)
+        except : 
+            print(config+" FAILED")
+            os._exit(1)
 if __name__ == '__main__':
 
     setup_logging()
