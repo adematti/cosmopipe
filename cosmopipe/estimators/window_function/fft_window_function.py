@@ -35,7 +35,7 @@ class FFTWindowFunction(BasePipeline):
         self.save = self.options.get('save',None)
         self.use_existing = self.options.get('use_existing',None)
         if self.use_existing and os.path.isfile(self.save) :
-            self.data_block[section_names.survey_selection,'window'] = WindowFunction().load_auto(self.save)
+            self.data_block[section_names.survey_selection,'window'] = WindowFunction.load_auto(self.save)
             return 
         input_randoms = syntax.load_auto(self.randoms_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto,mpistate='scattered')
 
