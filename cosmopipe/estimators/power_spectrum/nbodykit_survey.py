@@ -54,7 +54,7 @@ class SurveyPowerSpectrum(BaseModule):
         self.save = self.options.get('save',None)
         self.use_existing = self.options.get('use_existing',None)
         if self.use_existing and os.path.isfile(self.save) :
-            self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + DataVector().load_auto(self.save)
+            self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + DataVector.load_auto(self.save)
             return
         self.data_load = self.options.get('data_load','data')
         self.randoms_load = self.options.get('randoms_load','randoms')
