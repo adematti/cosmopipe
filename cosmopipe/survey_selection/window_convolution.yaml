@@ -31,7 +31,7 @@ options:
     description: power-law tilt to regularize Hankel transforms
   window_load:
     type: string
-    default: window_function
+    default: window
     description: either (section, name) in data_block where to find the window function or, if containing / (or \), a path to a window function on disk.
                 If path ends with .npy, none of the arguments below apply.
                 The window function can be in configuration-space or in Fourier-space.

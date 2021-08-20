@@ -18,15 +18,9 @@ catalog_dir: _catalog
 
 main:
   #$execute: [fiducial, window] # we do this in first step, though we could just do things in a row
-  #$execute: [fiducial, window, survey_estimator, data_plotting, data, primordial, model, mockcov, fitting, postprocessing]
-  $execute: [powerspectrum_measurement, fitting, postprocessing]
+  $execute: [fiducial, survey_estimator, data_plotting, data, primordial, model, mockcov, fitting, postprocessing]
   #$execute: [data, primordial, model, mockcov, fitting, postprocessing]
   $[survey_selection.zeff]: 1.0
-
-powerspectrum_measurement:
-  $module_name: pypescript
-  $module_class: StreamPipeline
-  $execute: [fiducial, window, survey_estimator, data_plotting, data, primordial, model, mockcov]
 
 fitting:
   $module_name: pypescript
@@ -77,10 +71,12 @@ box_estimator:
     step: 0.01
   position: 'Position + VelocityOffset[:,[0]]*[1,0,0]'
   data_load: f'${catalog_dir}/lognormal_box.fits'
+  save: f'${data_dir}/lognormal_power_spectrum.txt'
 
 data_plotting:
   $module_name: cosmopipe.data_vector.plotting
   $module_class: DataVectorPlotting
+  data_load: ${survey_estimator.save}
   style: power
   kwplt: {'alpha': 0.3}
   filename: f'${plots_dir}/power_spectrum.png'
@@ -93,6 +89,8 @@ mockcov:
 
 data:
   $module_name: cosmopipe.data_vector.data_vector
+  data_load: ${survey_estimator.save}
+  #data_load: ${box_estimator.save}
   xlim: {'ell_0': [0.02, 0.3], 'ell_2': [0.02, 0.3], 'ell_4': [0.02, 0.2]}
   #xlim: {'ell_0': [0.,100.], 'ell_2': [0.,100.], 'ell_4': [0.,100.]}
   #xlim: [[0.,0.],[0.,0.],[0.,0.],[0.02, 0.3],[0.02, 0.3],[0.02, 0.3]]
@@ -136,6 +134,7 @@ wideangle:
 
 convolution:
   $module_name: cosmopipe.survey_selection.window_convolution
+  window_load: ${window.save}
   default_zero: True
 
 window:

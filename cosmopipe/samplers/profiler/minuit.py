@@ -29,7 +29,6 @@ class MinuitProfiler(BasePipeline):
         self.max_tries = self.options.get('max_tries',1000)
         self.save = self.options.get('save',False)
         self.seed = self.options.get('seed',None)
-
         super(MinuitProfiler,self).setup()
         self.parameters = self.pipe_block[section_names.parameters,'list']
 
