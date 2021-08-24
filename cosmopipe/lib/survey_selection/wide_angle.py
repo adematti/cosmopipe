@@ -10,8 +10,15 @@ from .base import BaseRegularMatrix
 
 
 def odd_wide_angle_coefficients(ell, wa_order=1, los='firspoint'):
-    """
-    Compute coefficients of odd wide-angle expansion.
+    r"""
+    Compute coefficients of odd wide-angle expansion, i.e.:
+
+    .. math::
+
+        \frac{\ell \left(\ell - 1\right)}{2 \ell \left(2 \ell - 1\right)}, - \frac{\left(\ell + 1\right) \left(\ell + 2\right)}{2 \ell \left(2 \ell + 3\right)}
+
+    See https://fr.overleaf.com/read/hpgbwqzmtcxn.
+    A minus sign is applied on both factors if ``los`` is 'endpoint'.
 
     Parameters
     ----------
@@ -35,10 +42,6 @@ def odd_wide_angle_coefficients(ell, wa_order=1, los='firspoint'):
 
     coeffs : list
         List of coefficients to apply to correlation function multipoles corresponding to output ``ells``.
-
-    Reference
-    ---------
-    https://fr.overleaf.com/read/hpgbwqzmtcxn
     """
     if wa_order != 1:
         raise NotImplementedError('Only wide-angle order 1 supported')
@@ -97,8 +100,25 @@ class PowerOddWideAngle(BaseRegularMatrix):
         return self.x
 
     def setup(self, k, projsin, projsout=None):
-        """
-        Set up transform.
+        r"""
+        Set up transform, i.e. compute matrix:
+
+        .. math::
+
+            M_{\ell\ell^{\prime}}^{(n,n^{\prime})}(k) =
+            \frac{\ell \left(\ell - 1\right)}{2 \ell \left(2 \ell - 1\right) d} \delta_{\ell,\ell - 1} \delta_{n^{\prime},0} \left[ - \frac{\ell - 1}{k} + \partial_{k} \right]
+            - \frac{\left(\ell + 1\right) \left(\ell + 2\right)}{2 \ell \left(2 \ell + 3\right) d} \delta_{\ell,\ell + 1} \delta_{n^{\prime},0} \left[ \frac{\ell + 2}{k} + k \partial_{k} \right]
+
+        if :math:`\ell` is odd and :math:`n = 1`, else:
+
+        .. math::
+
+            M_{\ell\ell^{\prime}}^{(0,n^{\prime})}(k) = \delta_{\ell,ell^{\prime}} \delta_{n^{\prime},0}
+
+        with :math:`\ell` multipole order corresponding to ``projout.proj`` and :math:`\ell^{\prime}` to ``projin.proj``,
+        :math:`n` wide angle order corresponding to ``projout.wa_order`` and :math:`n^{\prime}` to ``projin.wa_order``.
+        If :attr:`sum_wa` is ``True``, or output ``projout.wa_order`` is ``None``, sum over :math:`n` (only if no window convolution is accounted for).
+        Derivatives :math:`\partial_{k}` are computed with finite differences, see arXiv:2106.06324 eq. 3.3.
 
         Parameters
         ----------
@@ -126,7 +146,7 @@ class PowerOddWideAngle(BaseRegularMatrix):
         for projout in self.projsout:
             line = []
             sum_wa = self.sum_wa and projout.wa_order is None
-            if projout.proj % 2 == 0:
+            if projout.proj % 2 == 0: # even pole :math:`\ell`
                 for projin in self.projsin:
                     if projin.proj == projout.proj and (sum_wa or projin.wa_order == projout.wa_order):
                         tmp = eye
@@ -136,24 +156,29 @@ class PowerOddWideAngle(BaseRegularMatrix):
             else:
                 line = [0.*eye for projin in self.projsin]
                 if sum_wa:
-                    wa_orders = self.wa_orders
+                    wa_orders = self.wa_orders # sum over :math:`n`
                 else:
-                    wa_orders = [projout.wa_order]
+                    wa_orders = [projout.wa_order] # projout.wa_order is 1
                 for wa_order in wa_orders:
                     ells,coeffs = odd_wide_angle_coefficients(projout.proj,wa_order=wa_order,los=self.los)
                     for iprojin,projin in enumerate(self.projsin):
                         if projin.wa_order == 0 and projin.proj in ells:
+                            # \frac{\ell \left(\ell - 1\right)}{2 \ell \left(2 \ell - 1\right) d} (if projin.proj == projout.proj - 1)
+                            # or - \frac{\left(\ell + 1\right) \left(\ell + 2\right)}{2 \ell \left(2 \ell + 3\right) d} (if projin.proj == projout.proj + 1)
                             coeff = coeffs[ells.index(projin.proj)]/self.d
                             if projin.proj == projout.proj + 1:
                                 coeff_spherical_bessel = projin.proj + 1
                             else:
                                 coeff_spherical_bessel = -projin.proj
-                            #print(ell,ellout,coeff)
-                            # K 'diag' terms in 3.3, 3.4 and 3.5
+                            # K 'diag' terms arXiv:2106.06324 eq. 3.3, 3.4 and 3.5
+                            # tmp is - \frac{\ell \left(\ell - 1\right)}{2 \ell \left(2 \ell - 1\right) d} \frac{\ell - 1}{k} (if projin.proj == projout.proj - 1)
+                            # or \frac{\left(\ell + 1\right) \left(\ell + 2\right)}{2 \ell \left(2 \ell + 3\right) d} \frac{\ell + 2}{k} (if projin.proj == projout.proj + 1)
                             tmp = np.diag(coeff_spherical_bessel * coeff / self.k)
                             deltak = 2. * np.diff(self.k)
+                            # derivative :math:`\partial_{k}`
                             tmp += np.diag(coeff / deltak, k=1) - np.diag(coeff / deltak, k=-1)
 
+                            # taking care of corners
                             tmp[0,0] -= 2.*coeff / deltak[0]
                             tmp[0,1] = 2.*coeff / deltak[0]
                             tmp[-1,-1] += 2.*coeff / deltak[-1]

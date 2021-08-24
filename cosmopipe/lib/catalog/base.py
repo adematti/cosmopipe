@@ -572,7 +572,7 @@ class BaseCatalog(ScatteredBaseClass):
             size = ff.get_nrows()
             start = mpicomm.rank * size // mpicomm.size
             stop = (mpicomm.rank + 1) * size // mpicomm.size
-            new = ff.read(ext=ext,columns=columns,rows=range(start,stop))
+            new = ff.read(columns=columns,rows=range(start,stop))
             header = ff.read_header()
             header.clean()
             attrs = dict(header)

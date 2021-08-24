@@ -8,12 +8,9 @@ from cosmopipe.lib.catalog import Catalog, RandomBoxCatalog
 from cosmopipe.lib.catalog import utils
 
 
-def generate_lognormal(data_fn, randoms_fn=None, data_box_fn=None, seed=42,use_existing=False):
-    if use_existing :
-        if (not data_fn or os.path.isfile(data_fn)) and \
-           (not randoms_fn or os.path.isfile(randoms_fn)) and \
-           (not data_box_fn or os.path.isfile(data_box_fn)) :
-            return
+def generate_lognormal(data_fn, randoms_fn=None, data_box_fn=None, seed=42, use_existing=False):
+    if use_existing and all([not fn or os.path.isfile(fn) for fn in [data_fn,randoms_fn,data_box_fn]]):
+        return
 
     redshift = 1.
     cosmo = cosmology.Planck15
@@ -22,7 +19,6 @@ def generate_lognormal(data_fn, randoms_fn=None, data_box_fn=None, seed=42,use_e
     nbar = 3e-4
     cat = LogNormalCatalog(Plin=Plin, nbar=nbar, BoxSize=BoxSize, Nmesh=256, bias=2.0, seed=seed)
     cat = Catalog.from_nbodykit(cat)
-
 
     if data_box_fn:
         cat.save_fits(data_box_fn)
@@ -65,4 +61,5 @@ def main(ndata=11, use_existing=False) :
 
 
 if __name__ == '__main__':
+
     main()

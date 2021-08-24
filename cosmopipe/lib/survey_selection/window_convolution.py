@@ -38,6 +38,7 @@ class CorrelationWindowMatrix(BaseRegularMatrix):
 
         sum_wa : bool, default=True
             Whether to perform summation over wide-angle orders.
+            Always set to ``True`` except for debugging purposes.
 
         default_zero : bool, default=False
             If a given projection is not provided in window function, set to 0.
@@ -53,8 +54,16 @@ class CorrelationWindowMatrix(BaseRegularMatrix):
         return self.x
 
     def setup(self, s, projsin, projsout=None):
-        """
-        Set up transform.
+        r"""
+        Set up transform, i.e. compute matrix:
+
+        .. math::
+
+            W_{\ell,\ell^{\prime}}^{(n,n^{\prime})}(s) = \delta_{n n^{\prime}} \sum_{L} C_{\ell \ell^{\prime} L} Q_{L}^{(n)}(s)
+
+        with :math:`\ell` multipole order corresponding to ``projout.proj`` and :math:`\ell^{\prime}` to ``projin.proj``,
+        :math:`n` wide angle order corresponding to ``projout.wa_order`` and :math:`n^{\prime}` to ``projin.wa_order``.
+        If :attr:`sum_wa` is ``True``, or output ``projout.wa_order`` is ``None``, sum over :math:`n` (always the case except for debugging purposes).
 
         Parameters
         ----------
@@ -85,6 +94,7 @@ class CorrelationWindowMatrix(BaseRegularMatrix):
                 sum_wa = self.sum_wa and projout.wa_order is None
                 if sum_wa or projout.wa_order == projin.wa_order:
                     ellsw,coeffs = wigner3j_square(projout.proj,projin.proj)
+                    # sum over L = ell, coeff is C_{\ell \ell^{\prime} L}, window is Q_{L}
                     for ell,coeff in zip(ellsw,coeffs):
                         proj = projin.copy(space=ProjectionBasis.CORRELATION,mode=ProjectionBasis.MULTIPOLE,proj=ell)
                         tmp += coeff*self.window(proj,self.s,default_zero=self.default_zero)
@@ -162,8 +172,25 @@ class PowerWindowMatrix(BaseMatrix):
         return self.xin
 
     def setup(self, kout, projsin, projsout=None):
-        """
-        Set up transform.
+        r"""
+        Set up transform. Provided arXiv:2106.06324 eq. 2.5:
+
+        .. math::
+
+            W_{\ell\ell^{\prime}}^{(n)}(k) = \frac{2}{\pi} (-i)^{\ell} i^{\ell^{\prime}} \int ds s^{2} j_{\ell}(ks) j_{\ell^{\prime}}(k^{\prime}s)
+            \sum_{L} C_{\ell \ell^{\prime} L} Q_{L}^{(n)}(s)
+
+        with :math:`\ell` corresponding to ``projout.proj`` and :math:`\ell^{\prime}` to ``projin.proj``, :math:`k` to ``kout`` and :math:`k^{\prime}` to ``kin``.
+        :math:`n` is the wide-angle order ``proj.wa_order``.
+        Yet, to avoid bothering with complex values, we only work with the imaginary part of odd power spectra.
+        In addition, we include the :math:`dk^{\prime} k^{\prime 2}` volume element (arXiv:2106.06324 eq. 2.7). Hence we actually implement:
+
+        .. math::
+
+            W_{\ell,\ell^{\prime}}^{(n)}(k) = dk^{\prime} k^{\prime 2} \frac{2}{\pi} (-1)^{\ell} (-1)^{\ell^{\prime}} \int ds s^{2} j_{\ell}(ks) j_{\ell^{\prime}}(k^{\prime}s)
+            \sum_{L} C_{\ell \ell^{\prime} L} Q_{L}^{(n)}(s)
+
+        Note that we do not include :math:`k^{-n}` as this factor is included in :class:`wide_angle.PowerOddWideAngle`.
 
         Parameters
         ----------
@@ -192,13 +219,16 @@ class PowerWindowMatrix(BaseMatrix):
         for iout,projout in enumerate(self.projsout):
             line = []
             for iin,projin in enumerate(self.projsin):
-                tmp = special.spherical_jn(projout.proj,self.kout[iout][:,None]*self.s) * self.corrmatrix[iout,iin] # matrix is now (kout,s)
+                # tmp is j_{\ell}(ks) \sum_{L} C_{\ell \ell^{\prime} L} Q_{L}(s)
+                tmp = special.spherical_jn(projout.proj,self.kout[iout][:,None]*self.s) * self.corrmatrix[iout,iin] # matrix has dimensions (kout,s)
                 #from hankl import P2xi, xi2P
                 fflog = CorrelationToPower(self.s,ell=projin.proj,q=self.q,lowring=False) # prefactor is 4 pi (-i)^ellin
-                self.xin, tmp = fflog(tmp) # now (kout,k)
+                # tmp is 4 \pi (-i)^{\ell^{\prime}} \int ds s^{2} j_{\ell}(ks) j_{\ell^{\prime}}(k^{\prime}s) \sum_{L} C_{\ell \ell^{\prime} L} Q_{L}(s)
+                self.xin, tmp = fflog(tmp) # matrix has dimensions (kout,k)
                 prefactor = 1./(2.*np.pi**2) * (-1j)**projout.proj * (-1)**projin.proj # now prefactor 2/pi (-i)^ellout i^ellin
                 if projout.proj % 2 == 1: prefactor *= -1j # we provide the imaginary part of odd power spectra, so let's multiply by (-i)^ellout
                 if projin.proj % 2 == 1: prefactor *= 1j # we take in the imaginary part of odd power spectra, so let's multiply by i^ellin
+                # tmp is dk^{\prime} k^{\prime 2} \frac{2}{\pi} (-1)^{\ell} (-1)^{\ell^{\prime}} \int ds s^{2} j_{\ell}(ks) j_{\ell^{\prime}}(k^{\prime}s) \sum_{L} C_{\ell \ell^{\prime} L} Q_{L}(s)
                 tmp = np.real(prefactor * tmp) * weights_trapz(self.kin**3) / 3. # everything should be real now
                 if self.krebin > 1:
                     from scipy import signal
@@ -225,7 +255,8 @@ class PowerWindowMatrix(BaseMatrix):
 
 def wigner3j_square(ellout, ellin, prefactor=True):
     r"""
-    Return the coefficients corresponding to the product of two Legendre polynomials.
+    Return the coefficients corresponding to the product of two Legendre polynomials, corresponding to :math:`C_{\ell \ell^{\prime} L}`
+    of e.g. arXiv:2106.06324 eq. 2.2, with :math:`\ell` corresponding to ``projout.proj`` and :math:`\ell^{\prime}` to ``projin.proj``.
 
     Parameters
     ----------
@@ -236,7 +267,7 @@ def wigner3j_square(ellout, ellin, prefactor=True):
         Input order.
 
     prefactor : bool, default=True
-        Whether to include prefactor :math:`(2 \ell + 1)/(2 q + 1)` for window convolution.
+        Whether to include prefactor :math:`(2 \ell + 1)/(2 \ell^{\prime} + 1)` for window convolution.
 
     Returns
     -------
