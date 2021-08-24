@@ -222,12 +222,12 @@ class PowerWindowMatrix(BaseMatrix):
                 # tmp is j_{\ell}(ks) \sum_{L} C_{\ell \ell^{\prime} L} Q_{L}(s)
                 tmp = special.spherical_jn(projout.proj,self.kout[iout][:,None]*self.s) * self.corrmatrix[iout,iin] # matrix has dimensions (kout,s)
                 #from hankl import P2xi, xi2P
-                fflog = CorrelationToPower(self.s,ell=projin.proj,q=self.q,lowring=False) # prefactor is 4 pi (-i)^ellin
+                fflog = CorrelationToPower(self.s,ell=projin.proj,q=self.q,lowring=False) # prefactor is 4 \pi (-i)^{\ell^{\prime}}
                 # tmp is 4 \pi (-i)^{\ell^{\prime}} \int ds s^{2} j_{\ell}(ks) j_{\ell^{\prime}}(k^{\prime}s) \sum_{L} C_{\ell \ell^{\prime} L} Q_{L}(s)
                 self.xin, tmp = fflog(tmp) # matrix has dimensions (kout,k)
-                prefactor = 1./(2.*np.pi**2) * (-1j)**projout.proj * (-1)**projin.proj # now prefactor 2/pi (-i)^ellout i^ellin
-                if projout.proj % 2 == 1: prefactor *= -1j # we provide the imaginary part of odd power spectra, so let's multiply by (-i)^ellout
-                if projin.proj % 2 == 1: prefactor *= 1j # we take in the imaginary part of odd power spectra, so let's multiply by i^ellin
+                prefactor = 1./(2.*np.pi**2) * (-1j)**projout.proj * (-1)**projin.proj # now prefactor 2 / \pi (-i)^{\ell} i^{\ell^{\prime}}
+                if projout.proj % 2 == 1: prefactor *= -1j # we provide the imaginary part of odd power spectra, so let's multiply by (-i)^{\ell}
+                if projin.proj % 2 == 1: prefactor *= 1j # we take in the imaginary part of odd power spectra, so let's multiply by i^{\ell^{\prime}}
                 # tmp is dk^{\prime} k^{\prime 2} \frac{2}{\pi} (-1)^{\ell} (-1)^{\ell^{\prime}} \int ds s^{2} j_{\ell}(ks) j_{\ell^{\prime}}(k^{\prime}s) \sum_{L} C_{\ell \ell^{\prime} L} Q_{L}(s)
                 tmp = np.real(prefactor * tmp) * weights_trapz(self.kin**3) / 3. # everything should be real now
                 if self.krebin > 1:
