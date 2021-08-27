@@ -70,19 +70,31 @@ class SurveyPowerSpectrum(BaseModule):
         cosmo = self.data_block.get(section_names.fiducial_cosmology,'cosmo',None)
         list_mesh = []
         wdata2 = 1.
+        wran = 1.
+        zeffdata = 1.
+        zeffran = 1.
         for data,randoms in zip(input_data,input_randoms):
             data = data.mpi_to_state('scattered')
             if randoms is not None: randoms = randoms.mpi_to_state('scattered')
             data,randoms = utils.prepare_survey_catalogs(data,randoms,cosmo=cosmo,**self.catalog_options)
             fkp = FKPCatalog(data.to_nbodykit(),randoms.to_nbodykit() if randoms is not None else None,BoxPad=self.BoxPad,nbar='nbar')
             list_mesh.append(fkp.to_mesh(position='position',fkp_weight='weight_fkp',comp_weight='weight_comp',nbar='nbar',**self.mesh_options))
+            #what is going on here with the multiplication when there is more than one catalog?!?
             wdata2 *= mpi.sum_array(data['weight_comp']*data['weight_fkp'],mpicomm=data.mpicomm)
+            wran *= mpi.sum_array(randoms['weight_comp']*randoms['weight_fkp'],mpicomm=data.mpicomm)
+            zeffdata *= mpi.sum_array(data['z']*data['weight_comp']*data['weight_fkp'],mpicomm=data.mpicomm)
+            zeffran *= mpi.sum_array(randoms['z']*randoms['weight_comp']*randoms['weight_fkp'],mpicomm=data.mpicomm)
+            zeffdata /= wdata2
+            zeffran /= wran
+           
         if len(list_mesh) == 1:
             wdata2 **= 2
 
         result = ConvolvedFFTPower(list_mesh[0],poles=self.ells,second=list_mesh[1] if len(list_mesh) > 1 else None,**self.power_options)
         attrs = result.attrs.copy()
         attrs['norm/wdata2'] = attrs['randoms.norm'] / wdata2
+        attrs['zeffdata'] = zeffdata
+        attrs['zeffran'] = zeffran
         poles = result.poles
         ells = attrs['poles']
         shotnoise = attrs['shotnoise']
