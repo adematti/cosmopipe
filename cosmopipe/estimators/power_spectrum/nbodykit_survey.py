@@ -54,7 +54,10 @@ class SurveyPowerSpectrum(BaseModule):
         self.save = self.options.get('save',None)
         self.use_existing = self.options.get('use_existing',None)
         if self.use_existing and os.path.isfile(self.save) :
-            self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + DataVector.load_auto(self.save)
+            loaddv =  DataVector.load_auto(self.save)
+            self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + loaddv
+            if 'zeff' not in self.data_block[section_names.survey_selection]:
+                self.data_block[section_names.survey_selection,'zeff']=loaddv.get(loaddv.projs[0]).attrs['zeffdata']
             return
         self.data_load = self.options.get('data_load','data')
         self.randoms_load = self.options.get('randoms_load','randoms')
@@ -120,6 +123,7 @@ class SurveyPowerSpectrum(BaseModule):
                 data_vector.set(dataproj)
         if self.save: data_vector.save_auto(self.save)
         self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + data_vector
-
+        if 'zeff' not in self.data_block[section_names.survey_selection]:
+            self.data_block[section_names.survey_selection,'zeff']=data_vector.get(data_vector.projs[0]).attrs['zeffdata']
     def cleanup(self):
         pass
