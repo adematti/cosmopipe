@@ -23,7 +23,8 @@ def prepare_survey_angular_catalogs(data, randoms=None, ra='RA', dec='DEC', weig
     return catalogs['data'], catalogs.get('randoms',None)
 
 
-def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', z='Z', position=None, weight_comp=None, nbar='NZ', weight_fkp=None, P0_fkp=0.):
+def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', z='Z', position=None, weight_comp=None, nbar='NZ', weight_fkp=None, P0_fkp=0.,\
+                            zmin=0,zmax=10.):
 
     origin_catalogs = {'data':data,'randoms':randoms}
 
@@ -34,14 +35,19 @@ def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', 
 
     def from_origin(origin_column, column):
         for name,catalog in catalogs.items():
-            catalog[column] = origin_catalogs[name].eval(origin_column)
-
+            #just need to get this done - figure out ideal later
+            if origin_column=='WEIGHTBOSS':
+                if name=='data':
+                    catalog[column] = origin_catalogs[name].eval('WEIGHT_SYSTOT')* \
+                    (origin_catalogs[name].eval('WEIGHT_CP')+ \
+                     origin_catalogs[name].eval('WEIGHT_NOZ') - 1)
+                else: catalog[column] = origin_catalogs[name].ones()
+            else: catalog[column] = origin_catalogs[name].eval(origin_column)
     if weight_comp is None:
         for name,catalog in catalogs.items():
             catalog['weight_comp'] = origin_catalogs[name].ones()
     else:
         from_origin(weight_comp,'weight_comp')
-
     if position is None:
         from_origin(z,'z')
         from_origin(ra,'ra')
@@ -86,6 +92,11 @@ def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', 
     for name,catalog in catalogs.items():
         catalog['weight'] = catalog['weight_comp']*catalog['weight_fkp']
 
+    
+    for name,catalog in catalogs.items():
+        mask=(catalog['z']>=zmin) & (catalog['z']<zmax)
+        for ind in catalog.columns():
+          catalog[ind]=catalog[ind][mask]
     return catalogs['data'],catalogs.get('randoms',None)
 
 

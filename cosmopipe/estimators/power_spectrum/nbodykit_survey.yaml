@@ -106,11 +106,23 @@ options:
   save:
     type: string
     default: None
-    description: if not ``None``, path where to save the power spectrum measurement
+    description: if not ``None``, file to save the power spectrum measurement
+  saveroot:
+    type: string
+    default: '_data/power'
+    description: if save is None, beginning of file to save the power spectrum measurement (completed with box size, etc information)
   use_existing: 
     type: bool
     default: None
     description: if save file exists, just read and return
+  zmin:
+    type: float
+    default: 0.
+    description: minimum galaxy redshift
+  zmax:
+    type: float
+    default: 10.
+    description: maximum galaxy redshift
 execute input:
   fiducial_cosmology.cosmo:
     type: cosmoprimo.Cosmology

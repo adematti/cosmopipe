@@ -43,7 +43,7 @@ class SurveyPowerSpectrum(BaseModule):
         if self.muwedges is not None and np.ndim(self.muwedges) == 0:
             self.muwedges = np.linspace(0.,1.,self.muwedges+1)
 
-        self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},'weight_fkp':None,'P0_fkp':0.}
+        self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},'weight_fkp':None,'P0_fkp':0.,'zmin':0,'zmax':10.}
         for name,value in self.catalog_options.items():
             self.catalog_options[name] = self.options.get(name,value)
         self.projattrs = self.options.get('projattrs',{})
@@ -52,6 +52,10 @@ class SurveyPowerSpectrum(BaseModule):
 
     def execute(self):
         self.save = self.options.get('save',None)
+        if not self.save:
+            self.save = self.options.get('saveroot','_data/power')
+            self.save+=str(self.catalog_options['zmin'])+"_"+str(self.catalog_options['zmax'])+"_"+\
+                       str(self.mesh_options['BoxSize'])+"_"+str(self.mesh_options['Nmesh'])+".txt"
         self.use_existing = self.options.get('use_existing',None)
         if self.use_existing and os.path.isfile(self.save) :
             loaddv =  DataVector.load_auto(self.save)
@@ -92,7 +96,6 @@ class SurveyPowerSpectrum(BaseModule):
            
         if len(list_mesh) == 1:
             wdata2 **= 2
-
         result = ConvolvedFFTPower(list_mesh[0],poles=self.ells,second=list_mesh[1] if len(list_mesh) > 1 else None,**self.power_options)
         attrs = result.attrs.copy()
         attrs['norm/wdata2'] = attrs['randoms.norm'] / wdata2
