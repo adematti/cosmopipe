@@ -127,8 +127,6 @@ class FFTWindowFunction(BasePipeline):
                     dataproj.set_y(y/norm)
                 for proj in fw.projs:
                     proj.wa_order = wa_order
-                if 'zeff' not in self.data_block[section_names.survey_selection]:
-                    self.data_block[section_names.survey_selection,'zeff']=fw.get(fw.projs[0]).attrs['zeffdata'] 
                 fourier_window.extend(fw)
             for name,value in options.items():
                 todo.module.options[name] = value
@@ -140,4 +138,6 @@ class FFTWindowFunction(BasePipeline):
         if self.save: fourier_window.save_auto(self.save)
 
         self.data_block[section_names.survey_selection,'window'] = fourier_window
+        if 'zeff' not in self.data_block[section_names.survey_selection]:
+            self.data_block[section_names.survey_selection,'zeff']=fourier_window.get(fourier_window.projs[0]).attrs['zeffdata'] 
 
