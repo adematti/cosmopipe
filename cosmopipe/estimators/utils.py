@@ -27,7 +27,6 @@ def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', 
                             zmin=0,zmax=10.):
 
     origin_catalogs = {'data':data,'randoms':randoms}
-
     catalogs = {}
     origin_catalogs = {'data':data}
     if randoms is not None: origin_catalogs['randoms'] = randoms
@@ -48,8 +47,8 @@ def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', 
             catalog['weight_comp'] = origin_catalogs[name].ones()
     else:
         from_origin(weight_comp,'weight_comp')
+    from_origin(z,'z')
     if position is None:
-        from_origin(z,'z')
         from_origin(ra,'ra')
         from_origin(dec,'dec')
         for name,catalog in catalogs.items():
@@ -92,7 +91,6 @@ def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', 
     for name,catalog in catalogs.items():
         catalog['weight'] = catalog['weight_comp']*catalog['weight_fkp']
 
-    
     for name,catalog in catalogs.items():
         mask=(catalog['z']>=zmin) & (catalog['z']<zmax)
         for ind in catalog.columns():

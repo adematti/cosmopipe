@@ -26,17 +26,24 @@ class FFTWindowFunction(BasePipeline):
         if np.ndim(self.wa_orders) == 0: self.wa_orders = [self.wa_orders]
         self.ells = self.options.get('ells',[0,2,4])
         if np.ndim(self.ells[0]) == 0: self.ells = [self.ells]*len(self.wa_orders)
-        self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},'weight_fkp':None,'P0_fkp':0.}
+        self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},\
+                                'weight_fkp':None,'P0_fkp':0.,'zmin':0,'zmax':10.}
         for name,value in self.catalog_options.items():
             self.catalog_options[name] = self.options.get(name,value)
 
     def execute(self):
-        self.randoms_load = self.options.get('randoms_load','randoms')
         self.save = self.options.get('save',None)
+        if not self.save:
+            self.save = self.options.get('saveroot','_data/window')
+            self.save+=str(self.catalog_options['zmin'])+"_"+str(self.catalog_options['zmax'])+".txt"
         self.use_existing = self.options.get('use_existing',None)
         if self.use_existing and os.path.isfile(self.save) :
-            self.data_block[section_names.survey_selection,'window'] = WindowFunction.load_auto(self.save)
+            fw=WindowFunction.load_auto(self.save)
+            self.data_block[section_names.survey_selection,'window'] = fw
+            if 'zeff' not in self.data_block[section_names.survey_selection]:
+                self.data_block[section_names.survey_selection,'zeff']=fw.get(fw.projs[0]).attrs['zeffdata'] 
             return 
+        self.randoms_load = self.options.get('randoms_load','randoms')
         input_randoms = syntax.load_auto(self.randoms_load,data_block=self.data_block,default_section=section_names.catalog,loader=Catalog.load_auto,mpistate='scattered')
 
         cosmo = self.data_block.get(section_names.fiducial_cosmology,'cosmo',None)
@@ -62,6 +69,12 @@ class FFTWindowFunction(BasePipeline):
             norm /= wdata2
         elif isinstance(norm,str):
             norm = self.data_block[section_names.data,'data_vector'].attrs[norm]
+            #wanted to set norm here to value used in power calculation, but 
+            #realized don't understand what is going on well enough, especially
+            #when looking at the product below
+            #import pdb; pdb.set_trace()
+            #dv=self.data_block[section_names.data,'data_vector']
+            #norm = dv.get(dv.projs[0]).attrs['data.norm']
             list_randoms = [prepare_survey_catalogs(randoms,cosmo=cosmo,**self.catalog_options) for randoms in list_randoms]
             randoms = list_randoms[-1]
 
@@ -87,7 +100,8 @@ class FFTWindowFunction(BasePipeline):
             todo.module.options['data_load'] = list_name_randoms
             todo.module.options['randoms_load'] = ''
             todo.module.options['save'] = None
-            for name in ['position','weight_fkp','weight_comp','nbar']: # catalogs are already provided
+            #this is telling interior what names to use (can't use original names because already re-mapped)
+            for name in ['position','weight_fkp','weight_comp','nbar','z']: # catalogs are already provided
                 todo.module.options[name] = name
             for wa_order,ells in zip(self.wa_orders,self.ells):
                 self.pipe_block[section_names.data,'data_vector'] = []
@@ -113,6 +127,8 @@ class FFTWindowFunction(BasePipeline):
                     dataproj.set_y(y/norm)
                 for proj in fw.projs:
                     proj.wa_order = wa_order
+                if 'zeff' not in self.data_block[section_names.survey_selection]:
+                    self.data_block[section_names.survey_selection,'zeff']=fw.get(fw.projs[0]).attrs['zeffdata'] 
                 fourier_window.extend(fw)
             for name,value in options.items():
                 todo.module.options[name] = value

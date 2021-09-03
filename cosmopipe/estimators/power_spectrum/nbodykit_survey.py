@@ -53,15 +53,15 @@ class SurveyPowerSpectrum(BaseModule):
     def execute(self):
         self.save = self.options.get('save',None)
         if not self.save:
-            self.save = self.options.get('saveroot','_data/power')
-            self.save+=str(self.catalog_options['zmin'])+"_"+str(self.catalog_options['zmax'])+"_"+\
+            #no default so it is possible to not print, as window tries to do by default
+            self.save = self.options.get('saveroot',None)
+            if self.save: 
+                self.save+=str(self.catalog_options['zmin'])+"_"+str(self.catalog_options['zmax'])+"_"+\
                        str(self.mesh_options['BoxSize'])+"_"+str(self.mesh_options['Nmesh'])+".txt"
         self.use_existing = self.options.get('use_existing',None)
         if self.use_existing and os.path.isfile(self.save) :
             loaddv =  DataVector.load_auto(self.save)
             self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + loaddv
-            if 'zeff' not in self.data_block[section_names.survey_selection]:
-                self.data_block[section_names.survey_selection,'zeff']=loaddv.get(loaddv.projs[0]).attrs['zeffdata']
             return
         self.data_load = self.options.get('data_load','data')
         self.randoms_load = self.options.get('randoms_load','randoms')
@@ -72,14 +72,15 @@ class SurveyPowerSpectrum(BaseModule):
             if len(input_data) != len(input_randoms):
                 raise ValueError('Number of input data and randoms catalogs is different ({:d} v.s. {:d})'.format(len(input_data),len(input_randoms)))
         else:
-            self.log_info('Using no randoms.',rank=0)
+            self.log_info('Using no randoms (e.g., for window).',rank=0)
             input_randoms = [None]*len(input_data)
         cosmo = self.data_block.get(section_names.fiducial_cosmology,'cosmo',None)
         list_mesh = []
         wdata2 = 1.
-        wran = 1.
-        zeffdata = 1.
-        zeffran = 1.
+        zeffdata = 0.
+        zeffran = 0.
+        wdata = 0.
+        wran = 0.
         for data,randoms in zip(input_data,input_randoms):
             data = data.mpi_to_state('scattered')
             if randoms is not None: randoms = randoms.mpi_to_state('scattered')
@@ -88,11 +89,13 @@ class SurveyPowerSpectrum(BaseModule):
             list_mesh.append(fkp.to_mesh(position='position',fkp_weight='weight_fkp',comp_weight='weight_comp',nbar='nbar',**self.mesh_options))
             #what is going on here with the multiplication when there is more than one catalog?!?
             wdata2 *= mpi.sum_array(data['weight_comp']*data['weight_fkp'],mpicomm=data.mpicomm)
-            wran *= mpi.sum_array(randoms['weight_comp']*randoms['weight_fkp'],mpicomm=data.mpicomm)
-            zeffdata *= mpi.sum_array(data['z']*data['weight_comp']*data['weight_fkp'],mpicomm=data.mpicomm)
-            zeffran *= mpi.sum_array(randoms['z']*randoms['weight_comp']*randoms['weight_fkp'],mpicomm=data.mpicomm)
-            zeffdata /= wdata2
-            zeffran /= wran
+            wdata = mpi.sum_array(data['weight_comp']*data['weight_fkp'],mpicomm=data.mpicomm)
+            zeffdata = mpi.sum_array(data['z']*data['weight_comp']*data['weight_fkp'],mpicomm=data.mpicomm)
+            zeffdata /= wdata
+            if randoms is not None:
+                wran*= mpi.sum_array(randoms['weight_comp']*randoms['weight_fkp'],mpicomm=data.mpicomm)
+                zeffran = mpi.sum_array(randoms['z']*randoms['weight_comp']*randoms['weight_fkp'],mpicomm=data.mpicomm)
+                zeffran /= wran
            
         if len(list_mesh) == 1:
             wdata2 **= 2
@@ -126,7 +129,5 @@ class SurveyPowerSpectrum(BaseModule):
                 data_vector.set(dataproj)
         if self.save: data_vector.save_auto(self.save)
         self.data_block[section_names.data,'data_vector'] = self.data_block.get(section_names.data,'data_vector',[]) + data_vector
-        if 'zeff' not in self.data_block[section_names.survey_selection]:
-            self.data_block[section_names.survey_selection,'zeff']=data_vector.get(data_vector.projs[0]).attrs['zeffdata']
     def cleanup(self):
         pass

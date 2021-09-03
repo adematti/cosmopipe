@@ -76,11 +76,27 @@ options:
     type: string
     default: None
     description: if not ``None``, path where to save the power spectrum measurement
+  saveroot:
+    type: string
+    default: '_data/window'
+    description: if save is None, beginning of file to save the window (completed with box size, etc information)
   use_existing:
     type: bool
     default: None
     description: if save file exists, just read and return
-
+  zmin:
+    type: float
+    default: 0.
+    description: minimum galaxy redshift
+  zmax:
+    type: float
+    default: 10.
+    description: maximum galaxy redshift
+# not sure how to do what trying to do
+#  norm:
+#    type: string
+#    default: None
+#    description: basically trigger to try to read norm from power... probably remove once figure out what is going on 
 execute input:
   fiducial_cosmology.cosmo:
     type: cosmoprimo.Cosmology
