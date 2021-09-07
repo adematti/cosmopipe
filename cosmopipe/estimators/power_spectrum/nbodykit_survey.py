@@ -57,7 +57,10 @@ class SurveyPowerSpectrum(BaseModule):
             self.save = self.options.get('saveroot',None)
             if self.save: 
                 self.save+=str(self.catalog_options['zmin'])+"_"+str(self.catalog_options['zmax'])+"_"+\
-                       str(self.mesh_options['BoxSize'])+"_"+str(self.mesh_options['Nmesh'])+".txt"
+                       str(self.mesh_options['BoxSize'])+"_"+str(self.mesh_options['Nmesh'])
+                if self.power_options['dk']: 
+                    self.save+="_"+str(self.power_options['dk'])
+                self.save+=".txt"
         self.use_existing = self.options.get('use_existing',None)
         if self.use_existing and os.path.isfile(self.save) :
             loaddv =  DataVector.load_auto(self.save)
@@ -96,7 +99,7 @@ class SurveyPowerSpectrum(BaseModule):
                 wran*= mpi.sum_array(randoms['weight_comp']*randoms['weight_fkp'],mpicomm=data.mpicomm)
                 zeffran = mpi.sum_array(randoms['z']*randoms['weight_comp']*randoms['weight_fkp'],mpicomm=data.mpicomm)
                 zeffran /= wran
-           
+                    
         if len(list_mesh) == 1:
             wdata2 **= 2
         result = ConvolvedFFTPower(list_mesh[0],poles=self.ells,second=list_mesh[1] if len(list_mesh) > 1 else None,**self.power_options)
@@ -104,6 +107,9 @@ class SurveyPowerSpectrum(BaseModule):
         attrs['norm/wdata2'] = attrs['randoms.norm'] / wdata2
         attrs['zeffdata'] = zeffdata
         attrs['zeffran'] = zeffran
+        if len(list_mesh) == 1:
+            attrs['Veff'] = attrs['data.norm']*self.catalog_options['P0_fkp']**2 
+       
         poles = result.poles
         ells = attrs['poles']
         shotnoise = attrs['shotnoise']

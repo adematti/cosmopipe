@@ -19,6 +19,10 @@ class GaussianCovariance(object):
         self.kwview = {}
         data_vector = self.data_block[section_names.data,'data_vector']
         model_bases = self.data_block[section_names.model,'collection'].bases()
+
+        if not options['volume']:
+            fw=self.data_block['data']['data_vector']
+            options['volume']=fw.get(fw.projs[0]).attrs['Veff']
         self.covariance = gaussian_covariance.GaussianCovarianceMatrix(data_vector=data_vector,model_bases=model_bases,**options)
 
     def execute(self):

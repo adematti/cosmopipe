@@ -35,7 +35,11 @@ class FFTWindowFunction(BasePipeline):
         self.save = self.options.get('save',None)
         if not self.save:
             self.save = self.options.get('saveroot','_data/window')
-            self.save+=str(self.catalog_options['zmin'])+"_"+str(self.catalog_options['zmax'])+".txt"
+            self.save+=str(self.catalog_options['zmin'])+"_"+str(self.catalog_options['zmax'])
+            todo = self.execute_todos[0]
+            self.save+="_"+str(todo.module.options['BoxSize']) 
+            self.save+="_"+str(todo.module.options['Nmesh']) 
+            self.save+=".txt"
         self.use_existing = self.options.get('use_existing',None)
         if self.use_existing and os.path.isfile(self.save) :
             fw=WindowFunction.load_auto(self.save)
