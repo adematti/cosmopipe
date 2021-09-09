@@ -82,10 +82,11 @@ options:
     description: column of completeness weights in the input catalog(s); can be specified with operations on columns, e.g. WEIGHT_PHOTO * WEIGHT_NOZ.
                 If ``None`` provided, defaults to 1
   nbar:
-    type: [string, dict]
+    type: [string, dict, float]
     default: NZ
     description: redshift density (in :math:`(h \ \mathrm{Mpc})^{3}`) in the input catalog(s), or a dictionary holding ``fsky`` the sky fraction
                 and ``bins`` (either 'scott' to be defined according to Scott's rule, or an int for the the number of bins, or a list of edges).
+                float value is just used for all nbar
   weight_fkp:
     type: string
     default: None

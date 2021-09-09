@@ -61,6 +61,8 @@ def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', 
 
     if isinstance(nbar,dict):
         randoms = catalogs.get('randoms',None)
+        #added because incoming data doesn't have weight_comp
+        data = catalogs['data']
         use_randoms = randoms is not None
         if use_randoms:
             alpha = data.sum('weight_comp')/randoms.sum('weight_comp')
@@ -73,12 +75,17 @@ def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', 
         else:
             z = randoms['distance']
             radial_distance = None
-        nbar = utils.RedshiftDensityInterpolator(redshifts,weights=randoms['weight_comp'],radial_distance=radial_distance,**nbar,**randoms.mpi_attrs)
+        #had redshifts here which doesn't exist
+        #running into AttributeError: 'Catalog' object has no attribute 'mpi_attrs'
+        nbar = utils.RedshiftDensityInterpolator(randoms['z'],weights=randoms['weight_comp'],radial_distance=radial_distance,**nbar,**randoms.mpi_attrs)
         for name,catalog in catalogs.items():
             if 'z' in randoms:
                 catalog['nbar'] = alpha*nbar(catalog['z'])
             else:
                 catalog['nbar'] = alpha*nbar(catalog['distance'])
+    elif isinstance(nbar,float):
+        for name,catalog in catalogs.items():
+            catalog['nbar'] = catalog.ones()*nbar
     else:
         from_origin(nbar,'nbar')
 
