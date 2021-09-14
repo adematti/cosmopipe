@@ -19,9 +19,9 @@ Then install some modules required for the installation of **cosmopipe** (and de
   conda install -c bccp nbodykit
   pip install git+https://github.com/adematti/pypescript
 
-and eventually **cosmopipe**::
+and eventually **cosmopipe**, with all modules::
 
-  pip install git+https://github.com/adematti/cosmopipe
+  pip install git+https://github.com/adematti/cosmopipe#egg=cosmopipe[all]
 
 .. note::
 
@@ -30,7 +30,7 @@ and eventually **cosmopipe**::
 
 .. note::
 
-  When **cosmopipe** builds, it fetches all the modules to be installed, list their dependencies
+  When **cosmopipe** builds with the option [all], it fetches all the modules to be installed, list their dependencies
   which **pip** then takes care to install.
   The list of modules (and hence the packages they rely on) to install is given by :root:`install_modules.txt`,
   using Unix filename pattern matching.
@@ -39,7 +39,7 @@ and eventually **cosmopipe**::
     git clone https://github.com/adematti/cosmopipe
     cd cosmopipe
     vi install_modules.txt # write changes; module one wants to exclude start with "!"
-    python -m pip install .
+    python -m pip install .[all]
 
 .. note::
 

@@ -35,7 +35,7 @@ extensions = [
     'sphinx_rtd_theme'
 ]
 
-import lib # hack to avoid issues with meta classes
+#import lib # hack to avoid issues with meta classes
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 
 # -- Project information -----------------------------------------------------
@@ -49,7 +49,7 @@ release = __version__
 
 html_theme = 'sphinx_rtd_theme'
 
-autodoc_mock_imports = ['pypescript','cosmopipe']
+autodoc_mock_imports = ['cosmoprimo']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

@@ -51,7 +51,7 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 
 RUN pip install numpy pyyaml cython fitsio sphinx_rtd_theme
 
-ARG COSMOPIPE_VER=unknown
+ARG COSMOPIPE_VER=0.0.3
 
 RUN for x in \
   git+https://github.com/adematti/pypescript \

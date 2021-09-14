@@ -15,3 +15,8 @@ conda:
 
 python:
   version: 3.8
+  install:
+    - method: pip
+      path: git+https://github.com/adematti/pypescript
+    - method: pip
+      path: git+https://github.com/adematti/cosmopipe
