@@ -7,7 +7,7 @@ from cosmopipe.lib.theory.base import BaseModel, ProjectionBasis, ModelCollectio
 from cosmopipe.lib.parameter import ParamName
 from cosmopipe import section_names
 
-from .module import PTModule
+from .ptmodule import PTModule
 
 
 class Velocileptors(PTModule):

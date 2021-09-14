@@ -6,7 +6,7 @@ from cosmopipe.lib import utils, theory
 from cosmopipe.lib.theory.base import BaseModel, ProjectionBasis, ModelCollection
 from cosmopipe import section_names
 
-from .module import PTModule
+from .ptmodule import PTModule
 
 
 class PyBird(PTModule):

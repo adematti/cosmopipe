@@ -4,7 +4,7 @@ from cosmopipe.lib import theory
 from cosmopipe.lib.theory.base import ProjectionBasis, ModelCollection
 from cosmopipe import section_names
 
-from .module import PTModule
+from .ptmodule import PTModule
 
 
 class LinearModel(PTModule):

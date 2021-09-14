@@ -1,6 +1,5 @@
 # This pipeline is the same as demo_linear.yaml, just using pybird theory model instead (and no window effect)
 
-# here we import demo_linear.yaml config, then redefine what needs to be changed
 data_dir: _data
 plots_dir: _plots
 
