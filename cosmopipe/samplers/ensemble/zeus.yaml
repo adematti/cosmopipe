@@ -10,6 +10,10 @@ requirements: [zeus-mcmc]
 bibtex: [arXiv:2002.06212]
 
 options:
+  eigen_gr_stop:
+    type: float
+    default: 0.03
+    description: threshold for the maximum eigenvalue (-1) of Gelman-Rubin test
   nwalkers:
     type: int
     default: None
