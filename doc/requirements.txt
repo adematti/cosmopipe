@@ -1,3 +1,0 @@
-emcee
-git+https://github.com/adematti/pypescript
-git+https://github.com/adematti/cosmopipe
