@@ -15,4 +15,3 @@ dependencies:
 - sphinx_rtd_theme
 - pip:
     - git+https://github.com/adematti/pypescript
-    - git+https://github.com/adematti/cosmopipe
