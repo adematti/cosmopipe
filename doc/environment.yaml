@@ -1,0 +1,16 @@
+name: cosmopipe-docs
+
+channels:
+- defaults
+- conda-forge
+
+dependencies:
+- pip
+- python=3.8
+- pyyaml
+- numpy
+- scipy
+- mpi4py
+- matplotlib
+- sphinx
+- sphinx_rtd_theme
