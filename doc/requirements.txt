@@ -1,3 +1,9 @@
-emcee
+pyyaml
+numpy
+scipy
+mpi4py
+matplotlib
+sphinx
+sphinx_rtd_theme
 git+https://github.com/adematti/pypescript
 git+https://github.com/adematti/cosmopipe
