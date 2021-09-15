@@ -13,6 +13,7 @@ sphinx:
 conda:
    environment: doc/environment.yaml
 
-install:
-  - method: pip
-    path: .
+python:
+   install:
+      - method: pip
+        path: .
