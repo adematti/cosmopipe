@@ -10,10 +10,6 @@ requirements: [emcee]
 bibtex: [arXiv:1202.3665]
 
 options:
-  eigen_gr_stop:
-    type: float
-    default: 0.03
-    description: threshold for the maximum eigenvalue (-1) of Gelman-Rubin test
   nwalkers:
     type: int
     default: None
