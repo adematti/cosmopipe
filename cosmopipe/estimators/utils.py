@@ -26,7 +26,6 @@ def prepare_survey_angular_catalogs(data, randoms=None, ra='RA', dec='DEC', weig
 def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', z='Z', position=None, weight_comp=None, nbar='NZ', weight_fkp=None, P0_fkp=0.,\
                             zmin=0,zmax=10.):
 
-    origin_catalogs = {'data':data,'randoms':randoms}
     catalogs = {}
     origin_catalogs = {'data':data}
     if randoms is not None: origin_catalogs['randoms'] = randoms
