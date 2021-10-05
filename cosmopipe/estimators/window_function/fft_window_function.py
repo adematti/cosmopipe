@@ -39,6 +39,8 @@ class FFTWindowFunction(BasePipeline):
             todo = self.execute_todos[0]
             self.save+="_"+str(todo.module.options['BoxSize']) 
             self.save+="_"+str(todo.module.options['Nmesh']) 
+            if 'edges' in todo.module.options.items(): 
+              self.save+="_"+str(todo.module.options['edges']['step'])
             self.save+=".txt"
         self.use_existing = self.options.get('use_existing',None)
         if self.use_existing and os.path.isfile(self.save) :
