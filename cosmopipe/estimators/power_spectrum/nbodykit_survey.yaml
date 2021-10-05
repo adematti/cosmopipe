@@ -124,6 +124,10 @@ options:
     type: float
     default: 10.
     description: maximum galaxy redshift
+  Gausstestfile:
+    type: string
+    default: None 
+    description: file with Gaussian field for tests
 execute input:
   fiducial_cosmology.cosmo:
     type: cosmoprimo.Cosmology

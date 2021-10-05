@@ -45,11 +45,15 @@ class Velocileptors(PTModule):
     def set_model_callable(self, pars, f, **opts):
 
         def _make_model_callable(pars, f, **kwargs):
-
             def model_callable(k, mu, grid=True):
                 if grid:
                     tmp = np.array([self.theory.compute_redshift_space_power_at_mu(pars,f,mu_,apar=1.,aperp=1.,**kwargs)[-1] for mu_ in mu]).T
-                    toret = interpolate.interp1d(self.theory.kv,tmp,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k)
+                    if self.options.get('Gausstest_kc',None):
+                        kc = self.options.get('Gausstest_kc',None)
+                        sigk = self.options.get('Gausstest_sigk',None)
+                        toret = np.array([1.0*20000*np.exp(-0.5*((k-kc)/sigk)**2) for mu_ in mu]).T
+                    else:
+                        toret = interpolate.interp1d(self.theory.kv,tmp,kind='cubic',axis=0,copy=False,bounds_error=True,assume_sorted=True)(k)
                 else:
                     toret = np.empty(k.shape,dtype=k.dtype)
                     for imu,mu_ in enumerate(mu):

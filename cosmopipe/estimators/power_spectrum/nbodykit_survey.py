@@ -84,11 +84,27 @@ class SurveyPowerSpectrum(BaseModule):
         zeffran = 0.
         wdata = 0.
         wran = 0.
+        Gausstestfile=self.options.get('Gausstestfile',None)
+        if Gausstestfile and has_randoms :
+          ranfield=np.fromfile(Gausstestfile,dtype='f4')    
         for data,randoms in zip(input_data,input_randoms):
             data = data.mpi_to_state('scattered')
             if randoms is not None: randoms = randoms.mpi_to_state('scattered')
             data,randoms = utils.prepare_survey_catalogs(data,randoms,cosmo=cosmo,**self.catalog_options)
             fkp = FKPCatalog(data.to_nbodykit(),randoms.to_nbodykit() if randoms is not None else None,BoxPad=self.BoxPad,nbar='nbar')
+            if Gausstestfile and randoms is not None :
+              L=self.mesh_options['BoxSize']
+              N=self.mesh_options['Nmesh']
+              BoxCenter=fkp._define_bbox('position','Selection', "randoms")[1]
+              xind=np.floor((randoms['position'][:,0]-BoxCenter[0]+L/2.0)/(L/N)).astype(int)
+              yind=np.floor((randoms['position'][:,1]-BoxCenter[1]+L/2.0)/(L/N)).astype(int)
+              zind=np.floor((randoms['position'][:,2]-BoxCenter[2]+L/2.0)/(L/N)).astype(int)
+              alpha= mpi.sum_array(data['weight_comp'],mpicomm=data.mpicomm)/mpi.sum_array(randoms['weight_comp'],mpicomm=data.mpicomm)
+              #print('alpha=',alpha)
+              ind=zind+yind*N+xind*N*N
+              data=randoms.deepcopy()
+              data['weight_comp']*=alpha*(1+ranfield[ind])
+              fkp = FKPCatalog(data.to_nbodykit(),randoms.to_nbodykit(),BoxPad=self.BoxPad,nbar='nbar')
             list_mesh.append(fkp.to_mesh(position='position',fkp_weight='weight_fkp',comp_weight='weight_comp',nbar='nbar',**self.mesh_options))
             #what is going on here with the multiplication when there is more than one catalog?!?
             wdata2 *= mpi.sum_array(data['weight_comp']*data['weight_fkp'],mpicomm=data.mpicomm)

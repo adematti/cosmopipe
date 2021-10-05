@@ -58,6 +58,14 @@ options:
     type: dict
     default: {}
     description: update base parameters
+  Gausstest_kc: 
+    type: float
+    default: None
+    description: central k for Gaussian power test
+  Gausstest_sigk: 
+    type: float
+    default: None
+    description: rms k width for Gaussian power test
 
 parameters:
   galaxy_rsd.fsig:
