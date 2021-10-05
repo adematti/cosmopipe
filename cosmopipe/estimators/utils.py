@@ -36,9 +36,9 @@ def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', 
             #just need to get this done - figure out ideal later
             if origin_column=='WEIGHTBOSS':
                 if name=='data':
-                    catalog[column] = origin_catalogs[name].eval('WEIGHT_SYSTOT')* \
-                    (origin_catalogs[name].eval('WEIGHT_CP')+ \
-                     origin_catalogs[name].eval('WEIGHT_NOZ') - 1)
+                    catalog[column] = origin_catalogs[name]['WEIGHT_SYSTOT']* \
+                    (origin_catalogs[name]['WEIGHT_CP']+ \
+                     origin_catalogs[name]['WEIGHT_NOZ'] - 1)
                 else: catalog[column] = origin_catalogs[name].ones()
             else: catalog[column] = origin_catalogs[name].eval(origin_column)
     if weight_comp is None:
