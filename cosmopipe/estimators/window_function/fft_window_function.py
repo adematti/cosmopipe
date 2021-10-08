@@ -27,7 +27,7 @@ class FFTWindowFunction(BasePipeline):
         self.ells = self.options.get('ells',[0,2,4])
         if np.ndim(self.ells[0]) == 0: self.ells = [self.ells]*len(self.wa_orders)
         self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},\
-                                'weight_fkp':None,'P0_fkp':0.,'zmin':0,'zmax':10.}
+                                'weight_fkp':None,'P0_fkp':0.,'zmin':0,'zmax':10.,'ramax':400.}
         for name,value in self.catalog_options.items():
             self.catalog_options[name] = self.options.get(name,value)
 
@@ -62,8 +62,11 @@ class FFTWindowFunction(BasePipeline):
                 raise ValueError('Number of input data and randoms catalogs is different ({:d} v.s. {:d})'.format(len(input_data),len(input_randoms)))
             weight_fkp = []
             wdata2 = 1.
+
             for data,randoms in zip(input_data,input_randoms):
                 data,randoms = prepare_survey_catalogs(data,randoms,cosmo=cosmo,**self.catalog_options)
+                data.attrs = {}
+                if randoms : randoms.attrs = {}
                 alpha = data.sum('weight_comp')/randoms.sum('weight_comp') # not total weight to mimic what is in nbodykit
                 weight_fkp.append(randoms['weight_fkp'])
                 list_randoms.append(randoms)
@@ -107,7 +110,7 @@ class FFTWindowFunction(BasePipeline):
             todo.module.options['randoms_load'] = ''
             todo.module.options['save'] = None
             #this is telling interior what names to use (can't use original names because already re-mapped)
-            for name in ['position','weight_fkp','weight_comp','nbar','z']: # catalogs are already provided
+            for name in ['position','weight_fkp','weight_comp','nbar','z','ra']: # catalogs are already provided
                 todo.module.options[name] = name
             for wa_order,ells in zip(self.wa_orders,self.ells):
                 self.pipe_block[section_names.data,'data_vector'] = []

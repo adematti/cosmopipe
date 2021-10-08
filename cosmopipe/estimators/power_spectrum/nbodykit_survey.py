@@ -43,7 +43,7 @@ class SurveyPowerSpectrum(BaseModule):
         if self.muwedges is not None and np.ndim(self.muwedges) == 0:
             self.muwedges = np.linspace(0.,1.,self.muwedges+1)
 
-        self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},'weight_fkp':None,'P0_fkp':0.,'zmin':0,'zmax':10.}
+        self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},'weight_fkp':None,'P0_fkp':0.,'zmin':0,'zmax':10.,'ramax':400.}
         for name,value in self.catalog_options.items():
             self.catalog_options[name] = self.options.get(name,value)
         self.projattrs = self.options.get('projattrs',{})
@@ -91,6 +91,9 @@ class SurveyPowerSpectrum(BaseModule):
             data = data.mpi_to_state('scattered')
             if randoms is not None: randoms = randoms.mpi_to_state('scattered')
             data,randoms = utils.prepare_survey_catalogs(data,randoms,cosmo=cosmo,**self.catalog_options)
+            #clear stuff from data fits files added here (Arnaud suggested placement) 
+            data.attrs = {}
+            if randoms : randoms.attrs = {}
             fkp = FKPCatalog(data.to_nbodykit(),randoms.to_nbodykit() if randoms is not None else None,BoxPad=self.BoxPad,nbar='nbar')
             if Gausstestfile and randoms is not None :
               L=self.mesh_options['BoxSize']

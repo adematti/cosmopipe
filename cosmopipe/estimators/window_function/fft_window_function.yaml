@@ -93,6 +93,10 @@ options:
     type: float
     default: 10.
     description: maximum galaxy redshift
+  ramax:
+    type: float
+    default: 400.
+    description: maximum galaxy RA
 # not sure how to do what trying to do
 #  norm:
 #    type: string
