@@ -95,8 +95,13 @@ class SurveyPowerSpectrum(BaseModule):
             data.attrs = {}
             if randoms : randoms.attrs = {}
             fkp = FKPCatalog(data.to_nbodykit(),randoms.to_nbodykit() if randoms is not None else None,BoxPad=self.BoxPad,nbar='nbar')
+            L=self.mesh_options['BoxSize']
+            if L : 
+              extent=fkp._define_bbox('position','Selection', "randoms")[0]
+              if max(extent)>L : 
+                print('data outside box ',extent,L)
+                exit(1) 
             if Gausstestfile and randoms is not None :
-              L=self.mesh_options['BoxSize']
               N=self.mesh_options['Nmesh']
               BoxCenter=fkp._define_bbox('position','Selection', "randoms")[1]
               xind=np.floor((randoms['position'][:,0]-BoxCenter[0]+L/2.0)/(L/N)).astype(int)
