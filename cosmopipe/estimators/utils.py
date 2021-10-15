@@ -24,7 +24,7 @@ def prepare_survey_angular_catalogs(data, randoms=None, ra='RA', dec='DEC', weig
 
 
 def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', z='Z', position=None, weight_comp=None, nbar='NZ', weight_fkp=None, P0_fkp=0.,\
-                            zmin=0,zmax=10.,ramax=400.):
+                            zmin=0,zmax=10.,ramin=-10.,ramax=400.):
 
     catalogs = {}
     origin_catalogs = {'data':data}
@@ -99,7 +99,7 @@ def prepare_survey_catalogs(data, randoms=None, cosmo=None, ra='RA', dec='DEC', 
         catalog['weight'] = catalog['weight_comp']*catalog['weight_fkp']
 
     for name,catalog in catalogs.items():
-        mask=(catalog['z']>=zmin) & (catalog['z']<zmax) & (catalog['ra']<ramax)
+        mask=(catalog['z']>=zmin) & (catalog['z']<zmax) & (catalog['ra']<ramax) & (catalog['ra']>=ramin)
         for ind in catalog.columns():
           catalog[ind]=catalog[ind][mask]
     return catalogs['data'],catalogs.get('randoms',None)

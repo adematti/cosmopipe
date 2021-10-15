@@ -27,7 +27,7 @@ class FFTWindowFunction(BasePipeline):
         self.ells = self.options.get('ells',[0,2,4])
         if np.ndim(self.ells[0]) == 0: self.ells = [self.ells]*len(self.wa_orders)
         self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},\
-                                'weight_fkp':None,'P0_fkp':0.,'zmin':0,'zmax':10.,'ramax':400.}
+                                'weight_fkp':None,'P0_fkp':0.,'zmin':0,'zmax':10.,'ramin':-10.,'ramax':400.}
         for name,value in self.catalog_options.items():
             self.catalog_options[name] = self.options.get(name,value)
 

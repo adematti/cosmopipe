@@ -43,7 +43,7 @@ class SurveyPowerSpectrum(BaseModule):
         if self.muwedges is not None and np.ndim(self.muwedges) == 0:
             self.muwedges = np.linspace(0.,1.,self.muwedges+1)
 
-        self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},'weight_fkp':None,'P0_fkp':0.,'zmin':0,'zmax':10.,'ramax':400.}
+        self.catalog_options = {'z':'Z','ra':'RA','dec':'DEC','position':None,'weight_comp':None,'nbar':{},'weight_fkp':None,'P0_fkp':0.,'zmin':0,'zmax':10.,'ramin':-10.,'ramax':400.}
         for name,value in self.catalog_options.items():
             self.catalog_options[name] = self.options.get(name,value)
         self.projattrs = self.options.get('projattrs',{})
@@ -84,9 +84,9 @@ class SurveyPowerSpectrum(BaseModule):
         zeffran = 0.
         wdata = 0.
         wran = 0.
+        L=self.mesh_options['BoxSize']
+        N=self.mesh_options['Nmesh']
         Gausstestfile=self.options.get('Gausstestfile',None)
-        if Gausstestfile and has_randoms :
-          ranfield=np.fromfile(Gausstestfile,dtype='f4')    
         for data,randoms in zip(input_data,input_randoms):
             data = data.mpi_to_state('scattered')
             if randoms is not None: randoms = randoms.mpi_to_state('scattered')
@@ -95,24 +95,44 @@ class SurveyPowerSpectrum(BaseModule):
             data.attrs = {}
             if randoms : randoms.attrs = {}
             fkp = FKPCatalog(data.to_nbodykit(),randoms.to_nbodykit() if randoms is not None else None,BoxPad=self.BoxPad,nbar='nbar')
-            L=self.mesh_options['BoxSize']
             if L : 
-              extent=fkp._define_bbox('position','Selection', "randoms")[0]
-              if max(extent)>L : 
-                print('data outside box ',extent,L)
-                exit(1) 
+                if randoms : extent=fkp._define_bbox('position','Selection', "randoms")[0]
+                else : extent=fkp._define_bbox('position','Selection', "data")[0]
+                if max(extent)>L : 
+                    print('data outside box ',extent,L)
+                    exit(1) 
+            else :
+                #forcing box to be a cube - seems undesireable to make anisotropic box if not anisotropic Nmesh
+                if randoms : BoxSize,BoxCenter=fkp._define_bbox('position','Selection', "randoms")
+                else : BoxSize,BoxCenter=fkp._define_bbox('position','Selection', "data")
+                L=max(BoxSize)
+                self.mesh_options['BoxSize']=L
+            
             if Gausstestfile and randoms is not None :
-              N=self.mesh_options['Nmesh']
-              BoxCenter=fkp._define_bbox('position','Selection', "randoms")[1]
-              xind=np.floor((randoms['position'][:,0]-BoxCenter[0]+L/2.0)/(L/N)).astype(int)
-              yind=np.floor((randoms['position'][:,1]-BoxCenter[1]+L/2.0)/(L/N)).astype(int)
-              zind=np.floor((randoms['position'][:,2]-BoxCenter[2]+L/2.0)/(L/N)).astype(int)
-              alpha= mpi.sum_array(data['weight_comp'],mpicomm=data.mpicomm)/mpi.sum_array(randoms['weight_comp'],mpicomm=data.mpicomm)
-              #print('alpha=',alpha)
-              ind=zind+yind*N+xind*N*N
-              data=randoms.deepcopy()
-              data['weight_comp']*=alpha*(1+ranfield[ind])
-              fkp = FKPCatalog(data.to_nbodykit(),randoms.to_nbodykit(),BoxPad=self.BoxPad,nbar='nbar')
+                #ranfield=np.fromfile(Gausstestfile,dtype='f4')    
+                def Plin(k):
+                    return 20000*np.exp(-0.5*((k-0.05)/0.01)**2)
+                from nbodykit import mockmaker
+                from pmesh.pm import ParticleMesh
+
+                # the particle mesh for gridding purposes
+                _Nmesh = np.empty(3, dtype='i8')
+                _Nmesh[:] = N
+                pm = ParticleMesh(BoxSize=L, Nmesh=_Nmesh, dtype='f4')
+                delta,ignore = mockmaker.gaussian_real_fields(pm, Plin, 666,
+                    compute_displacement=False,
+                    logger=self.logger)          
+                BoxCenter=fkp._define_bbox('position','Selection', "randoms")[1]
+                xind=np.floor((randoms['position'][:,0]-BoxCenter[0]+L/2.0)/(L/N)).astype(int)
+                yind=np.floor((randoms['position'][:,1]-BoxCenter[1]+L/2.0)/(L/N)).astype(int)
+                zind=np.floor((randoms['position'][:,2]-BoxCenter[2]+L/2.0)/(L/N)).astype(int)
+                alpha= mpi.sum_array(data['weight_comp'],mpicomm=data.mpicomm)/mpi.sum_array(randoms['weight_comp'],mpicomm=data.mpicomm)
+                #print('alpha=',alpha)
+                #ind=zind+yind*N+xind*N*N
+                data=randoms.deepcopy()
+                #data['weight_comp']*=alpha*(1+ranfield[ind])
+                data['weight_comp']*=alpha*(1+delta[xind,yind,zind])
+                fkp = FKPCatalog(data.to_nbodykit(),randoms.to_nbodykit(),BoxPad=self.BoxPad,nbar='nbar')
             list_mesh.append(fkp.to_mesh(position='position',fkp_weight='weight_fkp',comp_weight='weight_comp',nbar='nbar',**self.mesh_options))
             #what is going on here with the multiplication when there is more than one catalog?!?
             wdata2 *= mpi.sum_array(data['weight_comp']*data['weight_fkp'],mpicomm=data.mpicomm)
